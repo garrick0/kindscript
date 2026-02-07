@@ -1,0 +1,7 @@
+{
+  "contracts": {
+    "noDependency": [
+      { "from": "src/domain", "to": "src/infrastructure" }
+    ]
+  }
+}

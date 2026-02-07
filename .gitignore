@@ -1,0 +1,42 @@
+# Outputs
+outputs/
+
+# Target codebases (cloned by setup script)
+targets/
+
+# Deno
+.deno/
+
+# Node
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+*.log
+npm-debug.log*
+
+# Playwright
+test-results/
+playwright-report/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Working notes
+.working/

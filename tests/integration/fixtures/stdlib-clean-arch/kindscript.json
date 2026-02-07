@@ -1,0 +1,4 @@
+{
+  "definitions": ["architecture.ts"],
+  "packages": ["@kindscript/clean-architecture"]
+}

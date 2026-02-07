@@ -1,0 +1,12 @@
+{
+  "name": "@kindscript/hexagonal",
+  "version": "0.1.0",
+  "description": "Hexagonal Architecture (Ports & Adapters) pattern definitions for KindScript",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": ["index.js", "index.d.ts"],
+  "keywords": ["kindscript", "architecture", "hexagonal", "ports-and-adapters"],
+  "peerDependencies": {
+    "kindscript": "^0.8.0"
+  }
+}
