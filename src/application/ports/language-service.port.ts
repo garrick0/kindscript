@@ -1,4 +1,3 @@
-import { Diagnostic } from '../../domain/entities/diagnostic';
 import { Program } from '../../domain/entities/program';
 
 /**
@@ -53,9 +52,6 @@ export interface LanguageServicePort {
     end: number,
     errorCodes: readonly number[]
   ): TSCodeFixAction[];
-
-  /** Convert a domain Diagnostic to a TS diagnostic (with source file and span) */
-  toTSDiagnostic(diagnostic: Diagnostic, program: Program): TSDiagnostic;
 
   /** Get all root file paths in the current project */
   getRootFileNames(): string[];

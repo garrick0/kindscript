@@ -12,7 +12,7 @@ export class ASTAdapter implements ASTPort {
   getStatements(sourceFile: SourceFile): ASTNode[] {
     const tsSourceFile = this.toTsSourceFile(sourceFile);
     if (!tsSourceFile) return [];
-    return Array.from(tsSourceFile.statements) as unknown as ASTNode[];
+    return this.wrapNodes(Array.from(tsSourceFile.statements));
   }
 
   isInterfaceDeclaration(node: ASTNode): boolean {
@@ -105,7 +105,7 @@ export class ASTAdapter implements ASTPort {
   getVariableDeclarations(node: ASTNode): ASTNode[] {
     const tsNode = this.toTsNode(node);
     if (!ts.isVariableStatement(tsNode)) return [];
-    return Array.from(tsNode.declarationList.declarations) as unknown as ASTNode[];
+    return this.wrapNodes(Array.from(tsNode.declarationList.declarations));
   }
 
   getVariableTypeName(node: ASTNode): string | undefined {
@@ -121,7 +121,7 @@ export class ASTAdapter implements ASTPort {
   getInitializer(node: ASTNode): ASTNode | undefined {
     const tsNode = this.toTsNode(node);
     if (ts.isVariableDeclaration(tsNode) && tsNode.initializer) {
-      return tsNode.initializer as unknown as ASTNode;
+      return this.wrapNode(tsNode.initializer);
     }
     return undefined;
   }
@@ -142,7 +142,7 @@ export class ASTAdapter implements ASTPort {
           : ts.isStringLiteral(prop.name)
             ? prop.name.text
             : prop.name.getText();
-        props.push({ name, value: prop.initializer as unknown as ASTNode });
+        props.push({ name, value: this.wrapNode(prop.initializer) });
       }
     }
     return props;
@@ -187,7 +187,7 @@ export class ASTAdapter implements ASTPort {
   getCallArguments(node: ASTNode): ASTNode[] {
     const tsNode = this.toTsNode(node);
     if (!ts.isCallExpression(tsNode)) return [];
-    return Array.from(tsNode.arguments) as unknown as ASTNode[];
+    return this.wrapNodes(Array.from(tsNode.arguments));
   }
 
   isArrayLiteral(node: ASTNode): boolean {
@@ -197,7 +197,7 @@ export class ASTAdapter implements ASTPort {
   getArrayElements(node: ASTNode): ASTNode[] {
     const tsNode = this.toTsNode(node);
     if (!ts.isArrayLiteralExpression(tsNode)) return [];
-    return Array.from(tsNode.elements) as unknown as ASTNode[];
+    return this.wrapNodes(Array.from(tsNode.elements));
   }
 
   forEachStatement(sourceFile: SourceFile, callback: (node: ASTNode) => void): void {
@@ -209,8 +209,17 @@ export class ASTAdapter implements ASTPort {
       if (ts.isExportDeclaration(stmt)) {
         continue; // skip re-exports
       }
-      callback(stmt as unknown as ASTNode);
+      callback(this.wrapNode(stmt));
     }
+  }
+
+  /** Documented unsafe boundary: wraps a ts.Node as ASTNode for the port interface. */
+  private wrapNode(node: ts.Node): ASTNode {
+    return node as unknown as ASTNode;
+  }
+
+  private wrapNodes(nodes: readonly ts.Node[]): ASTNode[] {
+    return nodes.map(n => this.wrapNode(n));
   }
 
   private toTsNode(node: ASTNode): ts.Node {
@@ -218,10 +227,10 @@ export class ASTAdapter implements ASTPort {
   }
 
   private toTsSourceFile(sourceFile: SourceFile): ts.SourceFile | undefined {
-    // The sourceFile's text can be parsed into a ts.SourceFile
-    // In practice, the real TS adapter passes ts.SourceFile objects
-    // wrapped as SourceFile, so we can cast back
-    return (sourceFile as unknown as { __tsSourceFile?: ts.SourceFile }).__tsSourceFile
-      ?? ts.createSourceFile(sourceFile.fileName, sourceFile.text, ts.ScriptTarget.Latest, true);
+    if (sourceFile.handle) {
+      return sourceFile.handle as ts.SourceFile;
+    }
+    // Fallback for test scenarios where handle isn't set
+    return ts.createSourceFile(sourceFile.fileName, sourceFile.text, ts.ScriptTarget.Latest, true);
   }
 }

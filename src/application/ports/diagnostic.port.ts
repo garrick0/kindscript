@@ -13,23 +13,4 @@ export interface DiagnosticPort {
    * @param diagnostics - Array of diagnostics to report
    */
   reportDiagnostics(diagnostics: Diagnostic[]): void;
-
-  /**
-   * Format a single diagnostic for display.
-   *
-   * @param diagnostic - The diagnostic to format
-   * @returns Formatted string
-   */
-  formatDiagnostic(diagnostic: Diagnostic): string;
-
-  /**
-   * Format a diagnostic with source code context.
-   *
-   * This shows the relevant line of code with a pointer to the error.
-   *
-   * @param diagnostic - The diagnostic to format
-   * @param sourceText - The source code text
-   * @returns Formatted string with context
-   */
-  formatWithContext(diagnostic: Diagnostic, sourceText: string): string;
 }

@@ -1,5 +1,6 @@
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { Contract } from '../../../domain/entities/contract';
+import { Program } from '../../../domain/entities/program';
 import { KindScriptConfig } from '../../ports/config.port';
 
 /**
@@ -17,6 +18,6 @@ export interface CheckContractsRequest {
   /** KindScript configuration */
   config: KindScriptConfig;
 
-  /** Root files to include in the TypeScript program */
-  programRootFiles: string[];
+  /** The TypeScript program to analyze (reuse from ClassifyProject) */
+  program: Program;
 }

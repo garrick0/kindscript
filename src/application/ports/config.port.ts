@@ -1,4 +1,3 @@
-import { ContractType } from '../../domain/types/contract-type';
 import { CompilerOptions } from '../../domain/types/compiler-options';
 
 /**
@@ -8,10 +7,7 @@ import { CompilerOptions } from '../../domain/types/compiler-options';
  * to configure architectural contracts.
  */
 export interface KindScriptConfig {
-  /** Contract definitions (simple config format for Tier 1) */
-  contracts?: Partial<Record<ContractType, unknown[]>>;
-
-  /** Paths to kind definition files (for Tier 2+) */
+  /** Paths to kind definition files */
   definitions?: string[];
 
   /** Standard library package names (e.g., "@kindscript/clean-architecture") */
@@ -78,4 +74,18 @@ export interface ConfigPort {
    * @returns Path to the config file, or undefined if not found
    */
   findConfigFile(startPath: string, fileName: string): string | undefined;
+
+  /**
+   * Merge updates into an existing kindscript.json (or create one).
+   *
+   * Reads the existing config, merges the provided definitions and packages
+   * arrays (appending unique values), and writes back.
+   *
+   * @param projectPath - Path to the project directory
+   * @param updates - Fields to merge into the config
+   */
+  mergeKindScriptConfig(
+    projectPath: string,
+    updates: { definitions?: string[]; packages?: string[] }
+  ): void;
 }

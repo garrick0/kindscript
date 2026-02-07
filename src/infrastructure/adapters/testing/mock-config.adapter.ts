@@ -13,7 +13,7 @@ import {
  * Uses a fluent API for easy test setup:
  * ```typescript
  * mockConfig
- *   .withKindScriptConfig('/project', { contracts: { ... } })
+ *   .withKindScriptConfig('/project', { definitions: ['architecture.ts'] })
  *   .withTSConfig('/project/tsconfig.json', { compilerOptions: { ... } });
  * ```
  */
@@ -73,5 +73,27 @@ export class MockConfigAdapter implements ConfigPort {
 
   findConfigFile(startPath: string, fileName: string): string | undefined {
     return this.configLocations.get(`${startPath}:${fileName}`);
+  }
+
+  mergeKindScriptConfig(
+    projectPath: string,
+    updates: { definitions?: string[]; packages?: string[] }
+  ): void {
+    const existing = this.kindscriptConfigs.get(projectPath) ?? {};
+    if (updates.definitions) {
+      const defs = (existing.definitions as string[]) || [];
+      for (const d of updates.definitions) {
+        if (!defs.includes(d)) defs.push(d);
+      }
+      existing.definitions = defs;
+    }
+    if (updates.packages) {
+      const pkgs = (existing.packages as string[]) || [];
+      for (const p of updates.packages) {
+        if (!pkgs.includes(p)) pkgs.push(p);
+      }
+      existing.packages = pkgs;
+    }
+    this.kindscriptConfigs.set(projectPath, existing);
   }
 }

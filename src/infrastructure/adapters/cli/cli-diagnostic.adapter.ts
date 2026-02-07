@@ -4,7 +4,9 @@ import { Diagnostic } from '../../../domain/entities/diagnostic';
 /**
  * Real implementation of DiagnosticPort for CLI terminal output.
  *
- * Formats diagnostics in TypeScript-style output and writes to stderr.
+ * Handles diagnostic formatting and I/O. Formatting logic lives here
+ * (infrastructure layer) rather than on the Diagnostic entity (domain layer)
+ * because formatting is a presentation concern.
  */
 export class CLIDiagnosticAdapter implements DiagnosticPort {
   private readonly writer: (msg: string) => void;
@@ -25,14 +27,7 @@ export class CLIDiagnosticAdapter implements DiagnosticPort {
   }
 
   formatDiagnostic(diagnostic: Diagnostic): string {
-    const parts = [
-      `${diagnostic.file}:${diagnostic.line}:${diagnostic.column}`,
-      ' - ',
-      `error KS${diagnostic.code}: `,
-      diagnostic.message,
-    ];
-
-    let result = parts.join('');
+    let result = `${diagnostic.file}:${diagnostic.line}:${diagnostic.column} - error KS${diagnostic.code}: ${diagnostic.message}`;
 
     if (diagnostic.relatedContract) {
       result += `\n  Contract '${diagnostic.relatedContract.contractName}' (${diagnostic.relatedContract.contractType})`;

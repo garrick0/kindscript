@@ -26,6 +26,9 @@ export interface ClassifyASTResponse {
   /** Contracts extracted from the definitions */
   contracts: Contract[];
 
+  /** Maps instance variable names to their Kind type names (e.g., "app" → "CleanContext") */
+  instanceTypeNames: Map<string, string>;
+
   /** Errors encountered during classification */
   errors: string[];
 }

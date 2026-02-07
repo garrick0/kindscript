@@ -1,5 +1,6 @@
 import { ContractType } from '../types/contract-type';
 import { ArchSymbol } from './arch-symbol';
+import { ContractReference } from '../value-objects/contract-reference';
 
 /**
  * Domain entity representing an architectural contract.
@@ -88,7 +89,18 @@ export class Contract {
       return false;
     }
 
-    return this.args.every((arg, i) => arg.name === otherArgs[i].name);
+    return this.args.every((arg, i) => arg.equals(otherArgs[i]));
+  }
+
+  /**
+   * Create a ContractReference pointing to this contract.
+   */
+  toReference(): ContractReference {
+    return {
+      contractName: this.name,
+      contractType: this.type,
+      location: this.location,
+    };
   }
 
   /**

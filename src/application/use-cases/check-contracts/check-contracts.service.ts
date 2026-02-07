@@ -1,29 +1,16 @@
 import { CheckContractsUseCase } from './check-contracts.use-case';
 import { CheckContractsRequest } from './check-contracts.request';
 import { CheckContractsResponse } from './check-contracts.response';
-import { TypeScriptPort } from '../../ports/typescript.port';
+import { TypeScriptPort, TypeChecker } from '../../ports/typescript.port';
 import { FileSystemPort } from '../../ports/filesystem.port';
 import { Contract } from '../../../domain/entities/contract';
 import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { ContractType } from '../../../domain/types/contract-type';
+import { DiagnosticCode } from '../../../domain/constants/diagnostic-codes';
 import { Program } from '../../../domain/entities/program';
-
-/** Node.js built-in modules that indicate impure imports. */
-const NODE_BUILTINS = new Set([
-  'fs', 'path', 'http', 'https', 'net', 'child_process', 'crypto', 'os',
-  'process', 'stream', 'url', 'util', 'zlib', 'dns', 'tls', 'dgram',
-  'cluster', 'readline', 'repl', 'vm', 'worker_threads', 'perf_hooks',
-  'async_hooks', 'inspector', 'trace_events', 'v8', 'assert',
-  'node:fs', 'node:path', 'node:http', 'node:https', 'node:net',
-  'node:child_process', 'node:crypto', 'node:os', 'node:process',
-  'node:stream', 'node:url', 'node:util', 'node:zlib', 'node:dns',
-  'node:tls', 'node:dgram', 'node:cluster', 'node:readline', 'node:repl',
-  'node:vm', 'node:worker_threads', 'node:perf_hooks', 'node:async_hooks',
-  'node:inspector', 'node:trace_events', 'node:v8', 'node:assert',
-  'fs/promises', 'stream/promises', 'dns/promises', 'readline/promises',
-  'node:fs/promises', 'node:stream/promises', 'node:dns/promises',
-  'node:readline/promises',
-]);
+import { NODE_BUILTINS } from '../../../domain/constants/node-builtins';
+import { isFileInSymbol } from '../../../domain/utils/path-matching';
+import { findCycles } from '../../../domain/utils/cycle-detection';
 
 /**
  * Real implementation of CheckContractsUseCase.
@@ -40,12 +27,7 @@ export class CheckContractsService implements CheckContractsUseCase {
     const diagnostics: Diagnostic[] = [];
     let filesAnalyzed = 0;
 
-    // Create the TypeScript program
-    const program = this.tsPort.createProgram(
-      request.programRootFiles,
-      request.config.compilerOptions ?? {}
-    );
-
+    const program = request.program;
     const checker = this.tsPort.getTypeChecker(program);
 
     for (const contract of request.contracts) {
@@ -53,7 +35,7 @@ export class CheckContractsService implements CheckContractsUseCase {
       if (validationError) {
         diagnostics.push(new Diagnostic(
           `Invalid contract '${contract.name}': ${validationError}`,
-          70099,
+          DiagnosticCode.InvalidContract,
           contract.location ?? '<config>',
           0,
           0
@@ -106,7 +88,7 @@ export class CheckContractsService implements CheckContractsUseCase {
   private checkNoDependency(
     contract: Contract,
     program: Program,
-    checker: unknown
+    checker: TypeChecker
   ): { diagnostics: Diagnostic[]; filesAnalyzed: number } {
     const [fromSymbol, toSymbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
@@ -126,14 +108,11 @@ export class CheckContractsService implements CheckContractsUseCase {
       const sourceFile = this.tsPort.getSourceFile(program, fromFile);
       if (!sourceFile) continue;
 
-      const imports = this.tsPort.getImports(
-        sourceFile,
-        checker as ReturnType<TypeScriptPort['getTypeChecker']>
-      );
+      const imports = this.tsPort.getImports(sourceFile, checker);
 
       for (const imp of imports) {
         // Check if the import target is in the 'to' file set
-        if (this.isFileInSymbol(imp.targetFile, toLocation, toFiles)) {
+        if (isFileInSymbol(imp.targetFile, toLocation, toFiles)) {
           diagnostics.push(Diagnostic.forbiddenDependency(imp, contract));
         }
       }
@@ -176,7 +155,7 @@ export class CheckContractsService implements CheckContractsUseCase {
   private checkNoCycles(
     contract: Contract,
     program: Program,
-    checker: unknown
+    checker: TypeChecker
   ): { diagnostics: Diagnostic[]; filesAnalyzed: number } {
     const diagnostics: Diagnostic[] = [];
     const symbols = contract.args;
@@ -206,10 +185,7 @@ export class CheckContractsService implements CheckContractsUseCase {
         const sourceFile = this.tsPort.getSourceFile(program, file);
         if (!sourceFile) continue;
 
-        const imports = this.tsPort.getImports(
-          sourceFile,
-          checker as ReturnType<TypeScriptPort['getTypeChecker']>
-        );
+        const imports = this.tsPort.getImports(sourceFile, checker);
 
         for (const imp of imports) {
           // Check if import target lands in any other symbol
@@ -218,7 +194,7 @@ export class CheckContractsService implements CheckContractsUseCase {
             const targetLocation = targetSym.declaredLocation;
             if (!targetLocation) continue;
             const targetFiles = new Set(symbolFiles.get(targetSym.name) || []);
-            if (this.isFileInSymbol(imp.targetFile, targetLocation, targetFiles)) {
+            if (isFileInSymbol(imp.targetFile, targetLocation, targetFiles)) {
               edges.get(sym.name)!.add(targetSym.name);
             }
           }
@@ -226,34 +202,10 @@ export class CheckContractsService implements CheckContractsUseCase {
       }
     }
 
-    // DFS cycle detection
-    const visited = new Set<string>();
-    const inStack = new Set<string>();
-
-    const dfs = (node: string, path: string[]): void => {
-      if (inStack.has(node)) {
-        // Found a cycle — extract the cycle from the path
-        const cycleStart = path.indexOf(node);
-        const cycle = path.slice(cycleStart);
-        diagnostics.push(Diagnostic.circularDependency(cycle, contract));
-        return;
-      }
-      if (visited.has(node)) return;
-
-      visited.add(node);
-      inStack.add(node);
-      path.push(node);
-
-      for (const neighbor of edges.get(node) || []) {
-        dfs(neighbor, path);
-      }
-
-      path.pop();
-      inStack.delete(node);
-    };
-
-    for (const sym of symbols) {
-      dfs(sym.name, []);
+    // Detect cycles using shared domain utility
+    const cycles = findCycles(edges);
+    for (const cycle of cycles) {
+      diagnostics.push(Diagnostic.circularDependency(cycle, contract));
     }
 
     return { diagnostics, filesAnalyzed };
@@ -333,31 +285,4 @@ export class CheckContractsService implements CheckContractsUseCase {
     return { diagnostics, filesAnalyzed: primaryFiles.length };
   }
 
-  /**
-   * Check if a file belongs to a symbol by checking both the resolved
-   * file set and the path prefix with strict boundary checks.
-   *
-   * Uses '/' boundary delimiters to avoid false positives like
-   * "src/domain-extensions/foo.ts" matching symbol "src/domain".
-   */
-  private isFileInSymbol(filePath: string, symbolLocation: string, resolvedFiles: Set<string>): boolean {
-    if (resolvedFiles.has(filePath)) return true;
-
-    // Normalize paths: backslashes to forward slashes, strip trailing slashes
-    const normalizedFile = filePath.replace(/\\/g, '/');
-    const normalizedLocation = symbolLocation.replace(/\\/g, '/').replace(/\/$/, '');
-
-    // Strict boundary check: the location must be followed by '/' or be the exact path
-    // This prevents "src/domain" from matching "src/domain-extensions/foo.ts"
-    if (normalizedFile === normalizedLocation) return true;
-
-    // Check as a path prefix with a '/' boundary
-    const prefix = normalizedLocation + '/';
-    if (normalizedFile.startsWith(prefix)) return true;
-
-    // Also check when the location appears as a segment in an absolute path
-    if (normalizedFile.includes('/' + prefix)) return true;
-
-    return false;
-  }
 }

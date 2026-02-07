@@ -142,4 +142,14 @@ export class MockFileSystemAdapter implements FileSystemPort {
     const parts = path.split('/');
     return parts[parts.length - 1];
   }
+
+  joinPath(...segments: string[]): string {
+    return segments
+      .map((s, i) => {
+        if (i === 0) return s.replace(/\/$/, '');
+        return s.replace(/^\//, '').replace(/\/$/, '');
+      })
+      .filter(Boolean)
+      .join('/');
+  }
 }

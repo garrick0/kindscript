@@ -1,4 +1,5 @@
 import { ArchSymbol } from '../entities/arch-symbol';
+import { isFileInSymbol } from '../utils/path-matching';
 
 /**
  * Represents a dependency constraint between two architectural symbols.
@@ -26,12 +27,12 @@ export class DependencyRule {
   check(sourceFile: string, targetFile: string): boolean {
     // Check if the source file belongs to the 'from' symbol
     const fromMatches = this.from.declaredLocation
-      ? sourceFile.includes(this.from.declaredLocation)
+      ? isFileInSymbol(sourceFile, this.from.declaredLocation)
       : false;
 
     // Check if the target file belongs to the 'to' symbol
     const toMatches = this.to.declaredLocation
-      ? targetFile.includes(this.to.declaredLocation)
+      ? isFileInSymbol(targetFile, this.to.declaredLocation)
       : false;
 
     // If both match, apply the rule

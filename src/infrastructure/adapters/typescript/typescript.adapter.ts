@@ -26,7 +26,7 @@ export class TypeScriptAdapter implements TypeScriptPort {
    * the ts.Program it came from. Needed because getImports() receives
    * a checker but needs the program to find the real ts.SourceFile.
    */
-  private checkerToProgram = new Map<unknown, ts.Program>();
+  private checkerToProgram = new WeakMap<object, ts.Program>();
 
   createProgram(rootFiles: string[], options: CompilerOptions): Program {
     const tsCompilerOptions = this.toTsCompilerOptions(options);
@@ -38,14 +38,14 @@ export class TypeScriptAdapter implements TypeScriptPort {
     const tsProgram = this.unwrapProgram(program);
     const sf = tsProgram.getSourceFile(fileName);
     if (!sf) return undefined;
-    return { fileName: sf.fileName, text: sf.getFullText() };
+    return { fileName: sf.fileName, text: sf.getFullText(), handle: sf };
   }
 
   getSourceFiles(program: Program): SourceFile[] {
     const tsProgram = this.unwrapProgram(program);
     return tsProgram.getSourceFiles()
       .filter(sf => !sf.fileName.includes('node_modules') && !sf.isDeclarationFile)
-      .map(sf => ({ fileName: sf.fileName, text: sf.getFullText() }));
+      .map(sf => ({ fileName: sf.fileName, text: sf.getFullText(), handle: sf }));
   }
 
   getTypeChecker(program: Program): TypeChecker {
@@ -66,30 +66,24 @@ export class TypeScriptAdapter implements TypeScriptPort {
 
     const edges: ImportEdge[] = [];
 
-    ts.forEachChild(tsSourceFile, function visit(node: ts.Node) {
-      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-        const moduleSpecifier = node.moduleSpecifier.text;
-        const symbol = tsChecker.getSymbolAtLocation(node.moduleSpecifier);
-
-        if (symbol) {
-          const declarations = symbol.getDeclarations();
-          if (declarations && declarations.length > 0) {
-            const resolvedFile = declarations[0].getSourceFile();
-            if (!resolvedFile.fileName.includes('node_modules') && !resolvedFile.isDeclarationFile) {
-              const pos = ts.getLineAndCharacterOfPosition(tsSourceFile, node.getStart());
-              edges.push(new ImportEdge(
-                tsSourceFile.fileName,
-                resolvedFile.fileName,
-                pos.line + 1,
-                pos.character,
-                moduleSpecifier
-              ));
-            }
+    for (const imp of this.walkImportDeclarations(tsSourceFile)) {
+      const symbol = tsChecker.getSymbolAtLocation(imp.node.moduleSpecifier);
+      if (symbol) {
+        const declarations = symbol.getDeclarations();
+        if (declarations && declarations.length > 0) {
+          const resolvedFile = declarations[0].getSourceFile();
+          if (!resolvedFile.fileName.includes('node_modules') && !resolvedFile.isDeclarationFile) {
+            edges.push(new ImportEdge(
+              tsSourceFile.fileName,
+              resolvedFile.fileName,
+              imp.line,
+              imp.column,
+              imp.specifier
+            ));
           }
         }
       }
-      ts.forEachChild(node, visit);
-    });
+    }
 
     return edges;
   }
@@ -120,21 +114,11 @@ export class TypeScriptAdapter implements TypeScriptPort {
     const tsSourceFile = this.getTsSourceFile(program, sourceFile);
     if (!tsSourceFile) return [];
 
-    const results: Array<{ moduleName: string; line: number; column: number }> = [];
-
-    ts.forEachChild(tsSourceFile, function visit(node: ts.Node) {
-      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-        const pos = ts.getLineAndCharacterOfPosition(tsSourceFile, node.getStart());
-        results.push({
-          moduleName: node.moduleSpecifier.text,
-          line: pos.line + 1,
-          column: pos.character,
-        });
-      }
-      ts.forEachChild(node, visit);
-    });
-
-    return results;
+    return this.walkImportDeclarations(tsSourceFile).map(imp => ({
+      moduleName: imp.specifier,
+      line: imp.line,
+      column: imp.column,
+    }));
   }
 
   getExportedInterfaceNames(program: Program, sourceFile: SourceFile): string[] {
@@ -177,84 +161,47 @@ export class TypeScriptAdapter implements TypeScriptPort {
     return false;
   }
 
+  private walkImportDeclarations(
+    tsSourceFile: ts.SourceFile
+  ): Array<{ node: ts.ImportDeclaration; specifier: string; line: number; column: number }> {
+    const results: Array<{ node: ts.ImportDeclaration; specifier: string; line: number; column: number }> = [];
+
+    ts.forEachChild(tsSourceFile, function visit(node: ts.Node) {
+      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+        const pos = ts.getLineAndCharacterOfPosition(tsSourceFile, node.getStart());
+        results.push({
+          node,
+          specifier: node.moduleSpecifier.text,
+          line: pos.line + 1,
+          column: pos.character,
+        });
+      }
+      ts.forEachChild(node, visit);
+    });
+
+    return results;
+  }
+
   private getTsSourceFile(program: Program, sourceFile: SourceFile): ts.SourceFile | undefined {
     const tsProgram = this.unwrapProgram(program);
     return tsProgram.getSourceFile(sourceFile.fileName);
   }
 
   private unwrapProgram(program: Program): ts.Program {
-    if (!program.handle || typeof (program.handle as ts.Program).getSourceFiles !== 'function') {
+    const handle = program.handle;
+    if (
+      !handle ||
+      typeof (handle as ts.Program).getSourceFiles !== 'function' ||
+      typeof (handle as ts.Program).getTypeChecker !== 'function' ||
+      typeof (handle as ts.Program).getSourceFile !== 'function'
+    ) {
       throw new Error('Program does not contain a valid ts.Program handle. Was it created by this adapter?');
     }
-    return program.handle as ts.Program;
+    return handle as ts.Program;
   }
 
   private toTsCompilerOptions(options: CompilerOptions): ts.CompilerOptions {
-    const result: ts.CompilerOptions = {};
-
-    if (options.rootDir) result.rootDir = options.rootDir;
-    if (options.outDir) result.outDir = options.outDir;
-    if (options.strict !== undefined) result.strict = options.strict;
-    if (options.esModuleInterop !== undefined) result.esModuleInterop = options.esModuleInterop;
-    if (options.skipLibCheck !== undefined) result.skipLibCheck = options.skipLibCheck;
-    if (options.declaration !== undefined) result.declaration = options.declaration;
-    if (options.composite !== undefined) result.composite = options.composite;
-    if (options.baseUrl) result.baseUrl = options.baseUrl;
-
-    if (options.target) {
-      result.target = this.parseScriptTarget(options.target);
-    }
-    if (options.module) {
-      result.module = this.parseModuleKind(options.module);
-    }
-    if (options.moduleResolution) {
-      result.moduleResolution = this.parseModuleResolution(options.moduleResolution);
-    }
-    if (options.paths) {
-      result.paths = options.paths;
-    }
-
-    return result;
-  }
-
-  private parseScriptTarget(target: string): ts.ScriptTarget {
-    const map: Record<string, ts.ScriptTarget> = {
-      'es5': ts.ScriptTarget.ES5,
-      'es2015': ts.ScriptTarget.ES2015,
-      'es2016': ts.ScriptTarget.ES2016,
-      'es2017': ts.ScriptTarget.ES2017,
-      'es2018': ts.ScriptTarget.ES2018,
-      'es2019': ts.ScriptTarget.ES2019,
-      'es2020': ts.ScriptTarget.ES2020,
-      'es2021': ts.ScriptTarget.ES2021,
-      'es2022': ts.ScriptTarget.ES2022,
-      'esnext': ts.ScriptTarget.ESNext,
-    };
-    return map[target.toLowerCase()] ?? ts.ScriptTarget.ES2020;
-  }
-
-  private parseModuleKind(module: string): ts.ModuleKind {
-    const map: Record<string, ts.ModuleKind> = {
-      'commonjs': ts.ModuleKind.CommonJS,
-      'amd': ts.ModuleKind.AMD,
-      'es2015': ts.ModuleKind.ES2015,
-      'es2020': ts.ModuleKind.ES2020,
-      'es2022': ts.ModuleKind.ES2022,
-      'esnext': ts.ModuleKind.ESNext,
-      'node16': ts.ModuleKind.Node16,
-      'nodenext': ts.ModuleKind.NodeNext,
-    };
-    return map[module.toLowerCase()] ?? ts.ModuleKind.CommonJS;
-  }
-
-  private parseModuleResolution(res: string): ts.ModuleResolutionKind {
-    const map: Record<string, ts.ModuleResolutionKind> = {
-      'node': ts.ModuleResolutionKind.NodeJs,
-      'node10': ts.ModuleResolutionKind.NodeJs,
-      'node16': ts.ModuleResolutionKind.Node16,
-      'nodenext': ts.ModuleResolutionKind.NodeNext,
-      'bundler': ts.ModuleResolutionKind.Bundler,
-    };
-    return map[res.toLowerCase()] ?? ts.ModuleResolutionKind.NodeJs;
+    const { options: parsed } = ts.convertCompilerOptionsFromJson(options, '.');
+    return parsed;
   }
 }

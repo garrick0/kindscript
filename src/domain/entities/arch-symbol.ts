@@ -29,6 +29,17 @@ export class ArchSymbol {
   ) {}
 
   /**
+   * Value equality - two symbols are equal if name, kind, and location match.
+   */
+  equals(other: ArchSymbol): boolean {
+    return (
+      this.name === other.name &&
+      this.kind === other.kind &&
+      this.declaredLocation === other.declaredLocation
+    );
+  }
+
+  /**
    * Check if this symbol has a contract of a specific type.
    */
   hasContract(contractType: string): boolean {
@@ -40,13 +51,6 @@ export class ArchSymbol {
    */
   findMember(name: string): ArchSymbol | undefined {
     return this.members.get(name);
-  }
-
-  /**
-   * Add a child member to this symbol.
-   */
-  addMember(symbol: ArchSymbol): void {
-    this.members.set(symbol.name, symbol);
   }
 
   /**

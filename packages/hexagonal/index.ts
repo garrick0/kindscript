@@ -12,21 +12,7 @@
  * @see https://alistair.cockburn.us/hexagonal-architecture/
  */
 
-interface Kind<N extends string = string> {
-  readonly kind: N;
-  readonly location: string;
-}
-
-interface ContractConfig {
-  noDependency?: [string, string][];
-  mustImplement?: [string, string][];
-  purity?: string[];
-  noCycles?: string[];
-  colocated?: [string, string][];
-}
-function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
-  return config;
-}
+import { Kind, ContractConfig, defineContracts } from 'kindscript';
 
 /** A bounded context following Hexagonal Architecture (Ports & Adapters). */
 export interface HexagonalContext extends Kind<"HexagonalContext"> {

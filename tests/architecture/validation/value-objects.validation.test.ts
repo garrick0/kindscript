@@ -1,5 +1,4 @@
 import { ImportEdge } from '../../../src/domain/value-objects/import-edge';
-import { Location } from '../../../src/domain/value-objects/location';
 import { DependencyRule } from '../../../src/domain/value-objects/dependency-rule';
 import { ArchSymbol } from '../../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../../src/domain/types/arch-symbol-kind';
@@ -35,47 +34,6 @@ describe('Architecture Validation: Value Objects', () => {
       const edge = new ImportEdge('a.ts', 'b.ts', 42, 0, './b');
 
       expect(edge.toString()).toBe('a.ts:42 → b.ts');
-    });
-  });
-
-  describe('Location', () => {
-    it('models directory locations', () => {
-      const location = new Location('src/domain');
-
-      expect(location.path).toBe('src/domain');
-      expect(location.isPattern).toBe(false);
-    });
-
-    it('models pattern locations', () => {
-      const location = new Location('src/**/*.domain.ts', true);
-
-      expect(location.path).toBe('src/**/*.domain.ts');
-      expect(location.isPattern).toBe(true);
-    });
-
-    it('matches files in directory', () => {
-      const location = new Location('src/domain');
-
-      expect(location.matches('src/domain/entity.ts')).toBe(true);
-      expect(location.matches('src/domain/value-objects/name.ts')).toBe(true);
-      expect(location.matches('src/application/service.ts')).toBe(false);
-    });
-
-    it('matches files with glob patterns', () => {
-      const location = new Location('src/*.domain.ts', true);
-
-      expect(location.matches('src/user.domain.ts')).toBe(true);
-      expect(location.matches('src/order.domain.ts')).toBe(true);
-      expect(location.matches('src/user.ts')).toBe(false);
-    });
-
-    it('implements value object equality', () => {
-      const loc1 = new Location('src/domain');
-      const loc2 = new Location('src/domain');
-      const loc3 = new Location('src/domain', true);
-
-      expect(loc1.equals(loc2)).toBe(true);
-      expect(loc1.equals(loc3)).toBe(false); // Different isPattern
     });
   });
 

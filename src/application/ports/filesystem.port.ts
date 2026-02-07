@@ -89,4 +89,14 @@ export interface FileSystemPort {
    * Example: basename('/usr/local/bin') → 'bin'
    */
   basename(path: string): string;
+
+  /**
+   * Join path segments without resolving against CWD.
+   *
+   * Normalizes trailing/leading slashes between segments.
+   * Unlike resolvePath, this does NOT make the result absolute.
+   *
+   * Example: joinPath('src/domain', 'entities') → 'src/domain/entities'
+   */
+  joinPath(...segments: string[]): string;
 }

@@ -1,6 +1,7 @@
 import type * as ts from 'typescript';
 import { CheckContractsService } from '../../application/use-cases/check-contracts/check-contracts.service';
 import { ClassifyASTService } from '../../application/use-cases/classify-ast/classify-ast.service';
+import { ClassifyProjectService } from '../../application/use-cases/classify-project/classify-project.service';
 import { GetPluginDiagnosticsService } from '../../application/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
 import { GetPluginCodeFixesService } from '../../application/use-cases/get-plugin-code-fixes/get-plugin-code-fixes.service';
 import { TypeScriptAdapter } from '../adapters/typescript/typescript.adapter';
@@ -38,10 +39,9 @@ function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
 
       // Wire up application services (shared with CLI)
       const checkService = new CheckContractsService(tsAdapter, fsAdapter);
-      const classifyService = new ClassifyASTService(astAdapter);
-      const diagnosticsService = new GetPluginDiagnosticsService(
-        checkService, configAdapter, fsAdapter, classifyService, tsAdapter
-      );
+      const classifyAST = new ClassifyASTService(astAdapter);
+      const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyAST);
+      const diagnosticsService = new GetPluginDiagnosticsService(checkService, classifyProject);
       const codeFixesService = new GetPluginCodeFixesService();
 
       // Create proxy language service

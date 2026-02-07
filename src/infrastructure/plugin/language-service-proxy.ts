@@ -24,14 +24,23 @@ export function createLanguageServiceProxy(
 ): ts.LanguageService {
   const proxy = Object.create(null) as ts.LanguageService;
   const oldService = info.languageService;
+  const logger = info.project.projectService.logger;
 
-  // Proxy all methods from the original service
-  for (const k of Object.keys(oldService) as Array<keyof ts.LanguageService>) {
-    const method = oldService[k];
+  // Proxy all methods from the original service (including prototype chain)
+  const keys = new Set<string>();
+  for (let obj: object | null = oldService; obj; obj = Object.getPrototypeOf(obj)) {
+    for (const k of Object.getOwnPropertyNames(obj)) {
+      keys.add(k);
+    }
+  }
+
+  for (const k of keys) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const method = (oldService as any)[k];
     if (typeof method === 'function') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (proxy as any)[k] = (...args: unknown[]) =>
-        (method as (...a: unknown[]) => unknown).apply(oldService, args);
+        method.apply(oldService, args);
     }
   }
 
@@ -51,7 +60,8 @@ export function createLanguageServiceProxy(
       );
 
       return [...tsDiags, ...ksDiags];
-    } catch {
+    } catch (e) {
+      logger.info(`[kindscript] Error in getSemanticDiagnostics: ${e}`);
       return tsDiags;
     }
   };
@@ -80,7 +90,8 @@ export function createLanguageServiceProxy(
       );
 
       return [...tsFixes, ...ksFixes];
-    } catch {
+    } catch (e) {
+      logger.info(`[kindscript] Error in getCodeFixesAtPosition: ${e}`);
       return tsFixes;
     }
   };

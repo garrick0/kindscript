@@ -14,21 +14,7 @@
  * @see https://jeffreypalermo.com/2008/07/the-onion-architecture-part-1/
  */
 
-interface Kind<N extends string = string> {
-  readonly kind: N;
-  readonly location: string;
-}
-
-interface ContractConfig {
-  noDependency?: [string, string][];
-  mustImplement?: [string, string][];
-  purity?: string[];
-  noCycles?: string[];
-  colocated?: [string, string][];
-}
-function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
-  return config;
-}
+import { Kind, ContractConfig, defineContracts } from 'kindscript';
 
 /** A bounded context following Onion Architecture. */
 export interface OnionContext extends Kind<"OnionContext"> {

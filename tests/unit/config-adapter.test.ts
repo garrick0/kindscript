@@ -64,7 +64,6 @@ describe('ConfigAdapter', () => {
       const config = {
         definitions: ['architecture.ts'],
         packages: ['@kindscript/clean-architecture'],
-        contracts: { noDependency: [] },
         rootDir: 'src',
       };
       fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), JSON.stringify(config));
@@ -74,7 +73,6 @@ describe('ConfigAdapter', () => {
       expect(result).toBeDefined();
       expect(result!.definitions).toEqual(['architecture.ts']);
       expect(result!.packages).toEqual(['@kindscript/clean-architecture']);
-      expect(result!.contracts).toBeDefined();
       expect(result!.rootDir).toBe('src');
     });
   });

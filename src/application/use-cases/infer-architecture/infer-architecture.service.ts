@@ -3,15 +3,10 @@ import { InferArchitectureRequest, InferArchitectureResponse } from './infer-arc
 import { DetectArchitectureUseCase } from '../detect-architecture/detect-architecture.use-case';
 import { FileSystemPort } from '../../ports/filesystem.port';
 import { DetectedArchitecture } from '../../../domain/entities/detected-architecture';
-import { InferredDefinitions } from '../../../domain/value-objects/inferred-definitions';
+import { InferredDefinitions, InferredContracts } from '../../../domain/value-objects/inferred-definitions';
 import { ArchitecturePattern } from '../../../domain/types/architecture-pattern';
 import { DetectedLayer } from '../../../domain/value-objects/detected-layer';
-
-/** Node built-in modules considered impure (I/O, OS, network). */
-const IMPURE_MODULES = [
-  'fs', 'path', 'http', 'https', 'net', 'child_process',
-  'cluster', 'crypto', 'os',
-];
+import { isNodeBuiltin } from '../../../domain/constants/node-builtins';
 
 /**
  * Real implementation of InferArchitectureUseCase.
@@ -44,21 +39,23 @@ export class InferArchitectureService implements InferArchitectureUseCase {
       if (!warnings.some(w => w.includes('No architectural layers'))) {
         warnings.push('No recognized architectural pattern detected');
       }
+      const emptyContracts: InferredContracts = { noDependency: [], mustImplement: [], purity: [] };
       return {
-        definitions: new InferredDefinitions('', '', '', ''),
+        definitions: new InferredDefinitions('', '', '', emptyContracts, ''),
         detected,
         warnings,
       };
     }
 
     // Phase 2: Generate sections
+    const contextName = toContextName(detected.pattern);
     const boilerplate = this.generateBoilerplate();
     const kindDefinition = this.generateKindDefinition(detected);
     const instanceDeclaration = this.generateInstanceDeclaration(detected, request.projectRoot);
-    const contracts = this.generateContracts(detected);
+    const contractData = this.buildContractData(detected);
 
     return {
-      definitions: new InferredDefinitions(boilerplate, kindDefinition, instanceDeclaration, contracts),
+      definitions: new InferredDefinitions(boilerplate, kindDefinition, instanceDeclaration, contractData, contextName),
       detected,
       warnings,
     };
@@ -133,44 +130,12 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
     return lines.join('\n');
   }
 
-  private generateContracts(detected: DetectedArchitecture): string {
-    const contextName = toContextName(detected.pattern);
-    const noDep = this.inferNoDependencyContracts(detected);
-    const purity = this.inferPureLayers(detected);
-    const mustImpl = this.inferMustImplementContracts(detected);
-
-    // If no contracts inferred, return empty
-    if (noDep.length === 0 && purity.length === 0 && mustImpl.length === 0) {
-      return '';
-    }
-
-    const lines: string[] = [];
-    lines.push(`export const contracts = defineContracts<${contextName}>({`);
-
-    if (noDep.length > 0) {
-      lines.push('  noDependency: [');
-      for (const [from, to] of noDep) {
-        lines.push(`    ["${from}", "${to}"],`);
-      }
-      lines.push('  ],');
-    }
-
-    if (mustImpl.length > 0) {
-      lines.push('  mustImplement: [');
-      for (const [port, adapter] of mustImpl) {
-        lines.push(`    ["${port}", "${adapter}"],`);
-      }
-      lines.push('  ],');
-    }
-
-    if (purity.length > 0) {
-      lines.push(`  purity: [${purity.map(l => `"${l}"`).join(', ')}],`);
-    }
-
-    lines.push('});');
-    lines.push('');
-
-    return lines.join('\n');
+  private buildContractData(detected: DetectedArchitecture): InferredContracts {
+    return {
+      noDependency: this.inferNoDependencyContracts(detected),
+      mustImplement: this.inferMustImplementContracts(detected),
+      purity: this.inferPureLayers(detected),
+    };
   }
 
   private inferNoDependencyContracts(detected: DetectedArchitecture): [string, string][] {
@@ -248,13 +213,12 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
       const content = this.fsPort.readFile(file);
       if (!content) continue;
 
-      for (const mod of IMPURE_MODULES) {
-        // Check for: import ... from 'mod' or require('mod')
-        // Also check for subpath imports like 'fs/promises'
-        const importPattern = new RegExp(
-          `(?:from\\s+['"]${mod}(?:/[^'"]*)?['"]|require\\s*\\(\\s*['"]${mod}(?:/[^'"]*)?['"]\\s*\\))`,
-        );
-        if (importPattern.test(content)) {
+      // Extract import specifiers from source text
+      const importRegex = /(?:from\s+['"]([^'"]+)['"]|require\s*\(\s*['"]([^'"]+)['"]\s*\))/g;
+      let match;
+      while ((match = importRegex.exec(content)) !== null) {
+        const specifier = match[1] || match[2];
+        if (isNodeBuiltin(specifier)) {
           return false;
         }
       }

@@ -4,7 +4,6 @@ import {
   TSDiagnostic,
   TSCodeFixAction,
 } from '../../../application/ports/language-service.port';
-import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { Program } from '../../../domain/entities/program';
 
 /**
@@ -16,7 +15,7 @@ import { Program } from '../../../domain/entities/program';
 export class LanguageServiceAdapter implements LanguageServicePort {
   constructor(
     private readonly info: ts.server.PluginCreateInfo,
-    private readonly typescript: typeof ts
+    _typescript: typeof ts
   ) {}
 
   getProjectRoot(): string {
@@ -50,36 +49,6 @@ export class LanguageServiceAdapter implements LanguageServicePort {
       description: f.description,
       changes: f.changes,
     }));
-  }
-
-  toTSDiagnostic(diagnostic: Diagnostic, program: Program): TSDiagnostic {
-    const tsProgram = program.handle as ts.Program;
-    const sourceFile = tsProgram?.getSourceFile(diagnostic.file);
-
-    let start: number | undefined;
-    let length: number | undefined;
-
-    if (sourceFile && diagnostic.line > 0) {
-      const lineStarts = sourceFile.getLineStarts();
-      const lineIndex = diagnostic.line - 1;
-      if (lineIndex < lineStarts.length) {
-        start = lineStarts[lineIndex] + diagnostic.column;
-        const lineEnd = lineIndex + 1 < lineStarts.length
-          ? lineStarts[lineIndex + 1]
-          : sourceFile.getEnd();
-        const lineText = sourceFile.text.substring(lineStarts[lineIndex], lineEnd);
-        length = lineText.trimEnd().length;
-      }
-    }
-
-    return {
-      file: diagnostic.file,
-      start,
-      length,
-      messageText: diagnostic.message,
-      code: diagnostic.code,
-      category: this.typescript.DiagnosticCategory.Error,
-    };
   }
 
   getRootFileNames(): string[] {

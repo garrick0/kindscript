@@ -2,6 +2,7 @@ import * as path from 'path';
 import { GetPluginDiagnosticsService } from '../../src/application/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
 import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
+import { ClassifyProjectService } from '../../src/application/use-cases/classify-project/classify-project.service';
 import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../../src/infrastructure/adapters/filesystem/filesystem.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/adapters/config/config.adapter';
@@ -10,24 +11,19 @@ import { ASTAdapter } from '../../src/infrastructure/adapters/ast/ast.adapter';
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
 
 describe('Plugin Diagnostics Integration Tests', () => {
-  let tsAdapter: TypeScriptAdapter;
-  let fsAdapter: FileSystemAdapter;
-  let configAdapter: ConfigAdapter;
-  let astAdapter: ASTAdapter;
   let service: GetPluginDiagnosticsService;
 
   beforeEach(() => {
-    tsAdapter = new TypeScriptAdapter();
-    fsAdapter = new FileSystemAdapter();
-    configAdapter = new ConfigAdapter();
-    astAdapter = new ASTAdapter();
+    const tsAdapter = new TypeScriptAdapter();
+    const fsAdapter = new FileSystemAdapter();
+    const configAdapter = new ConfigAdapter();
+    const astAdapter = new ASTAdapter();
 
     const checkContracts = new CheckContractsService(tsAdapter, fsAdapter);
-    const classifyService = new ClassifyASTService(astAdapter);
+    const classifyAST = new ClassifyASTService(astAdapter);
+    const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyAST);
 
-    service = new GetPluginDiagnosticsService(
-      checkContracts, configAdapter, fsAdapter, classifyService, tsAdapter
-    );
+    service = new GetPluginDiagnosticsService(checkContracts, classifyProject);
   });
 
   it('detects violation in clean-arch-violation fixture via plugin diagnostics service', () => {

@@ -11,21 +11,7 @@
  * @see https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
  */
 
-interface Kind<N extends string = string> {
-  readonly kind: N;
-  readonly location: string;
-}
-
-interface ContractConfig {
-  noDependency?: [string, string][];
-  mustImplement?: [string, string][];
-  purity?: string[];
-  noCycles?: string[];
-  colocated?: [string, string][];
-}
-function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
-  return config;
-}
+import { Kind, ContractConfig, defineContracts } from 'kindscript';
 
 /** A bounded context following Clean Architecture principles. */
 export interface CleanContext extends Kind<"CleanContext"> {

@@ -1,17 +1,18 @@
 import { MockTypeScriptAdapter } from '../../../src/infrastructure/adapters/testing/mock-typescript.adapter';
 import { MockFileSystemAdapter } from '../../../src/infrastructure/adapters/testing/mock-filesystem.adapter';
-import { ArchSymbol } from '../../../src/domain/entities/arch-symbol';
-import { ArchSymbolKind } from '../../../src/domain/types/arch-symbol-kind';
-import { Contract } from '../../../src/domain/entities/contract';
-import { ContractType } from '../../../src/domain/types/contract-type';
+import { CheckContractsService } from '../../../src/application/use-cases/check-contracts/check-contracts.service';
+import { DiagnosticCode } from '../../../src/domain/constants/diagnostic-codes';
+import { makeSymbol, makeCheckRequest, noDependency } from '../../helpers/factories';
 
 describe('Architecture Validation: noDependency Contract', () => {
   let mockTS: MockTypeScriptAdapter;
   let mockFS: MockFileSystemAdapter;
+  let service: CheckContractsService;
 
   beforeEach(() => {
     mockTS = new MockTypeScriptAdapter();
     mockFS = new MockFileSystemAdapter();
+    service = new CheckContractsService(mockTS, mockFS);
   });
 
   afterEach(() => {
@@ -19,67 +20,30 @@ describe('Architecture Validation: noDependency Contract', () => {
     mockFS.reset();
   });
 
-  it('models forbidden domain → infrastructure dependency', () => {
-    // Arrange: Set up filesystem structure
+  it('detects forbidden domain → infrastructure dependency', () => {
     mockFS
       .withDirectory('src/domain', ['entity.ts', 'service.ts'])
       .withDirectory('src/infrastructure', ['database.ts']);
 
-    // Arrange: Set up import relationship
     mockTS
       .withSourceFile('src/domain/service.ts', 'export class Service {}')
       .withSourceFile('src/infrastructure/database.ts', 'export class Database {}')
-      .withImport(
-        'src/domain/service.ts',
-        'src/infrastructure/database.ts',
-        '../infrastructure/database',
-        5
-      );
+      .withImport('src/domain/service.ts', 'src/infrastructure/database.ts', '../infrastructure/database', 5);
 
-    // Arrange: Define architectural symbols
-    const domainSymbol = new ArchSymbol(
-      'domain',
-      ArchSymbolKind.Layer,
-      'src/domain'
-    );
+    const domain = makeSymbol('domain');
+    const infra = makeSymbol('infrastructure');
+    const contract = noDependency(domain, infra, 'domain-must-not-depend-on-infrastructure');
 
-    const infraSymbol = new ArchSymbol(
-      'infrastructure',
-      ArchSymbolKind.Layer,
-      'src/infrastructure'
-    );
+    const result = service.execute(makeCheckRequest([contract]));
 
-    const contract = new Contract(
-      ContractType.NoDependency,
-      'domain-must-not-depend-on-infrastructure',
-      [domainSymbol, infraSymbol],
-      'architecture.ts:10'
-    );
-
-    // Act: Validate that our domain model can represent this scenario
-    const program = mockTS.createProgram(['src/domain/service.ts'], {});
-    const sourceFile = mockTS.getSourceFile(program, 'src/domain/service.ts');
-    const checker = mockTS.getTypeChecker(program);
-
-    expect(sourceFile).toBeDefined();
-    const imports = mockTS.getImports(sourceFile!, checker);
-
-    // Assert: Import relationship is correctly modeled
-    expect(imports).toHaveLength(1);
-    expect(imports[0].sourceFile).toBe('src/domain/service.ts');
-    expect(imports[0].targetFile).toBe('src/infrastructure/database.ts');
-    expect(imports[0].line).toBe(5);
-
-    // Assert: Contract structure is correct
-    expect(contract.type).toBe(ContractType.NoDependency);
-    expect(contract.args).toHaveLength(2);
-    expect(contract.args[0]).toBe(domainSymbol);
-    expect(contract.args[1]).toBe(infraSymbol);
-    expect(contract.validate()).toBeNull(); // Contract is valid
+    expect(result.violationsFound).toBe(1);
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0].code).toBe(DiagnosticCode.ForbiddenDependency);
+    expect(result.diagnostics[0].file).toBe('src/domain/service.ts');
+    expect(result.diagnostics[0].line).toBe(5);
   });
 
-  it('models permitted infrastructure → domain dependency', () => {
-    // Arrange: Reverse dependency (infrastructure CAN depend on domain)
+  it('permits infrastructure → domain dependency', () => {
     mockFS
       .withDirectory('src/domain', ['entity.ts'])
       .withDirectory('src/infrastructure', ['repository.ts']);
@@ -87,91 +51,61 @@ describe('Architecture Validation: noDependency Contract', () => {
     mockTS
       .withSourceFile('src/domain/entity.ts', 'export class Entity {}')
       .withSourceFile('src/infrastructure/repository.ts', 'export class Repository {}')
-      .withImport(
-        'src/infrastructure/repository.ts',
-        'src/domain/entity.ts',
-        '../domain/entity',
-        3
-      );
+      .withImport('src/infrastructure/repository.ts', 'src/domain/entity.ts', '../domain/entity', 3);
 
-    const domainSymbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain');
-    const infraSymbol = new ArchSymbol('infrastructure', ArchSymbolKind.Layer, 'src/infrastructure');
+    const domain = makeSymbol('domain');
+    const infra = makeSymbol('infrastructure');
 
-    // Contract forbids domain → infrastructure, NOT infrastructure → domain
-    const contract = new Contract(
-      ContractType.NoDependency,
-      'domain-must-not-depend-on-infrastructure',
-      [domainSymbol, infraSymbol]
-    );
+    const result = service.execute(makeCheckRequest([noDependency(domain, infra)]));
 
-    // Act
-    const program = mockTS.createProgram(['src/infrastructure/repository.ts'], {});
-    const sourceFile = mockTS.getSourceFile(program, 'src/infrastructure/repository.ts');
-    const checker = mockTS.getTypeChecker(program);
-    const imports = mockTS.getImports(sourceFile!, checker);
-
-    // Assert: Import exists and is in the allowed direction
-    expect(imports[0].sourceFile).toBe('src/infrastructure/repository.ts');
-    expect(imports[0].targetFile).toBe('src/domain/entity.ts');
-
-    // This import should NOT violate the contract
-    // (The actual checking logic will be implemented in M1)
-    expect(contract.validate()).toBeNull();
+    expect(result.violationsFound).toBe(0);
+    expect(result.diagnostics).toHaveLength(0);
   });
 
   it('handles multiple contracts on same symbol', () => {
-    // Arrange: Domain layer with multiple constraints
-    const domainSymbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain');
-    const infraSymbol = new ArchSymbol('infrastructure', ArchSymbolKind.Layer, 'src/infrastructure');
-    const applicationSymbol = new ArchSymbol('application', ArchSymbolKind.Layer, 'src/application');
+    mockFS
+      .withDirectory('src/domain', ['service.ts'])
+      .withDirectory('src/infrastructure', ['db.ts'])
+      .withDirectory('src/application', ['handler.ts']);
 
-    const noDepsOnInfra = new Contract(
-      ContractType.NoDependency,
-      'no-infra',
-      [domainSymbol, infraSymbol]
-    );
+    mockTS
+      .withSourceFile('src/domain/service.ts', '')
+      .withSourceFile('src/infrastructure/db.ts', '')
+      .withSourceFile('src/application/handler.ts', '')
+      .withImport('src/domain/service.ts', 'src/infrastructure/db.ts', '../infrastructure/db', 1);
 
-    const noDepsOnApplication = new Contract(
-      ContractType.NoDependency,
-      'no-application',
-      [domainSymbol, applicationSymbol]
-    );
+    const domain = makeSymbol('domain');
+    const infra = makeSymbol('infrastructure');
+    const app = makeSymbol('application');
 
-    // Assert: Both contracts reference the same symbol
-    expect(noDepsOnInfra.args[0]).toBe(domainSymbol);
-    expect(noDepsOnApplication.args[0]).toBe(domainSymbol);
+    const result = service.execute(makeCheckRequest([
+      noDependency(domain, infra),
+      noDependency(domain, app),
+    ]));
 
-    // Assert: Both contracts are valid
-    expect(noDepsOnInfra.validate()).toBeNull();
-    expect(noDepsOnApplication.validate()).toBeNull();
-
-    // Domain model correctly represents multiple constraints
+    expect(result.contractsChecked).toBe(2);
+    expect(result.violationsFound).toBe(1);
+    expect(result.diagnostics[0].code).toBe(DiagnosticCode.ForbiddenDependency);
   });
 
   it('resolves symbol locations to files', () => {
-    // Arrange: Symbol with declared location
-    const domainSymbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain');
+    const domain = makeSymbol('domain');
 
     mockFS
       .withFile('src/domain/entity.ts', 'export class Entity {}')
       .withFile('src/domain/value-object.ts', 'export class ValueObject {}')
       .withFile('src/domain/service.ts', 'export class Service {}');
 
-    // Act: Resolve files for the domain symbol
     const files = mockFS.readDirectory('src/domain', true);
 
-    // Assert: All domain files are found
     expect(files).toHaveLength(3);
     expect(files).toContain('src/domain/entity.ts');
     expect(files).toContain('src/domain/value-object.ts');
     expect(files).toContain('src/domain/service.ts');
-
-    // Assert: Symbol location matches
-    expect(domainSymbol.declaredLocation).toBe('src/domain');
+    expect(domain.declaredLocation).toBe('src/domain');
   });
 
-  it('models transitive dependency chains', () => {
-    // Arrange: A → B → C dependency chain
+  it('detects transitive dependency chain violations', () => {
     mockFS
       .withFile('src/domain/a.ts', '')
       .withFile('src/application/b.ts', '')
@@ -184,24 +118,18 @@ describe('Architecture Validation: noDependency Contract', () => {
       .withImport('src/domain/a.ts', 'src/application/b.ts', '../application/b', 1)
       .withImport('src/application/b.ts', 'src/infrastructure/c.ts', '../infrastructure/c', 1);
 
-    // Act: Get import edges
-    const program = mockTS.createProgram(['src/domain/a.ts', 'src/application/b.ts'], {});
-    const checker = mockTS.getTypeChecker(program);
+    const domain = makeSymbol('domain');
+    const app = makeSymbol('application');
+    const infra = makeSymbol('infrastructure');
 
-    const aFile = mockTS.getSourceFile(program, 'src/domain/a.ts')!;
-    const bFile = mockTS.getSourceFile(program, 'src/application/b.ts')!;
+    const result = service.execute(makeCheckRequest([
+      noDependency(domain, app),
+      noDependency(app, infra),
+    ]));
 
-    const aImports = mockTS.getImports(aFile, checker);
-    const bImports = mockTS.getImports(bFile, checker);
-
-    // Assert: Dependency chain is modeled
-    expect(aImports).toHaveLength(1);
-    expect(aImports[0].targetFile).toBe('src/application/b.ts');
-
-    expect(bImports).toHaveLength(1);
-    expect(bImports[0].targetFile).toBe('src/infrastructure/c.ts');
-
-    // This demonstrates that transitive dependencies can be detected
-    // by following the import chain
+    expect(result.contractsChecked).toBe(2);
+    expect(result.violationsFound).toBe(2);
+    expect(result.diagnostics[0].file).toBe('src/domain/a.ts');
+    expect(result.diagnostics[1].file).toBe('src/application/b.ts');
   });
 });

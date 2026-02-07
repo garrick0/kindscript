@@ -7,6 +7,7 @@ import { DetectedLayer } from '../../../domain/value-objects/detected-layer';
 import { LayerDependencyEdge } from '../../../domain/value-objects/layer-dependency-edge';
 import { ArchitecturePattern } from '../../../domain/types/architecture-pattern';
 import { LayerRole } from '../../../domain/types/layer-role';
+import { isFileInSymbol } from '../../../domain/utils/path-matching';
 
 /** Maps directory names to their architectural roles. */
 const ROLE_MAP: Record<string, LayerRole> = {
@@ -146,7 +147,7 @@ export class DetectArchitectureService implements DetectArchitectureUseCase {
           // Check if this import targets another layer
           for (const targetLayer of layers) {
             if (targetLayer.name === layer.name) continue;
-            if (this.isFileInLayer(imp.targetFile, targetLayer)) {
+            if (isFileInSymbol(imp.targetFile, targetLayer.path)) {
               const key = `${layer.name}->${targetLayer.name}`;
               edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
             }
@@ -163,16 +164,6 @@ export class DetectArchitectureService implements DetectArchitectureUseCase {
     }
 
     return edges;
-  }
-
-  private isFileInLayer(filePath: string, layer: DetectedLayer): boolean {
-    const normalizedFile = filePath.replace(/\\/g, '/');
-    const normalizedLayerPath = layer.path.replace(/\\/g, '/').replace(/\/$/, '');
-
-    if (normalizedFile === normalizedLayerPath) return true;
-
-    const prefix = normalizedLayerPath + '/';
-    return normalizedFile.startsWith(prefix);
   }
 
   private matchPattern(layers: DetectedLayer[], dependencies: LayerDependencyEdge[]): ArchitecturePattern {

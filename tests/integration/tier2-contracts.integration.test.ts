@@ -36,7 +36,7 @@ function runPipeline(fixturePath: string) {
     symbols: classifyResult.symbols,
     contracts: classifyResult.contracts,
     config: {},
-    programRootFiles: allRootFiles,
+    program,
   });
 
   return { classifyResult, checkResult };

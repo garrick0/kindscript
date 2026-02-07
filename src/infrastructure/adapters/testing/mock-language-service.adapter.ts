@@ -3,7 +3,6 @@ import {
   TSDiagnostic,
   TSCodeFixAction,
 } from '../../../application/ports/language-service.port';
-import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { Program } from '../../../domain/entities/program';
 
 /**
@@ -84,17 +83,6 @@ export class MockLanguageServiceAdapter implements LanguageServicePort {
     _errorCodes: readonly number[]
   ): TSCodeFixAction[] {
     return this.originalCodeFixes.get(fileName) || [];
-  }
-
-  toTSDiagnostic(diagnostic: Diagnostic, _program: Program): TSDiagnostic {
-    return {
-      file: diagnostic.file,
-      start: diagnostic.column,
-      length: diagnostic.message.length,
-      messageText: diagnostic.message,
-      code: diagnostic.code,
-      category: 1, // Error
-    };
   }
 
   getRootFileNames(): string[] {

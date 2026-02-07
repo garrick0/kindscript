@@ -5,6 +5,7 @@ import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
 import { Contract } from '../../../domain/entities/contract';
 import { ContractType } from '../../../domain/types/contract-type';
+import { joinPath } from '../../../domain/utils/path-matching';
 
 /**
  * Intermediate representation of a Kind definition found in the AST.
@@ -39,6 +40,7 @@ export class ClassifyASTService implements ClassifyASTUseCase {
     // Maps for cross-referencing between phases
     const kindDefs = new Map<string, KindDefinition>();
     const instanceSymbols = new Map<string, ArchSymbol>(); // kindName → instance ArchSymbol
+    const instanceTypeNames = new Map<string, string>(); // instanceName → kindTypeName
 
     // First pass: Find Kind definitions and Instance declarations across all files.
     // This ensures all instances are available before contract binding (Phase 3),
@@ -71,6 +73,7 @@ export class ClassifyASTService implements ClassifyASTUseCase {
                 const typeName = this.astPort.getVariableTypeName(decl);
                 if (typeName) {
                   instanceSymbols.set(typeName, result.symbol);
+                  instanceTypeNames.set(result.symbol.name, typeName);
                 }
               }
             }
@@ -109,7 +112,7 @@ export class ClassifyASTService implements ClassifyASTUseCase {
       symbols.push(kindSymbol);
     }
 
-    return { symbols, contracts, errors };
+    return { symbols, contracts, instanceTypeNames, errors };
   }
 
   /**
@@ -173,7 +176,7 @@ export class ClassifyASTService implements ClassifyASTUseCase {
         const memberLocation = this.astPort.getStringValue(prop.value);
         if (memberLocation && rawLocation) {
           const resolvedMemberLocation = this.resolveLocation(
-            this.joinPath(rawLocation, memberLocation),
+            joinPath(rawLocation, memberLocation),
             projectRoot
           );
           const memberSymbol = new ArchSymbol(
@@ -225,7 +228,7 @@ export class ClassifyASTService implements ClassifyASTUseCase {
         const memberLocation = this.astPort.getStringValue(prop.value);
         if (memberLocation && rawLocation) {
           const resolvedLocation = this.resolveLocation(
-            this.joinPath(rawLocation, memberLocation),
+            joinPath(rawLocation, memberLocation),
             projectRoot
           );
           members.set(prop.name, new ArchSymbol(
@@ -475,12 +478,6 @@ export class ClassifyASTService implements ClassifyASTUseCase {
    */
   private resolveLocation(location: string, projectRoot: string): string {
     if (location.startsWith('/')) return location;
-    return this.joinPath(projectRoot, location);
-  }
-
-  private joinPath(base: string, relative: string): string {
-    const normalizedBase = base.replace(/\/$/, '');
-    const normalizedRelative = relative.replace(/^\//, '');
-    return `${normalizedBase}/${normalizedRelative}`;
+    return joinPath(projectRoot, location);
   }
 }

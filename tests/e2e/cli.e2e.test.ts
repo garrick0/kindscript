@@ -1,10 +1,13 @@
 import * as path from 'path';
 import { CheckCommand } from '../../src/infrastructure/cli/commands/check.command';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
+import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
+import { ClassifyProjectService } from '../../src/application/use-cases/classify-project/classify-project.service';
 import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../../src/infrastructure/adapters/filesystem/filesystem.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/adapters/config/config.adapter';
 import { CLIDiagnosticAdapter } from '../../src/infrastructure/adapters/cli/cli-diagnostic.adapter';
+import { ASTAdapter } from '../../src/infrastructure/adapters/ast/ast.adapter';
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', 'integration', 'fixtures');
 
@@ -32,9 +35,13 @@ describe('CLI E2E Tests', () => {
     const fsAdapter = new FileSystemAdapter();
     const configAdapter = new ConfigAdapter();
     const diagnosticAdapter = new CLIDiagnosticAdapter((msg) => captured.push(msg));
+    const astAdapter = new ASTAdapter();
 
-    const service = new CheckContractsService(tsAdapter, fsAdapter);
-    return new CheckCommand(service, configAdapter, diagnosticAdapter, fsAdapter);
+    const classifyAST = new ClassifyASTService(astAdapter);
+    const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyAST);
+    const checkContracts = new CheckContractsService(tsAdapter, fsAdapter);
+
+    return new CheckCommand(checkContracts, classifyProject, diagnosticAdapter);
   }
 
   it('returns exit code 1 for project with violations', () => {

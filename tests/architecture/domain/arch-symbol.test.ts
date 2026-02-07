@@ -94,11 +94,12 @@ describe('ArchSymbol', () => {
   });
 
   describe('member management', () => {
-    it('adds and retrieves members', () => {
-      const parent = new ArchSymbol('ordering', ArchSymbolKind.Context);
+    it('creates symbol with members via constructor and retrieves them', () => {
       const child = new ArchSymbol('domain', ArchSymbolKind.Layer);
-
-      parent.addMember(child);
+      const parent = new ArchSymbol(
+        'ordering', ArchSymbolKind.Context, undefined,
+        new Map([['domain', child]])
+      );
 
       expect(parent.findMember('domain')).toBe(child);
       expect(parent.members.size).toBe(1);
@@ -111,42 +112,32 @@ describe('ArchSymbol', () => {
     });
 
     it('getAllMembers returns all members', () => {
-      const parent = new ArchSymbol('ordering', ArchSymbolKind.Context);
       const child1 = new ArchSymbol('domain', ArchSymbolKind.Layer);
       const child2 = new ArchSymbol('application', ArchSymbolKind.Layer);
-
-      parent.addMember(child1);
-      parent.addMember(child2);
+      const parent = new ArchSymbol(
+        'ordering', ArchSymbolKind.Context, undefined,
+        new Map([['domain', child1], ['application', child2]])
+      );
 
       const members = parent.getAllMembers();
       expect(members).toHaveLength(2);
       expect(members).toContain(child1);
       expect(members).toContain(child2);
     });
-
-    it('overwrites member with same name', () => {
-      const parent = new ArchSymbol('ordering', ArchSymbolKind.Context);
-      const child1 = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain/v1');
-      const child2 = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain/v2');
-
-      parent.addMember(child1);
-      parent.addMember(child2);
-
-      expect(parent.members.size).toBe(1);
-      expect(parent.findMember('domain')).toBe(child2);
-    });
   });
 
   describe('descendants traversal', () => {
     it('yields all descendants recursively', () => {
-      const root = new ArchSymbol('root', ArchSymbolKind.Context);
-      const layer1 = new ArchSymbol('layer1', ArchSymbolKind.Layer);
-      const layer2 = new ArchSymbol('layer2', ArchSymbolKind.Layer);
       const module1 = new ArchSymbol('module1', ArchSymbolKind.Module);
-
-      root.addMember(layer1);
-      root.addMember(layer2);
-      layer1.addMember(module1);
+      const layer1 = new ArchSymbol(
+        'layer1', ArchSymbolKind.Layer, undefined,
+        new Map([['module1', module1]])
+      );
+      const layer2 = new ArchSymbol('layer2', ArchSymbolKind.Layer);
+      const root = new ArchSymbol(
+        'root', ArchSymbolKind.Context, undefined,
+        new Map([['layer1', layer1], ['layer2', layer2]])
+      );
 
       const descendants = Array.from(root.descendants());
 
@@ -157,14 +148,16 @@ describe('ArchSymbol', () => {
     });
 
     it('yields in depth-first order', () => {
-      const root = new ArchSymbol('root', ArchSymbolKind.Context);
-      const child1 = new ArchSymbol('child1', ArchSymbolKind.Layer);
-      const child2 = new ArchSymbol('child2', ArchSymbolKind.Layer);
       const grandchild = new ArchSymbol('grandchild', ArchSymbolKind.Module);
-
-      root.addMember(child1);
-      root.addMember(child2);
-      child1.addMember(grandchild);
+      const child1 = new ArchSymbol(
+        'child1', ArchSymbolKind.Layer, undefined,
+        new Map([['grandchild', grandchild]])
+      );
+      const child2 = new ArchSymbol('child2', ArchSymbolKind.Layer);
+      const root = new ArchSymbol(
+        'root', ArchSymbolKind.Context, undefined,
+        new Map([['child1', child1], ['child2', child2]])
+      );
 
       const descendants = Array.from(root.descendants());
 
@@ -185,21 +178,25 @@ describe('ArchSymbol', () => {
 
   describe('findByPath', () => {
     it('finds direct child', () => {
-      const root = new ArchSymbol('root', ArchSymbolKind.Context);
       const child = new ArchSymbol('child', ArchSymbolKind.Layer);
-
-      root.addMember(child);
+      const root = new ArchSymbol(
+        'root', ArchSymbolKind.Context, undefined,
+        new Map([['child', child]])
+      );
 
       expect(root.findByPath('child')).toBe(child);
     });
 
     it('finds nested descendant', () => {
-      const root = new ArchSymbol('ordering', ArchSymbolKind.Context);
-      const domain = new ArchSymbol('domain', ArchSymbolKind.Layer);
       const entities = new ArchSymbol('entities', ArchSymbolKind.Module);
-
-      root.addMember(domain);
-      domain.addMember(entities);
+      const domain = new ArchSymbol(
+        'domain', ArchSymbolKind.Layer, undefined,
+        new Map([['entities', entities]])
+      );
+      const root = new ArchSymbol(
+        'ordering', ArchSymbolKind.Context, undefined,
+        new Map([['domain', domain]])
+      );
 
       expect(root.findByPath('domain.entities')).toBe(entities);
     });
@@ -211,10 +208,11 @@ describe('ArchSymbol', () => {
     });
 
     it('returns undefined for partial path', () => {
-      const root = new ArchSymbol('root', ArchSymbolKind.Context);
       const child = new ArchSymbol('child', ArchSymbolKind.Layer);
-
-      root.addMember(child);
+      const root = new ArchSymbol(
+        'root', ArchSymbolKind.Context, undefined,
+        new Map([['child', child]])
+      );
 
       expect(root.findByPath('child.nonexistent')).toBeUndefined();
     });

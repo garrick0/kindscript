@@ -6,6 +6,7 @@ import { InferCommand } from './commands/infer.command';
 import { ScaffoldCommand } from './commands/scaffold.command';
 import { CheckContractsService } from '../../application/use-cases/check-contracts/check-contracts.service';
 import { ClassifyASTService } from '../../application/use-cases/classify-ast/classify-ast.service';
+import { ClassifyProjectService } from '../../application/use-cases/classify-project/classify-project.service';
 import { DetectArchitectureService } from '../../application/use-cases/detect-architecture/detect-architecture.service';
 import { GenerateProjectRefsService } from '../../application/use-cases/generate-project-refs/generate-project-refs.service';
 import { InferArchitectureService } from '../../application/use-cases/infer-architecture/infer-architecture.service';
@@ -17,6 +18,27 @@ import { CLIDiagnosticAdapter } from '../adapters/cli/cli-diagnostic.adapter';
 import { ASTAdapter } from '../adapters/ast/ast.adapter';
 
 /**
+ * Shared adapter instances created once per CLI invocation.
+ */
+interface Adapters {
+  ts: TypeScriptAdapter;
+  fs: FileSystemAdapter;
+  config: ConfigAdapter;
+  diagnostic: CLIDiagnosticAdapter;
+  ast: ASTAdapter;
+}
+
+function createAdapters(): Adapters {
+  return {
+    ts: new TypeScriptAdapter(),
+    fs: new FileSystemAdapter(),
+    config: new ConfigAdapter(),
+    diagnostic: new CLIDiagnosticAdapter(),
+    ast: new ASTAdapter(),
+  };
+}
+
+/**
  * KindScript CLI entry point.
  *
  * Composition root: wires up all real adapters and dispatches commands.
@@ -26,7 +48,9 @@ function main(): void {
   const command = args[0];
 
   if (command === '--version' || command === '-v') {
-    process.stdout.write('0.8.0-m8\n');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pkg = require('../../../package.json');
+    process.stdout.write(pkg.version + '\n');
     process.exit(0);
   }
 
@@ -35,9 +59,11 @@ function main(): void {
     process.exit(0);
   }
 
+  const adapters = createAdapters();
+
   if (command === 'check') {
     const projectPath = args[1] || process.cwd();
-    const exitCode = runCheck(projectPath);
+    const exitCode = runCheck(projectPath, adapters);
     process.exit(exitCode);
   }
 
@@ -47,7 +73,7 @@ function main(): void {
     const write = restArgs.includes('--write');
     // Project path is the first non-flag argument after 'init'
     const projectPath = restArgs.find(a => !a.startsWith('--')) || process.cwd();
-    const exitCode = runInit(projectPath, { detect, write });
+    const exitCode = runInit(projectPath, { detect, write }, adapters);
     process.exit(exitCode);
   }
 
@@ -55,7 +81,7 @@ function main(): void {
     const restArgs = args.slice(1);
     const write = restArgs.includes('--write');
     const projectPath = restArgs.find(a => !a.startsWith('--')) || process.cwd();
-    const exitCode = runInfer(projectPath, { write });
+    const exitCode = runInfer(projectPath, { write }, adapters);
     process.exit(exitCode);
   }
 
@@ -67,7 +93,7 @@ function main(): void {
     const projectPath = restArgs.find(a =>
       !a.startsWith('--') && (instanceIdx < 0 || a !== restArgs[instanceIdx + 1])
     ) || process.cwd();
-    const exitCode = runScaffold(projectPath, { write, instance });
+    const exitCode = runScaffold(projectPath, { write, instance }, adapters);
     process.exit(exitCode);
   }
 
@@ -76,69 +102,43 @@ function main(): void {
   process.exit(1);
 }
 
-function runCheck(projectPath: string): number {
-  // Wire up real adapters (composition root)
-  const tsAdapter = new TypeScriptAdapter();
-  const fsAdapter = new FileSystemAdapter();
-  const configAdapter = new ConfigAdapter();
-  const diagnosticAdapter = new CLIDiagnosticAdapter();
-  const astAdapter = new ASTAdapter();
+function runCheck(projectPath: string, a: Adapters): number {
+  const classifyAST = new ClassifyASTService(a.ast);
+  const classifyProject = new ClassifyProjectService(a.config, a.fs, a.ts, classifyAST);
+  const checkContracts = new CheckContractsService(a.ts, a.fs);
 
-  const checkContractsService = new CheckContractsService(tsAdapter, fsAdapter);
-  const classifyService = new ClassifyASTService(astAdapter);
-
-  const checkCommand = new CheckCommand(
-    checkContractsService,
-    configAdapter,
-    diagnosticAdapter,
-    fsAdapter,
-    classifyService,
-    tsAdapter,
-  );
-
-  return checkCommand.execute(projectPath);
+  const cmd = new CheckCommand(checkContracts, classifyProject, a.diagnostic);
+  return cmd.execute(projectPath);
 }
 
-function runInit(projectPath: string, options: { detect: boolean; write: boolean }): number {
-  const tsAdapter = new TypeScriptAdapter();
-  const fsAdapter = new FileSystemAdapter();
-
-  const detectService = new DetectArchitectureService(fsAdapter, tsAdapter);
-  const generateService = new GenerateProjectRefsService(fsAdapter);
+function runInit(projectPath: string, options: { detect: boolean; write: boolean }, a: Adapters): number {
+  const detectService = new DetectArchitectureService(a.fs, a.ts);
+  const generateService = new GenerateProjectRefsService(a.fs);
 
   const initCommand = new InitCommand(
     detectService,
     generateService,
-    fsAdapter
+    a.fs
   );
 
   return initCommand.execute(projectPath, options);
 }
 
-function runInfer(projectPath: string, options: { write: boolean }): number {
-  const tsAdapter = new TypeScriptAdapter();
-  const fsAdapter = new FileSystemAdapter();
+function runInfer(projectPath: string, options: { write: boolean }, a: Adapters): number {
+  const detectService = new DetectArchitectureService(a.fs, a.ts);
+  const inferService = new InferArchitectureService(detectService, a.fs);
 
-  const detectService = new DetectArchitectureService(fsAdapter, tsAdapter);
-  const inferService = new InferArchitectureService(detectService, fsAdapter);
-
-  const inferCommand = new InferCommand(inferService, fsAdapter);
-  return inferCommand.execute(projectPath, options);
+  const cmd = new InferCommand(inferService, a.fs, a.config);
+  return cmd.execute(projectPath, options);
 }
 
-function runScaffold(projectPath: string, options: { write: boolean; instance?: string }): number {
-  const tsAdapter = new TypeScriptAdapter();
-  const fsAdapter = new FileSystemAdapter();
-  const configAdapter = new ConfigAdapter();
-  const astAdapter = new ASTAdapter();
+function runScaffold(projectPath: string, options: { write: boolean; instance?: string }, a: Adapters): number {
+  const classifyAST = new ClassifyASTService(a.ast);
+  const classifyProject = new ClassifyProjectService(a.config, a.fs, a.ts, classifyAST);
+  const scaffoldService = new ScaffoldService(a.fs);
 
-  const classifyService = new ClassifyASTService(astAdapter);
-  const scaffoldService = new ScaffoldService(fsAdapter);
-
-  const scaffoldCommand = new ScaffoldCommand(
-    scaffoldService, classifyService, tsAdapter, configAdapter, fsAdapter
-  );
-  return scaffoldCommand.execute(projectPath, options);
+  const cmd = new ScaffoldCommand(scaffoldService, classifyProject, a.fs);
+  return cmd.execute(projectPath, options);
 }
 
 function printUsage(): void {

@@ -32,15 +32,14 @@ describe('CLI Tier 2 E2E', () => {
     expect(result.stderr).toContain('Forbidden dependency');
   });
 
-  it('falls back to Tier 1 when no definitions key in config', () => {
-    // Tier 1 fixtures only have "contracts" key, no "definitions"
+  it('exits 0 for clean-arch-valid fixture', () => {
     const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-valid');
     const result = run(['check', fixturePath]);
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toContain('All architectural contracts satisfied');
   });
 
-  it('Tier 1 violations still detected after Tier 2 changes', () => {
+  it('detects violations in clean-arch-violation fixture', () => {
     const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-violation');
     const result = run(['check', fixturePath]);
     expect(result.exitCode).toBe(1);

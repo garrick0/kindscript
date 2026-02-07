@@ -8,10 +8,7 @@ import { ClassifyASTRequest, ClassifyASTResponse } from './classify-ast.types';
  * - Instances (e.g., `const domain: Layer = { ... }`)
  * - Contracts (e.g., `noDependency(domain, infrastructure)`)
  *
- * This is the "Binder" phase from ANALYSIS_COMPILER_ARCHITECTURE_V4.md Part 4.1.
- *
- * In M0, this is just an interface.
- * In M2, we implement it with real AST walking logic.
+ * This is the "Binder" phase — implemented in ClassifyASTService.
  */
 export interface ClassifyASTUseCase {
   execute(request: ClassifyASTRequest): ClassifyASTResponse;

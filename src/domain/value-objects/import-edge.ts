@@ -28,7 +28,9 @@ export class ImportEdge {
     return (
       this.sourceFile === other.sourceFile &&
       this.targetFile === other.targetFile &&
-      this.importPath === other.importPath
+      this.importPath === other.importPath &&
+      this.line === other.line &&
+      this.column === other.column
     );
   }
 

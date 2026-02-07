@@ -13,8 +13,7 @@ import { CheckContractsResponse } from './check-contracts.response';
  * 3. Collect diagnostics for violations
  * 4. Return results
  *
- * This interface is implemented in M1 with real logic.
- * In M0, it's validated with mocks.
+ * Implemented in CheckContractsService.
  */
 export interface CheckContractsUseCase {
   execute(request: CheckContractsRequest): CheckContractsResponse;

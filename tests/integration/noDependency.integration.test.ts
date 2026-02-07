@@ -1,9 +1,10 @@
 import * as path from 'path';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
-import { ConfigSymbolBuilder } from '../../src/application/services/config-symbol-builder';
+import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
 import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../../src/infrastructure/adapters/filesystem/filesystem.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/adapters/config/config.adapter';
+import { ASTAdapter } from '../../src/infrastructure/adapters/ast/ast.adapter';
 
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
 
@@ -11,21 +12,42 @@ describe('noDependency Integration Tests', () => {
   let tsAdapter: TypeScriptAdapter;
   let fsAdapter: FileSystemAdapter;
   let configAdapter: ConfigAdapter;
+  let astAdapter: ASTAdapter;
   let service: CheckContractsService;
-  let symbolBuilder: ConfigSymbolBuilder;
+  let classifyService: ClassifyASTService;
 
   beforeEach(() => {
     tsAdapter = new TypeScriptAdapter();
     fsAdapter = new FileSystemAdapter();
     configAdapter = new ConfigAdapter();
+    astAdapter = new ASTAdapter();
     service = new CheckContractsService(tsAdapter, fsAdapter);
-    symbolBuilder = new ConfigSymbolBuilder();
+    classifyService = new ClassifyASTService(astAdapter);
   });
+
+  function classifyFixture(fixturePath: string) {
+    const ksConfig = configAdapter.readKindScriptConfig(fixturePath);
+    expect(ksConfig).toBeDefined();
+    expect(ksConfig!.definitions).toBeDefined();
+
+    const definitionPaths = ksConfig!.definitions!.map(d => path.resolve(fixturePath, d));
+    const program = tsAdapter.createProgram(definitionPaths, {});
+    const checker = tsAdapter.getTypeChecker(program);
+
+    const definitionSourceFiles = definitionPaths
+      .map(p => tsAdapter.getSourceFile(program, p))
+      .filter((sf): sf is NonNullable<typeof sf> => sf !== undefined);
+
+    return classifyService.execute({
+      definitionFiles: definitionSourceFiles,
+      checker,
+      projectRoot: fixturePath,
+    });
+  }
 
   it('detects violation in clean-arch-violation fixture', () => {
     const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-violation');
 
-    // Read config
     const ksConfig = configAdapter.readKindScriptConfig(fixturePath);
     expect(ksConfig).toBeDefined();
 
@@ -33,21 +55,20 @@ describe('noDependency Integration Tests', () => {
     const tsConfig = configAdapter.readTSConfig(tsconfigPath);
     expect(tsConfig).toBeDefined();
 
-    // Build symbols from config with project root for path resolution
-    const buildResult = symbolBuilder.build(ksConfig!, fixturePath);
-    expect(buildResult.contracts).toHaveLength(1);
-    expect(buildResult.errors).toHaveLength(0);
+    const classifyResult = classifyFixture(fixturePath);
+    expect(classifyResult.contracts).toHaveLength(1);
+    expect(classifyResult.errors).toHaveLength(0);
 
     // Get root files
-    const rootFiles = tsConfig!.files!;
+    const rootFiles = fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
     expect(rootFiles.length).toBeGreaterThan(0);
 
     // Execute check
     const result = service.execute({
-      symbols: buildResult.symbols,
-      contracts: buildResult.contracts,
+      symbols: classifyResult.symbols,
+      contracts: classifyResult.contracts,
       config: ksConfig!,
-      programRootFiles: rootFiles,
+      program: tsAdapter.createProgram(rootFiles, {}),
     });
 
     // Should detect the domain -> infrastructure violation
@@ -67,18 +88,14 @@ describe('noDependency Integration Tests', () => {
     const ksConfig = configAdapter.readKindScriptConfig(fixturePath);
     expect(ksConfig).toBeDefined();
 
-    const tsconfigPath = path.join(fixturePath, 'tsconfig.json');
-    const tsConfig = configAdapter.readTSConfig(tsconfigPath);
-    expect(tsConfig).toBeDefined();
-
-    const buildResult = symbolBuilder.build(ksConfig!, fixturePath);
-    const rootFiles = tsConfig!.files!;
+    const classifyResult = classifyFixture(fixturePath);
+    const rootFiles = fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
 
     const result = service.execute({
-      symbols: buildResult.symbols,
-      contracts: buildResult.contracts,
+      symbols: classifyResult.symbols,
+      contracts: classifyResult.contracts,
       config: ksConfig!,
-      programRootFiles: rootFiles,
+      program: tsAdapter.createProgram(rootFiles, {}),
     });
 
     // No violations
@@ -105,18 +122,8 @@ describe('noDependency Integration Tests', () => {
     const config = configAdapter.readKindScriptConfig(fixturePath);
 
     expect(config).toBeDefined();
-    expect(config!.contracts).toBeDefined();
-    expect(config!.contracts!.noDependency).toBeDefined();
-    expect(config!.contracts!.noDependency).toHaveLength(1);
-  });
-
-  it('config adapter reads tsconfig.json correctly', () => {
-    const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-violation');
-    const tsConfig = configAdapter.readTSConfig(path.join(fixturePath, 'tsconfig.json'));
-
-    expect(tsConfig).toBeDefined();
-    expect(tsConfig!.files).toBeDefined();
-    expect(tsConfig!.files!.length).toBeGreaterThan(0);
+    expect(config!.definitions).toBeDefined();
+    expect(config!.definitions).toHaveLength(1);
   });
 
   it('config adapter returns undefined for missing config', () => {

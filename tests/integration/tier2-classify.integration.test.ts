@@ -134,7 +134,7 @@ describe('Tier 2 Classification Integration', () => {
         symbols: classifyResult.symbols,
         contracts: classifyResult.contracts,
         config: {},
-        programRootFiles: rootFiles,
+        program,
       });
 
       expect(checkResult.violationsFound).toBe(0);
@@ -167,7 +167,7 @@ describe('Tier 2 Classification Integration', () => {
         symbols: classifyResult.symbols,
         contracts: classifyResult.contracts,
         config: {},
-        programRootFiles: rootFiles,
+        program,
       });
 
       expect(checkResult.violationsFound).toBe(1);

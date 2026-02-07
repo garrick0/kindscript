@@ -11,11 +11,7 @@ import { ResolveFilesRequest, ResolveFilesResponse } from './resolve-files.types
  * - Glob pattern: "src/**\/*.domain.ts" → files matching the pattern
  * - Package pattern: "@myorg/domain-*" → files in matching packages
  *
- * This is part of the "symbol-to-files correlation" from
- * ANALYSIS_COMPILER_ARCHITECTURE_V4.md Part 4.2.
- *
- * In M0, this is just an interface.
- * In M2, we implement it with real file system logic.
+ * Implemented in ResolveFilesService.
  */
 export interface ResolveFilesUseCase {
   execute(request: ResolveFilesRequest): ResolveFilesResponse;

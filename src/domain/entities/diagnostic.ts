@@ -1,6 +1,7 @@
 import { ImportEdge } from '../value-objects/import-edge';
 import { Contract } from './contract';
 import { ContractReference } from '../value-objects/contract-reference';
+import { DiagnosticCode } from '../constants/diagnostic-codes';
 
 /**
  * Domain entity representing an architectural violation diagnostic.
@@ -39,15 +40,11 @@ export class Diagnostic {
   static forbiddenDependency(edge: ImportEdge, contract: Contract): Diagnostic {
     return new Diagnostic(
       `Forbidden dependency: ${edge.sourceFile} → ${edge.targetFile}`,
-      70001,
+      DiagnosticCode.ForbiddenDependency,
       edge.sourceFile,
       edge.line,
       edge.column,
-      {
-        contractName: contract.name,
-        contractType: contract.type,
-        location: contract.location,
-      }
+      contract.toReference()
     );
   }
 
@@ -61,15 +58,11 @@ export class Diagnostic {
   ): Diagnostic {
     return new Diagnostic(
       `Port '${portName}' has no corresponding adapter implementation (expected in '${expectedLocation}')`,
-      70002,
+      DiagnosticCode.MissingImplementation,
       contract.location || '<unknown>',
       0,
       0,
-      {
-        contractName: contract.name,
-        contractType: contract.type,
-        location: contract.location,
-      }
+      contract.toReference()
     );
   }
 
@@ -85,15 +78,11 @@ export class Diagnostic {
   ): Diagnostic {
     return new Diagnostic(
       `Impure import in pure layer: '${importedModule}'`,
-      70003,
+      DiagnosticCode.ImpureImport,
       sourceFile,
       line,
       column,
-      {
-        contractName: contract.name,
-        contractType: contract.type,
-        location: contract.location,
-      }
+      contract.toReference()
     );
   }
 
@@ -107,15 +96,11 @@ export class Diagnostic {
     const cycleStr = cycle.join(' → ') + ' → ' + cycle[0];
     return new Diagnostic(
       `Circular dependency detected: ${cycleStr}`,
-      70004,
+      DiagnosticCode.CircularDependency,
       cycle[0],
       0,
       0,
-      {
-        contractName: contract.name,
-        contractType: contract.type,
-        location: contract.location,
-      }
+      contract.toReference()
     );
   }
 
@@ -129,15 +114,11 @@ export class Diagnostic {
   ): Diagnostic {
     return new Diagnostic(
       `Files '${primaryFile}' and '${relatedFile}' must be co-located but are not`,
-      70005,
+      DiagnosticCode.NotColocated,
       primaryFile,
       0,
       0,
-      {
-        contractName: contract.name,
-        contractType: contract.type,
-        location: contract.location,
-      }
+      contract.toReference()
     );
   }
 

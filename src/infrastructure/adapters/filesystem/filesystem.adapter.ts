@@ -90,4 +90,8 @@ export class FileSystemAdapter implements FileSystemPort {
   basename(path: string): string {
     return nodePath.basename(path);
   }
+
+  joinPath(...segments: string[]): string {
+    return nodePath.join(...segments);
+  }
 }
