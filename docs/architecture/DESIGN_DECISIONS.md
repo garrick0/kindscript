@@ -771,29 +771,13 @@ function findKindDefinitions(project: Project): KindDefinition[] {
    - There's an adapter layer (complexity)
    - The shared logic operates on a lowest-common-denominator interface (limiting)
 
-4. **For the generator, ts-morph makes more sense.** The proposal mentions ts-morph for "source file manipulation (for the emitter/scaffolder)." This is where ts-morph's value is strongest — code generation and AST transformation. For reading/classification, the value is less clear.
+4. **The original use case for ts-morph was the generator/scaffolder**, which has been removed. Without scaffolding, the remaining use cases (classification, import analysis) are straightforward AST reads where the raw compiler API is sufficient.
 
 #### Recommendation
 
-**Use ts-morph selectively:**
+**Do not use ts-morph:**
 
-1. **Generator/scaffolder: YES**
-   - ts-morph is designed for code generation
-   - Its fluent API for creating/modifying nodes is much better than raw compiler API
-   - Performance doesn't matter (scaffolding is one-time)
-
-   ```typescript
-   // scaffold/generator.ts
-   import { Project } from 'ts-morph';
-
-   const project = new Project();
-   const sourceFile = project.createSourceFile('domain/index.ts');
-   sourceFile.addExportDeclaration({
-     namedExports: ['Order', 'Customer'],
-   });
-   ```
-
-2. **Binder/classifier: NO**
+1. **Binder/classifier: NO**
    - The ergonomics win is real but not dramatic
    - The dependency cost is significant
    - The code isn't that complex with good helper functions
@@ -813,18 +797,18 @@ function findKindDefinitions(project: Project): KindDefinition[] {
    }
    ```
 
-3. **Import analysis: Use Opportunity 2's approach**
+2. **Import analysis: Use Opportunity 2's approach**
    - As established in Opportunity 2, imports are queried from ts.Program
    - No need for ts-morph's wrapper here
 
 #### Verdict
 
-**🟡 PARTIAL ADOPT - Use ts-morph for generator/scaffolder only, not for binder**
+**🔴 NOT RECOMMENDED - ts-morph is not needed**
+
+The primary use case for ts-morph was the generator/scaffolder, which has been removed. For the remaining classification and analysis tasks, the raw TypeScript compiler API with clean helper functions is sufficient and avoids the ~500KB dependency cost.
 
 Update v3:
-- Part 4.1 (Binder): Keep using raw compiler API, but add better helper functions
-- Part 4.6 (Generator): Add ts-morph as a dependency for code generation specifically
-- Build order: Generator phase adds ts-morph dependency
+- Part 4.1 (Binder): Keep using raw compiler API, with clean helper functions
 
 ---
 
@@ -1055,7 +1039,7 @@ Update v3:
 | **2. TS Module Resolution** | 🟡 **REFINE** | Keep host abstraction. Clarify implementation delegates to TS. Host provides architectural-level queries. |
 | **3. Project References** | ✅ **ADOPT** | Add Phase 0.5 and Part 2.5. Major adoption win. Makes KS the fallback, not the foundation. |
 | **4. TS Watch Infrastructure** | 🔴 **REJECT** | Keep .ksbuildinfo and cachedHost. Hook into ts.createWatchProgram but maintain KS structural watcher. |
-| **5. ts-morph for Binder** | 🟡 **PARTIAL** | Use ts-morph for generator only, not binder. Keep binder lightweight with clean helpers. |
+| **5. ts-morph for Binder** | 🔴 **REJECT** | Not needed — scaffold functionality removed. Keep binder lightweight with clean helpers. |
 | **6. npm Package Distribution** | ✅ **ADOPT** | Change standard library from "ships with KS" to separate npm packages. Enables ecosystem. |
 
 ## Final Architecture: The Thin Coordination Layer
@@ -1092,10 +1076,6 @@ packages/kindscript/src/
     detect.ts             # Pattern detection
     generate.ts           # Draft kind definitions
 
-  scaffold/
-    plan.ts               # Uses ts-morph
-    apply.ts              # Uses ts-morph
-
 packages/clean-architecture/
   index.ts               # Ships as @kindscript/clean-architecture
 
@@ -1117,7 +1097,7 @@ packages/hexagonal/
 **What's added:**
 - `cli/init.ts` - Project reference generation (Phase 0.5)
 - `plugin/` - TS language service plugin (replacement for LSP)
-- ts-morph dependency for scaffold/ only
+- No ts-morph dependency (scaffold functionality removed)
 
 ## Build Order Revised
 
@@ -1147,20 +1127,16 @@ Phase 4: Full checker
 Phase 5: Inference
   ksc infer
 
-Phase 6: Generator
-  Scaffolding with ts-morph
-  Fix patches
-
-Phase 7: Language service plugin (CHANGED)
+Phase 6: Language service plugin (CHANGED)
   TS plugin instead of LSP
   Fast diagnostics
 
-Phase 8: Incremental + watch
+Phase 7: Incremental + watch
   cachedHost
   .ksbuildinfo
   Hook ts.createWatchProgram
 
-Phase 9: Standard library packages (NEW)
+Phase 8: Standard library packages (NEW)
   Publish @kindscript/clean-architecture
   Publish @kindscript/hexagonal
 ```
@@ -1176,7 +1152,7 @@ The proposal's core thesis is correct: **v3 built more than necessary.** But it 
 
 **Refine:**
 - Host abstraction (keep it, but clarify it's delegation + architectural queries)
-- ts-morph (use selectively for generation, not everywhere)
+- ts-morph (not needed — scaffold functionality removed)
 
 **Reject:**
 - Eliminating .ksbuildinfo (conflates source code with architectural facts)
@@ -1186,7 +1162,6 @@ The result is leaner than v3 but not as thin as the proposal suggested. The genu
 2. Symbol-to-files resolution (architectural correlation)
 3. Contract evaluation (behavioral checking)
 4. Inference (spec from code)
-5. Generation (code from spec)
 
 Everything else delegates to TypeScript or uses TypeScript's extension points.
 

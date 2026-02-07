@@ -46,11 +46,7 @@ This is basename-only matching — `src/components/button.ts` checks for `src/te
 
 `src/domain/value-objects/location.ts` defines a `Location` class with `path`, `isPattern`, and a `matches()` method that supports basic glob-to-regex conversion. But nothing uses it — the entire codebase works with raw strings. The comment "Real implementation would use minimatch" confirms this is a stub.
 
-### 1.4 What scaffold does
-
-`ScaffoldService` walks the symbol tree and emits `CreateDirectory` and `CreateFile` operations. It generates one directory per symbol and one `index.ts` per leaf member. No ability to enforce that specific files exist, match patterns, or sit at specific relative positions.
-
-### 1.5 Summary: what's enforced today
+### 1.4 Summary: what's enforced today
 
 | Constraint | Supported? | How |
 |---|---|---|

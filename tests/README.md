@@ -35,13 +35,12 @@ tests/
 │   ├── Adapters/                # Infrastructure adapters
 │   └── Value objects/           # value-objects.test.ts (consolidated)
 │
-├── integration/                  # 5 files - Multi-component tests
+├── integration/                  # 4 files - Multi-component tests
 │   ├── check-contracts.integration.test.ts
 │   ├── tier2-contracts.integration.test.ts
 │   ├── tier2-locate.integration.test.ts
 │   ├── infer-and-detect.integration.test.ts
-│   ├── scaffold.integration.test.ts
-│   └── fixtures/                # 29 fixture directories
+│   └── fixtures/                # 26 fixture directories
 │       └── README.md            # Complete fixture catalog
 │
 └── e2e/                          # 1 file - CLI tests (consolidated)
@@ -157,7 +156,7 @@ describe('CLI E2E', () => {
 });
 ```
 
-**Note:** All E2E tests are consolidated into a single `cli.e2e.test.ts` file, organized by command (check, infer, scaffold).
+**Note:** All E2E tests are consolidated into a single `cli.e2e.test.ts` file, organized by command (check, infer).
 
 ---
 
@@ -321,9 +320,9 @@ it('reads real files', () => {
 
 // E2E test with temp directory
 it('writes files', () => {
-  const tmpDir = copyFixtureToTemp('scaffold-clean-arch');
-  const result = run(['scaffold', '--write', tmpDir]);
-  expect(fs.existsSync(path.join(tmpDir, 'src/domain'))).toBe(true);
+  const tmpDir = copyFixtureToTemp('detect-clean-arch');
+  const result = run(['infer', '--write', tmpDir]);
+  expect(fs.existsSync(path.join(tmpDir, 'architecture.ts'))).toBe(true);
   fs.rmSync(tmpDir, { recursive: true });
 });
 ```

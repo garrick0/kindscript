@@ -6,7 +6,7 @@ import { ClassifyProjectRequest, ClassifyProjectResult } from './classify-projec
  * Encapsulates the full workflow: read config → resolve definitions →
  * create TS program → classify definitions → return symbols + contracts.
  *
- * Used by CLI commands (check, scaffold) and any context that needs
+ * Used by CLI commands (check) and any context that needs
  * the full project classification pipeline.
  */
 export interface ClassifyProjectUseCase {

@@ -8,18 +8,18 @@
 
 ## Summary
 
-The codebase is substantially implemented. All 9 use cases, all 5 contract types, the CLI (4 commands), the TS language service plugin, and 3 standard library packages are built and tested across 44 test files. The architecture follows strict Clean Architecture with zero domain-layer leakage.
+The codebase is substantially implemented. All 8 use cases, all 5 contract types, the CLI (3 commands), the TS language service plugin, and 3 standard library packages are built and tested across 44 test files. The architecture follows strict Clean Architecture with zero domain-layer leakage.
 
 | Area | Status |
 |------|--------|
 | Core pipeline (binder, checker, host) | Done |
 | All 5 contract types | Done |
-| CLI (`ksc check`, `init`, `infer`, `scaffold`) | Done |
+| CLI (`ksc check`, `init`, `infer`) | Done |
 | TS Language Service Plugin | Done (partial code fixes) |
 | Standard library packages (3 of 4) | Done |
 | Watch mode / incremental `.ksbuildinfo` | Not started |
 | Inference engine | Done |
-| Generator / scaffolding | Done |
+| Generator / scaffolding | Removed |
 
 ---
 
@@ -127,21 +127,9 @@ The codebase is substantially implemented. All 9 use cases, all 5 contract types
 
 ---
 
-### Phase 5: Generator (Scaffolding) — DONE
+### Phase 5: Generator (Scaffolding) — REMOVED
 
-> *"Plan operations, apply operations, fix patches"*
-
-| Spec Item | Status | Location |
-|-----------|--------|----------|
-| Plan operations (what to create) | Done | `scaffold.service.ts` builds `ScaffoldPlan` |
-| Apply operations (execute) | Done | `scaffold.service.ts` with skip-if-exists |
-| Dry-run mode | Done | CLI omits `--write` for preview |
-| Nested/multi-instance scaffolding | Done | Integration tests confirm |
-| `ksc scaffold` CLI command | Done | `commands/scaffold.command.ts` |
-| Fix patches (correct violations) | **NOT DONE** | Only scaffolding, no violation auto-fix patches |
-| E2E tests | Done | `cli-scaffold.e2e.test.ts` |
-
-**Gap:** The "fix patches" capability (generating code patches to correct violations) is not implemented. Scaffolding only creates new directories/files.
+Removed -- scaffold functionality was removed as a peripheral convenience feature.
 
 ---
 
@@ -263,26 +251,24 @@ The architecture doc describes a `KindScriptHost extends ts.CompilerHost` with t
 
 5. **`@kindscript/modular-monolith` package** — 4th standard library pattern mentioned in the spec.
 
-6. **Fix patches in generator** — Scaffolding creates new files but doesn't generate patches to fix existing violations.
+6. **Lazy contract evaluation** — Evaluate contracts on-demand rather than all-at-once, for performance.
 
-7. **Lazy contract evaluation** — Evaluate contracts on-demand rather than all-at-once, for performance.
-
-8. **Caching layer** — In-memory memoization of directory listings, import edges, symbol resolutions, and contract results (the `cachedHost` concept).
+7. **Caching layer** — In-memory memoization of directory listings, import edges, symbol resolutions, and contract results (the `cachedHost` concept).
 
 ### Lower Priority (Polish)
 
-9. **Plugin code lens** — Show "N contracts passing / N violations" inline.
+8. **Plugin code lens** — Show "N contracts passing / N violations" inline.
 
-10. **Plugin hover extensions** — Show architectural context on hover.
+9. **Plugin hover extensions** — Show architectural context on hover.
 
-11. **Performance benchmarking** — Verify sub-100ms per-file plugin checks.
+10. **Performance benchmarking** — Verify sub-100ms per-file plugin checks.
 
-12. **npm publishing pipeline** — Per-package `package.json`, `.d.ts` + `.js` split, CI publish workflow.
+11. **npm publishing pipeline** — Per-package `package.json`, `.d.ts` + `.js` split, CI publish workflow.
 
-13. **README update** — Still says "M0 complete, M1 in progress" but codebase is at M8.
+12. **README update** — Still says "M0 complete, M1 in progress" but codebase is at M8.
 
 ### Housekeeping
 
-14. **Empty `absc` file at repo root** — Appears to be abandoned; can be removed.
+13. **Empty `absc` file at repo root** — Appears to be abandoned; can be removed.
 
-15. **Deno / Node dual config** — `deno.json` + `lib/` directory appear vestigial. The `Kind` type is defined in both `lib/types.ts` and `src/runtime/kind.ts`.
+14. **Deno / Node dual config** — `deno.json` + `lib/` directory appear vestigial. The `Kind` type is defined in both `lib/types.ts` and `src/runtime/kind.ts`.

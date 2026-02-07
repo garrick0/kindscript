@@ -250,15 +250,15 @@ TypeScript Pipeline                KindScript Pipeline
      │                                   │            host queries)
 ts.Diagnostic                      ts.Diagnostic  ← same format!
      │                                   │
-┌────▼─────┐                        ┌────▼─────┐
-│ Emitter  │                        │Generator │  ← adapted
-└────┬─────┘                        └────┬─────┘
-     │                                   │
- .js  .d.ts                      scaffolds  patches
+┌────▼─────┐
+│ Emitter  │
+└────┬─────┘
+     │
+ .js  .d.ts
 
 
 Shared: ▓▓▓▓▓▓▓▓ (scanner, parser, AST, diagnostic format)
-New:    ░░░░░░░░ (binder, checker, generator)
+New:    ░░░░░░░░ (binder, checker)
 Host:   queried lazily by the CHECKER (not the binder)
 ```
 
@@ -304,8 +304,7 @@ Diagnostic (ts.Diagnostic)          ts.Diagnostic (SAME — no custom type)
                                     Uses code range 70000-79999
                                     Uses relatedInformation for contract refs
 
-Emitter (AST → .js/.d.ts)          Generator (kind defs → scaffolded
-                                    code, violations → fix patches)
+Emitter (AST → .js/.d.ts)          N/A (KindScript does not emit code)
 
 Inference (implicit types           Inference (codebase → inferred
   from expressions)                   kind definitions) — separate component
@@ -616,70 +615,7 @@ testHost
 
 The interface is identical. Caching is transparent to the checker.
 
-### 4.5 The Generator (Scaffolding)
-
-**Decision: BUILD** — genuinely new
-
-**Implementation approach:** Raw TypeScript compiler API (consistent with classifier).
-
-Generate directory structures and stub files from kind definitions:
-
-```typescript
-// scaffold/plan.ts
-interface Operation {
-  type: 'createDirectory' | 'createFile' | 'modifyFile';
-  path: string;
-  content?: string;
-}
-
-function planScaffold(kind: ArchSymbol, instance: ArchSymbol): Operation[] {
-  const ops: Operation[] = [];
-
-  // Create directory for instance
-  ops.push({
-    type: 'createDirectory',
-    path: instance.declaredLocation,
-  });
-
-  // Create directories for each member
-  for (const [name, member] of instance.members ?? []) {
-    ops.push({
-      type: 'createDirectory',
-      path: `${instance.declaredLocation}/${name}`,
-    });
-
-    // Create index.ts stub
-    ops.push({
-      type: 'createFile',
-      path: `${instance.declaredLocation}/${name}/index.ts`,
-      content: `// ${name} layer\nexport {};\n`,
-    });
-  }
-
-  return ops;
-}
-
-// scaffold/apply.ts
-function applyOperations(ops: Operation[], host: KindScriptHost): void {
-  for (const op of ops) {
-    switch (op.type) {
-      case 'createDirectory':
-        if (!host.directoryExists(op.path)) {
-          ts.sys.createDirectory!(op.path);
-        }
-        break;
-      case 'createFile':
-        ts.sys.writeFile(op.path, op.content ?? '', false);
-        break;
-      // ... other operations
-    }
-  }
-}
-```
-
-**Ecosystem precedent:** Nx generators, Angular schematics both use Plan + Apply pattern (compute operations, then execute). This enables preview, dry-run, and IDE integration.
-
-### 4.6 Inference (Code → Spec)
+### 4.5 Inference (Code → Spec)
 
 **Decision: BUILD** — genuinely new
 
@@ -705,7 +641,7 @@ ksc infer --root src/contexts/ordering
 
 **No ecosystem equivalent.** Tools like Knip detect unused exports. dependency-cruiser validates given rules. None infer architectural pattern definitions from structure. This is genuinely novel.
 
-### 4.7 The Program
+### 4.6 The Program
 
 TypeScript's `ts.Program` orchestrates compilation. KindScript's program wraps it:
 
@@ -1135,17 +1071,13 @@ packages/kindscript/src/
     hover.ts              # Extended hover info
 
   cli/
-    cli.ts                # ksc check, ksc infer, ksc scaffold
+    cli.ts                # ksc check, ksc infer
     init.ts               # Project reference generation (Phase 0.5)
     watch.ts              # Structural watcher (supplements tsserver)
 
   infer/
     detect.ts             # Pattern detection from structure
     generate.ts           # Draft kind definitions
-
-  scaffold/
-    plan.ts               # Compute operations
-    apply.ts              # Execute operations
 
   program/
     program.ts            # ks.Program (wraps ts.Program)
@@ -1198,17 +1130,17 @@ packages/hexagonal/
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 3          Phase 4          Phase 5          Phase 6      │
+│  Phase 3          Phase 4          Phase 5                         │
 │                                                                   │
-│  Full checker     Inference        Generator        Plugin       │
-│  ─────────────    ────────────     ─────────────    ──────────   │
-│  All contracts    ksc infer        scaffold/        plugin/      │
-│  Lazy eval        Pattern detect   plan.ts          index.ts     │
-│  Caching          Draft kind defs  apply.ts         Fast checks  │
-│  .ksbuildinfo     Adoption accel   Fix patches      ts.Diagnostic│
-│                                                     Code actions │
+│  Full checker     Inference        Plugin                         │
+│  ─────────────    ────────────     ──────────                     │
+│  All contracts    ksc infer        plugin/                         │
+│  Lazy eval        Pattern detect   index.ts                       │
+│  Caching          Draft kind defs  Fast checks                    │
+│  .ksbuildinfo     Adoption accel   ts.Diagnostic                  │
+│                                    Code actions                   │
 │                                                                   │
-│  ◄── 3 weeks ───►◄── 2 weeks ────►◄── 2 weeks ───►◄── 2 weeks ►│
+│  ◄── 3 weeks ───►◄── 2 weeks ────►◄── 2 weeks ───────────────►│
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1305,16 +1237,7 @@ Build `ksc infer`:
 
 **Deliverable:** `ksc infer` produces draft architecture.ts from existing codebase.
 
-### Phase 5: Generator (2 weeks)
-
-Build scaffolding:
-- Plan operations (what to create)
-- Apply operations (execute)
-- Fix patches (correct violations)
-
-**Deliverable:** `ksc scaffold` creates directories and stubs from kind definitions.
-
-### Phase 6: Plugin (2 weeks)
+### Phase 5: Plugin (2 weeks)
 
 Build TS language service plugin:
 - Intercept `getSemanticDiagnostics`
@@ -1324,7 +1247,7 @@ Build TS language service plugin:
 
 **Deliverable:** Plugin shows architectural violations in editor alongside type errors.
 
-### Phase 7: Standard Library Packages (Ongoing)
+### Phase 6: Standard Library Packages (Ongoing)
 
 Publish core patterns as npm packages:
 - `@kindscript/clean-architecture`
@@ -1342,12 +1265,11 @@ Each package: .d.ts (types) + .js (contracts).
 
 Based on ecosystem evidence from real production tools:
 
-**BUILD (5 components — genuinely new):**
+**BUILD (4 components — genuinely new):**
 1. Classifier (AST → ArchSymbol) — Angular does similar for decorators
 2. Symbol-to-files resolution — No equivalent in TS ecosystem
 3. Contract evaluation — dependency-cruiser is adjacent, not equivalent
 4. Inference engine — No equivalent (tools validate, don't infer patterns)
-5. Generator/scaffolding — Nx/Angular have similar patterns, different domain
 
 **WRAP (8 components — delegate to TS):**
 1. Module resolution / import graph — Thin query over ts.Program
@@ -1382,7 +1304,6 @@ The genuinely novel contributions are:
 2. Mapping architectural declarations to filesystem reality (symbol-to-files)
 3. Evaluating behavioral contracts over the codebase structure
 4. Inferring architectural patterns from existing code
-5. Generating scaffolding from architectural definitions
 
 Everything else delegates to TypeScript's existing infrastructure:
 - Parsing → TypeScript

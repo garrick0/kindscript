@@ -144,7 +144,6 @@ Violations now appear inline in VS Code, Vim, Emacs, WebStorm -- any editor usin
 ksc check [path]                   Check architectural contracts
 ksc init --detect [--write]        Detect architecture, generate project references
 ksc infer [path] [--write]         Infer Kind definitions from existing codebase
-ksc scaffold [path] [--write]      Scaffold directory structure from definitions
 ```
 
 **`ksc check`** -- Validates all contracts against the codebase. Returns exit code 1 on violations (CI-ready).
@@ -152,8 +151,6 @@ ksc scaffold [path] [--write]      Scaffold directory structure from definitions
 **`ksc init --detect`** -- Analyzes directory structure and import graph, detects architectural patterns (Clean Architecture, Hexagonal, Layered), and generates `tsconfig.json` files with TypeScript project references for immediate boundary enforcement.
 
 **`ksc infer`** -- Walks filesystem structure, analyzes imports, pattern-matches architecture, and generates a complete `architecture.ts` draft with Kind definitions and contracts.
-
-**`ksc scaffold`** -- Creates directories and stub files from Kind definitions. Use `--write` to execute (default is dry-run preview).
 
 ## Contract Types
 
@@ -249,7 +246,7 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |   =====================================================               |
   |                                                                       |
   |   Entities:       ArchSymbol, Contract, Diagnostic, Program           |
-  |   Value Objects:  ImportEdge, Location, ScaffoldPlan, ...             |
+  |   Value Objects:  ImportEdge, Location, ...                           |
   |   Types:          ArchSymbolKind, ContractType, ArchitecturePattern   |
   |                                                                       |
   +----------------------------------+------------------------------------+
@@ -265,10 +262,10 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |     TypeScriptPort    FileSystemPort    ConfigPort                    |
   |     ASTPort           DiagnosticPort    LanguageServicePort           |
   |                                                                       |
-  |   Use Cases (9):                                                      |
+  |   Use Cases (8):                                                      |
   |     CheckContracts        ClassifyAST          ResolveFiles           |
   |     DetectArchitecture    InferArchitecture    GenerateProjectRefs    |
-  |     Scaffold              GetPluginDiagnostics GetPluginCodeFixes     |
+  |     GetPluginDiagnostics  GetPluginCodeFixes                         |
   |                                                                       |
   +----------------------------------+------------------------------------+
                                      |
@@ -288,7 +285,7 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |     LanguageServiceAdapter (wraps ts.server.PluginCreateInfo)         |
   |                                                                       |
   |   Entry Points (composition roots):                                   |
-  |     CLI  (main.ts)  -----> ksc check | init | infer | scaffold       |
+  |     CLI  (main.ts)  -----> ksc check | init | infer                  |
   |     Plugin (index.ts) ---> TS language service plugin                 |
   |                                                                       |
   +-----------------------------------------------------------------------+
@@ -305,7 +302,7 @@ src/
 
   domain/
     entities/                     ArchSymbol, Contract, Diagnostic, ...
-    value-objects/                ImportEdge, Location, ScaffoldPlan, ...
+    value-objects/                ImportEdge, Location, ...
     types/                       ArchSymbolKind, ContractType, ...
 
   application/
@@ -318,7 +315,6 @@ src/
       detect-architecture/       Pattern detection from structure
       infer-architecture/        Generate architecture.ts drafts
       generate-project-refs/     TypeScript project reference generation
-      scaffold/                  Directory/file scaffolding
       get-plugin-diagnostics/    Plugin diagnostic integration
       get-plugin-code-fixes/     Plugin quick-fix suggestions
 
@@ -386,7 +382,7 @@ See **[tests/README.md](tests/README.md)** for complete testing documentation, i
 Jupyter notebooks in `notebooks/` provide interactive walkthroughs:
 
 ```
-01-quickstart.ipynb       From zero to enforced architecture (infer, scaffold, check)
+01-quickstart.ipynb       From zero to enforced architecture (infer, check)
 02-contracts.ipynb        All 5 contract types + existence checking, with examples
 03-stdlib-and-ci.ipynb    Standard library packages and CI integration
 ```
@@ -424,7 +420,7 @@ All core functionality is implemented and tested. See [DONE_VS_TODO.md](docs/sta
 
 **What's working:**
 - All 5 contract types (noDependency, mustImplement, purity, noCycles, colocated)
-- CLI with 4 commands (check, init, infer, scaffold)
+- CLI with 3 commands (check, init, infer)
 - TypeScript language service plugin (inline diagnostics + code fix suggestions)
 - AST classifier (Kind definitions, instances, contracts)
 - Architecture inference from existing codebases

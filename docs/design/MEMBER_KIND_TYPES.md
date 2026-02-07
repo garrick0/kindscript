@@ -156,15 +156,13 @@ The classifier skips `kind` and `location` properties (line 166: `if (prop.name 
 | Consumer | Uses member kind? | What it uses instead |
 |---|---|---|
 | `CheckContractsService` | No | `declaredLocation` only |
-| `ScaffoldService` | No | `name` and `declaredLocation` only |
 | `GetPluginDiagnosticsService` | No | Delegates to CheckContracts |
 | `GetPluginCodeFixesService` | No | Error codes only |
 | `ClassifyProjectService` | No | Passes through from ClassifyAST |
-| `ScaffoldCommand` | Filters `ArchSymbolKind.Instance` | Uses `instanceTypeNames` map for Kind name |
 | `CheckCommand` | No | Passes symbols/contracts through |
 | `InferCommand` | No | Uses detect→infer pipeline, not classifier |
 
-Changes from V2: `ConfigSymbolBuilder` was deleted. `ScaffoldCommand` now gets the Kind type name from `ClassifyProjectResult.instanceTypeNames` — a side-channel map, not from `ArchSymbol` itself. The `instanceTypeNames` map exists precisely because `ArchSymbol` doesn't carry this information.
+Changes from V2: `ConfigSymbolBuilder` was deleted. The `instanceTypeNames` map exists precisely because `ArchSymbol` doesn't carry this information.
 
 ### The information exists — it's just disconnected (updated)
 
@@ -191,10 +189,6 @@ With packages defining Kind types, a `DomainLayer` definition in `@kindscript/cl
 ### Contracts could self-validate across package boundaries
 
 Today, `mustImplement: [["ports", "adapters"]]` in the hexagonal package is bound by string name. With member kind identity, the contract binding step could verify that `"ports"` resolves to a `PortsLayer`-typed member and `"adapters"` resolves to an `AdaptersLayer`-typed member. This would catch misconfiguration where a user accidentally maps `ports` to a directory that's typed as something else.
-
-### Scaffold could use package Kind types for richer stubs
-
-The scaffold service currently generates generic `export {};` stubs. If it knew a member was typed as `PortsLayer` from the hexagonal package, it could generate interface stubs. If typed as `AdaptersLayer`, it could generate class stubs with `implements` clauses. The Kind type name IS the information scaffold needs.
 
 ### Diagnostics could reference Kind type names
 

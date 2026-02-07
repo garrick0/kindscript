@@ -318,18 +318,7 @@ Existence checking runs as part of the check pipeline, after classification and 
 Missing locations could be:
 
 - **Error** (default) — `ksc check` fails. You declared structure that doesn't exist.
-- **Warning** (via config or flag) — for greenfield projects where `ksc scaffold` hasn't run yet.
-
-### Interaction with scaffold
-
-`ksc scaffold` becomes the fix for existence violations. The workflow is:
-
-1. Define Kinds and instance → `architecture.ts`
-2. `ksc check` → reports missing directories
-3. `ksc scaffold` → creates the directories
-4. `ksc check` → passes
-
-Or for new projects: `ksc scaffold` first, then `ksc check` validates contracts.
+- **Warning** (via config or flag) — for greenfield projects where directories haven't been created yet.
 
 ---
 

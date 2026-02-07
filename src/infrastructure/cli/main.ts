@@ -3,14 +3,12 @@
 import { CheckCommand } from './commands/check.command';
 import { InitCommand } from './commands/init.command';
 import { InferCommand } from './commands/infer.command';
-import { ScaffoldCommand } from './commands/scaffold.command';
 import { CheckContractsService } from '../../application/use-cases/check-contracts/check-contracts.service';
 import { ClassifyASTService } from '../../application/use-cases/classify-ast/classify-ast.service';
 import { ClassifyProjectService } from '../../application/use-cases/classify-project/classify-project.service';
 import { DetectArchitectureService } from '../../application/use-cases/detect-architecture/detect-architecture.service';
 import { GenerateProjectRefsService } from '../../application/use-cases/generate-project-refs/generate-project-refs.service';
 import { InferArchitectureService } from '../../application/use-cases/infer-architecture/infer-architecture.service';
-import { ScaffoldService } from '../../application/use-cases/scaffold/scaffold.service';
 import { TypeScriptAdapter } from '../adapters/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../adapters/filesystem/filesystem.adapter';
 import { ConfigAdapter } from '../adapters/config/config.adapter';
@@ -85,18 +83,6 @@ function main(): void {
     process.exit(exitCode);
   }
 
-  if (command === 'scaffold') {
-    const restArgs = args.slice(1);
-    const write = restArgs.includes('--write');
-    const instanceIdx = restArgs.indexOf('--instance');
-    const instance = instanceIdx >= 0 ? restArgs[instanceIdx + 1] : undefined;
-    const projectPath = restArgs.find(a =>
-      !a.startsWith('--') && (instanceIdx < 0 || a !== restArgs[instanceIdx + 1])
-    ) || process.cwd();
-    const exitCode = runScaffold(projectPath, { write, instance }, adapters);
-    process.exit(exitCode);
-  }
-
   process.stderr.write(`Unknown command: ${command}\n\n`);
   printUsage();
   process.exit(1);
@@ -132,15 +118,6 @@ function runInfer(projectPath: string, options: { write: boolean }, a: Adapters)
   return cmd.execute(projectPath, options);
 }
 
-function runScaffold(projectPath: string, options: { write: boolean; instance?: string }, a: Adapters): number {
-  const classifyAST = new ClassifyASTService(a.ast);
-  const classifyProject = new ClassifyProjectService(a.config, a.fs, a.ts, classifyAST);
-  const scaffoldService = new ScaffoldService(a.fs);
-
-  const cmd = new ScaffoldCommand(scaffoldService, classifyProject, a.fs);
-  return cmd.execute(projectPath, options);
-}
-
 function printUsage(): void {
   process.stderr.write(
     `KindScript - Architectural enforcement for TypeScript
@@ -151,7 +128,6 @@ Commands:
   check [path]                          Check architectural contracts (default: current directory)
   init --detect [--write]               Detect architecture and generate project references
   infer [path] [--write]                Infer architecture and generate Kind definitions
-  scaffold [path] [--write] [--instance name]  Scaffold directories from Kind definitions
 
 Options:
   -h, --help      Show this help message
@@ -164,8 +140,6 @@ Examples:
   ksc init --detect --write    Detect and write tsconfig files
   ksc infer                    Infer architecture (dry run)
   ksc infer --write            Infer and write architecture.ts
-  ksc scaffold                 Show scaffold plan (dry run)
-  ksc scaffold --write         Scaffold directories and stub files
 `
   );
 }

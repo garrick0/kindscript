@@ -35,11 +35,6 @@ export const FIXTURES = {
   COLOCATED_CLEAN: path.join(FIXTURES_BASE, 'colocated-clean'),
   COLOCATED_VIOLATION: path.join(FIXTURES_BASE, 'colocated-violation'),
 
-  // Scaffolding fixtures
-  SCAFFOLD_CLEAN_ARCH: path.join(FIXTURES_BASE, 'scaffold-clean-arch'),
-  SCAFFOLD_MULTI_INSTANCE: path.join(FIXTURES_BASE, 'scaffold-multi-instance'),
-  SCAFFOLD_NESTED: path.join(FIXTURES_BASE, 'scaffold-nested'),
-
   // Stdlib package fixtures
   STDLIB_CLEAN_ARCH: path.join(FIXTURES_BASE, 'stdlib-clean-arch'),
   STDLIB_CLEAN_ARCH_VIOLATION: path.join(FIXTURES_BASE, 'stdlib-clean-arch-violation'),
@@ -75,9 +70,6 @@ export const FIXTURE_NAMES = {
   MUST_IMPLEMENT_VIOLATION: 'must-implement-violation',
   COLOCATED_CLEAN: 'colocated-clean',
   COLOCATED_VIOLATION: 'colocated-violation',
-  SCAFFOLD_CLEAN_ARCH: 'scaffold-clean-arch',
-  SCAFFOLD_MULTI_INSTANCE: 'scaffold-multi-instance',
-  SCAFFOLD_NESTED: 'scaffold-nested',
   STDLIB_CLEAN_ARCH: 'stdlib-clean-arch',
   STDLIB_CLEAN_ARCH_VIOLATION: 'stdlib-clean-arch-violation',
   STDLIB_MISSING_PKG: 'stdlib-missing-pkg',

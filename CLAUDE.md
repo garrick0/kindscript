@@ -39,7 +39,7 @@ src/
 │   └── define-contracts.ts          # defineContracts<T>() marker
 ├── domain/
 │   ├── entities/                    # ArchSymbol, Contract, Diagnostic
-│   ├── value-objects/               # ImportEdge, Location, ScaffoldPlan
+│   ├── value-objects/               # ImportEdge, Location
 │   ├── types/                       # ArchSymbolKind, ContractType
 │   └── constants/                   # DiagnosticCode
 ├── application/
@@ -52,7 +52,6 @@ src/
 │       ├── detect-architecture/     # Pattern detection
 │       ├── infer-architecture/      # Generate architecture.ts
 │       ├── generate-project-refs/   # TypeScript project references
-│       ├── scaffold/                # Directory scaffolding
 │       ├── get-plugin-diagnostics/  # Plugin integration
 │       └── get-plugin-code-fixes/   # Quick-fix suggestions
 └── infrastructure/
@@ -70,7 +69,7 @@ src/
 
 ## Test Suite Organization
 
-**Current Stats:** 33 test files, 388 tests, 100% passing
+**Current Stats:** 30 test files, ~360 tests, 100% passing
 
 ### Test Layers
 
@@ -82,7 +81,7 @@ tests/
 │   ├── test-pipeline.ts             # Integration test pipeline helper
 │   └── (E2E helpers in tests/e2e/helpers.ts)
 │
-├── unit/                            # 28 files - Fast isolated tests
+├── unit/                            # 26 files - Fast isolated tests
 │   ├── arch-symbol.test.ts          # Domain entities
 │   ├── contract.test.ts
 │   ├── diagnostic.test.ts
@@ -90,13 +89,12 @@ tests/
 │   ├── check-contracts-*.test.ts    # Service tests (split into 3)
 │   └── ...                          # All other services & adapters
 │
-├── integration/                     # 5 files - Multi-component tests
+├── integration/                     # 4 files - Multi-component tests
 │   ├── check-contracts.integration.test.ts
 │   ├── tier2-contracts.integration.test.ts
 │   ├── tier2-locate.integration.test.ts
 │   ├── infer-and-detect.integration.test.ts
-│   ├── scaffold.integration.test.ts
-│   └── fixtures/                    # 29 fixture directories
+│   └── fixtures/                    # 26 fixture directories
 │       ├── clean-arch-valid/
 │       ├── clean-arch-violation/
 │       ├── tier2-clean-arch/
@@ -133,7 +131,7 @@ tests/
 - Debugging tips
 
 **FIXTURES:** [tests/integration/fixtures/README.md](tests/integration/fixtures/README.md) - Fixture catalog
-- All 29 fixtures documented
+- All 26 fixtures documented
 - Purpose and contents
 - Usage matrix
 - Adding new fixtures
@@ -304,7 +302,7 @@ it('checks contracts', () => {
 **Summary:** Major test file splits completed
 - Split `classify-ast.service.test.ts` (1,034 lines) → 3 focused files
 - Split `check-contracts.service.test.ts` (686 lines) → 3 focused files
-- All 388 tests passing, 100% pass rate maintained
+- All ~360 tests passing, 100% pass rate maintained
 - Largest file reduced from 1,034 to 570 lines (-45%)
 
 **Impact for agents:**
@@ -469,4 +467,4 @@ If still unclear, ask the user for clarification rather than guessing.
 ---
 
 **Last Updated:** 2026-02-07
-**Test Suite Status:** 33 files, 388 tests, 100% passing ✅
+**Test Suite Status:** 30 files, ~360 tests, 100% passing

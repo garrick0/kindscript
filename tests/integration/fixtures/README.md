@@ -1,6 +1,6 @@
 # Test Fixtures Catalog
 
-This directory contains 29 fixture directories used for integration and E2E testing. Each fixture represents a complete KindScript project with specific architectural characteristics.
+This directory contains 26 fixture directories used for integration and E2E testing. Each fixture represents a complete KindScript project with specific architectural characteristics.
 
 ---
 
@@ -104,19 +104,6 @@ Each contract type has dedicated fixtures.
 
 ---
 
-### Scaffolding Fixtures
-For testing directory/file generation.
-
-| Fixture | Purpose | Special Features |
-|---------|---------|-----------------|
-| `scaffold-clean-arch` | Basic scaffold test | Standard 3-layer structure |
-| `scaffold-multi-instance` | Multiple Kind instances | Two locate() calls (ordering, billing) |
-| `scaffold-nested` | Nested member structure | domain.entities, domain.ports |
-
-**Used by:** scaffold.integration, cli-scaffold.e2e
-
----
-
 ### locate<T>() Feature Fixtures
 Test the location derivation mechanism.
 
@@ -155,7 +142,6 @@ fixture-name/
 
 - **node_modules/** - Only in stdlib fixtures (infer-with-stdlib, stdlib-*)
 - **No architecture.ts** - Only in detect-* fixtures (to be generated)
-- **No src/** - Only in scaffold-* fixtures (to be generated)
 
 ---
 
@@ -196,7 +182,7 @@ import { FIXTURE_NAMES } from '../helpers/fixtures';
 const result = run(['check', path.join(FIXTURES_DIR, 'clean-arch-violation')]);
 
 // Using copyFixtureToTemp for --write tests
-const tmpDir = copyFixtureToTemp(FIXTURE_NAMES.SCAFFOLD_CLEAN_ARCH);
+const tmpDir = copyFixtureToTemp(FIXTURE_NAMES.DETECT_CLEAN_ARCH);
 ```
 
 ---
