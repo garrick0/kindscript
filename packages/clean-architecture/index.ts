@@ -11,7 +11,10 @@
  * @see https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
  */
 
-import { Kind, ContractConfig, defineContracts } from 'kindscript';
+import { Kind, ContractConfig, defineContracts, locate, MemberMap } from 'kindscript';
+
+// Re-export locate and MemberMap for consumers of this package
+export { locate, MemberMap };
 
 /** A bounded context following Clean Architecture principles. */
 export interface CleanContext extends Kind<"CleanContext"> {

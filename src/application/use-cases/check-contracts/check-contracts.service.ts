@@ -3,6 +3,7 @@ import { CheckContractsRequest } from './check-contracts.request';
 import { CheckContractsResponse } from './check-contracts.response';
 import { TypeScriptPort, TypeChecker } from '../../ports/typescript.port';
 import { FileSystemPort } from '../../ports/filesystem.port';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { Contract } from '../../../domain/entities/contract';
 import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { ContractType } from '../../../domain/types/contract-type';
@@ -77,12 +78,41 @@ export class CheckContractsService implements CheckContractsUseCase {
       }
     }
 
+    // Existence checking for locate-based instances (locationDerived members)
+    for (const symbol of request.symbols) {
+      const existenceResult = this.checkExistence(symbol);
+      diagnostics.push(...existenceResult.diagnostics);
+    }
+
     return {
       diagnostics,
       contractsChecked: request.contracts.length,
       violationsFound: diagnostics.length,
       filesAnalyzed,
     };
+  }
+
+  /**
+   * Check that all derived member locations actually exist on the filesystem.
+   * Only checks members with locationDerived === true (from locate<T>() calls).
+   */
+  private checkExistence(symbol: ArchSymbol): { diagnostics: Diagnostic[] } {
+    const diagnostics: Diagnostic[] = [];
+
+    for (const member of symbol.descendants()) {
+      if (!member.locationDerived) continue;
+      if (!member.declaredLocation) continue;
+      if (!this.fsPort.directoryExists(member.declaredLocation)) {
+        diagnostics.push(Diagnostic.locationNotFound(
+          member.declaredLocation,
+          member.name,
+          member.kindTypeName ?? 'unknown',
+          symbol.declaredLocation ?? '',
+        ));
+      }
+    }
+
+    return { diagnostics };
   }
 
   private checkNoDependency(

@@ -2,6 +2,8 @@ import { InferArchitectureUseCase } from '../../../application/use-cases/infer-a
 import { ConfigPort } from '../../../application/ports/config.port';
 import { FileSystemPort } from '../../../application/ports/filesystem.port';
 import { PATTERN_TO_PACKAGE, PACKAGE_CONTEXT_TYPE } from '../../../domain/constants/architecture-packages';
+import { InferredContract } from '../../../domain/value-objects/inferred-contract';
+import { ContractType } from '../../../domain/types/contract-type';
 
 /**
  * CLI command: ksc infer
@@ -74,21 +76,23 @@ export class InferCommand {
     return 0;
   }
 
-  private printContracts(contractData: { noDependency: [string, string][]; mustImplement: [string, string][]; purity: string[] }): void {
-    if (contractData.noDependency.length === 0 && contractData.mustImplement.length === 0 && contractData.purity.length === 0) {
-      return;
-    }
+  private printContracts(contracts: InferredContract[]): void {
+    if (contracts.length === 0) return;
 
     process.stdout.write('\nInferred contracts:\n');
 
-    if (contractData.noDependency.length > 0) {
-      process.stdout.write(`  noDependency: ${contractData.noDependency.map(([a, b]) => `${a} -> ${b}`).join(', ')}\n`);
+    const noDeps = contracts.filter(c => c.type === ContractType.NoDependency);
+    const mustImpl = contracts.filter(c => c.type === ContractType.MustImplement);
+    const purity = contracts.filter(c => c.type === ContractType.Purity);
+
+    if (noDeps.length > 0) {
+      process.stdout.write(`  noDependency: ${noDeps.map(c => `${c.args[0]} -> ${c.args[1]}`).join(', ')}\n`);
     }
-    if (contractData.mustImplement.length > 0) {
-      process.stdout.write(`  mustImplement: ${contractData.mustImplement.map(([a, b]) => `${a} -> ${b}`).join(', ')}\n`);
+    if (mustImpl.length > 0) {
+      process.stdout.write(`  mustImplement: ${mustImpl.map(c => `${c.args[0]} -> ${c.args[1]}`).join(', ')}\n`);
     }
-    if (contractData.purity.length > 0) {
-      process.stdout.write(`  purity: ${contractData.purity.join(', ')}\n`);
+    if (purity.length > 0) {
+      process.stdout.write(`  purity: ${purity.flatMap(c => c.args).join(', ')}\n`);
     }
   }
 

@@ -14,10 +14,10 @@ function makeInstance(
     const subMap = new Map<string, ArchSymbol>();
     if (m.subMembers) {
       for (const sm of m.subMembers) {
-        subMap.set(sm.name, new ArchSymbol(sm.name, ArchSymbolKind.Layer, sm.location));
+        subMap.set(sm.name, new ArchSymbol(sm.name, ArchSymbolKind.Member, sm.location));
       }
     }
-    memberMap.set(m.name, new ArchSymbol(m.name, ArchSymbolKind.Layer, m.location, subMap));
+    memberMap.set(m.name, new ArchSymbol(m.name, ArchSymbolKind.Member, m.location, subMap));
   }
   return new ArchSymbol(name, ArchSymbolKind.Instance, location, memberMap);
 }
@@ -115,7 +115,7 @@ describe('ScaffoldService', () => {
 
     it('warns when member has no declaredLocation', () => {
       const memberMap = new Map<string, ArchSymbol>();
-      memberMap.set('domain', new ArchSymbol('domain', ArchSymbolKind.Layer, undefined));
+      memberMap.set('domain', new ArchSymbol('domain', ArchSymbolKind.Member, undefined));
       const instance = new ArchSymbol('app', ArchSymbolKind.Instance, 'src', memberMap);
 
       const { warnings } = service.plan({ instanceSymbol: instance, kindName: 'TestContext', projectRoot: '/project' });

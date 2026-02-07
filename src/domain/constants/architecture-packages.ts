@@ -10,6 +10,7 @@ export const PATTERN_TO_PACKAGE: Partial<Record<ArchitecturePattern, string>> = 
 
 /**
  * Mapping from package names to their exported context type names.
+ * Note: These may differ from inferred context names (see naming-conventions.ts).
  */
 export const PACKAGE_CONTEXT_TYPE: Record<string, string> = {
   '@kindscript/clean-architecture': 'CleanContext',

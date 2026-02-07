@@ -1,12 +1,11 @@
 import { ArchSymbolKind } from '../types/arch-symbol-kind';
-import { ContractReference } from '../value-objects/contract-reference';
 
 /**
  * Core domain entity representing an architectural symbol.
  *
- * An ArchSymbol represents a named architectural entity like a layer,
- * module, context, port, or adapter. Symbols can contain other symbols
- * (hierarchical structure) and have contracts attached to them.
+ * An ArchSymbol represents a named architectural entity — a Kind
+ * definition, an Instance of a Kind, or a Member within an instance.
+ * Symbols can contain other symbols (hierarchical structure).
  *
  * This is a pure domain entity with no external dependencies.
  */
@@ -24,8 +23,11 @@ export class ArchSymbol {
     /** Child symbols (for hierarchical structures) */
     public readonly members: Map<string, ArchSymbol> = new Map(),
 
-    /** Contracts attached to this symbol */
-    public readonly contracts: ContractReference[] = []
+    /** The Kind type name this symbol instantiates (e.g., "DomainLayer", "PortsLayer") */
+    public readonly kindTypeName?: string,
+
+    /** True if this symbol's location was derived from root + member name, not explicitly declared */
+    public readonly locationDerived?: boolean,
   ) {}
 
   /**
@@ -37,13 +39,6 @@ export class ArchSymbol {
       this.kind === other.kind &&
       this.declaredLocation === other.declaredLocation
     );
-  }
-
-  /**
-   * Check if this symbol has a contract of a specific type.
-   */
-  hasContract(contractType: string): boolean {
-    return this.contracts.some(c => c.contractType === contractType);
   }
 
   /**

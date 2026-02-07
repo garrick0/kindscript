@@ -134,15 +134,10 @@ describe('InferArchitectureService', () => {
 
       const result = service.execute({ projectRoot: '/project' });
 
-      expect(result.definitions.instanceDeclaration).toContain('export const app: CleanArchitectureContext');
-      expect(result.definitions.instanceDeclaration).toContain('kind: "CleanArchitectureContext"');
-      expect(result.definitions.instanceDeclaration).toContain('location: "src"');
-      expect(result.definitions.instanceDeclaration).toContain('kind: "DomainLayer"');
-      expect(result.definitions.instanceDeclaration).toContain('location: "src/domain"');
-      expect(result.definitions.instanceDeclaration).toContain('kind: "ApplicationLayer"');
-      expect(result.definitions.instanceDeclaration).toContain('location: "src/application"');
-      expect(result.definitions.instanceDeclaration).toContain('kind: "InfrastructureLayer"');
-      expect(result.definitions.instanceDeclaration).toContain('location: "src/infrastructure"');
+      expect(result.definitions.instanceDeclaration).toContain('export const app = locate<CleanArchitectureContext>("src"');
+      expect(result.definitions.instanceDeclaration).toContain('domain: {},');
+      expect(result.definitions.instanceDeclaration).toContain('application: {},');
+      expect(result.definitions.instanceDeclaration).toContain('infrastructure: {},');
     });
 
     it('uses relative paths for locations, not absolute paths', () => {
@@ -319,8 +314,8 @@ describe('InferArchitectureService', () => {
       expect(result.definitions.kindDefinition).toContain('LayeredContext');
       expect(result.definitions.kindDefinition).toContain('DomainLayer');
       expect(result.definitions.kindDefinition).toContain('PresentationLayer');
-      expect(result.definitions.instanceDeclaration).toContain('location: "src/domain"');
-      expect(result.definitions.instanceDeclaration).toContain('location: "src/presentation"');
+      expect(result.definitions.instanceDeclaration).toContain('domain: {},');
+      expect(result.definitions.instanceDeclaration).toContain('presentation: {},');
     });
 
     it('generates hyphenated layer names as PascalCase types', () => {

@@ -197,21 +197,4 @@ describe('ASTAdapter', () => {
     });
   });
 
-  describe('forEachStatement', () => {
-    it('iterates over all statements', () => {
-      const sf = parseSource('test.ts', `
-        interface Foo {}
-        const x = 1;
-        const y = 2;
-      `);
-
-      const visited: string[] = [];
-      adapter.forEachStatement(sf, (node) => {
-        if (adapter.isInterfaceDeclaration(node)) visited.push('interface');
-        if (adapter.isVariableStatement(node)) visited.push('variable');
-      });
-
-      expect(visited).toEqual(['interface', 'variable', 'variable']);
-    });
-  });
 });

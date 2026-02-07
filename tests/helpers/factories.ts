@@ -11,12 +11,12 @@ import { DiagnosticCode } from '../../src/domain/constants/diagnostic-codes';
 // ---------------------------------------------------------------------------
 
 /**
- * Shorthand for creating an ArchSymbol. Defaults to Layer kind and
- * infers location as `src/${name}` when not provided.
+ * Shorthand for creating an ArchSymbol. Defaults to ArchSymbolKind.Member
+ * and infers location as `src/${name}` when not provided.
  */
 export function makeSymbol(
   name: string,
-  kind: ArchSymbolKind = ArchSymbolKind.Layer,
+  kind: ArchSymbolKind = ArchSymbolKind.Member,
   location?: string,
 ): ArchSymbol {
   return new ArchSymbol(name, kind, location ?? `src/${name}`);

@@ -344,40 +344,51 @@ tests/
 ```bash
 npm install              # Install dependencies
 npm run build            # Compile TypeScript
-npm test                 # Run all tests (45 test files)
+npm test                 # Run all tests (33 test files, 392 tests)
 npm run test:coverage    # Run with coverage report
 npm run test:watch       # Watch mode
 npm run lint             # ESLint
+
+# Run specific test layers
+npm test -- tests/unit         # Unit tests only (fast)
+npm test -- tests/integration  # Integration tests only
+npm test -- tests/e2e          # E2E tests only
+
+# Run specific test file
+npm test -- check-contracts-dependency
 ```
 
 ### Testing
 
-Tests are organized in four layers with 23 integration fixtures:
+KindScript has a comprehensive test suite with **392 tests across 33 files**, achieving **100% pass rate**:
 
 ```
   tests/
-    architecture/     Domain entity tests + architectural validation
-    unit/             Service and adapter tests (mock implementations)
-    integration/      Real TypeScript programs in fixtures/ directories
-    e2e/              Full CLI subprocess + plugin loading tests
+    unit/             28 files - Component tests with mocked dependencies
+    integration/      5 files  - Multi-component tests with 29 fixtures
+    e2e/              1 file   - Full CLI subprocess tests
+    helpers/          4 files  - Shared test utilities and builders
 ```
 
-Coverage thresholds are enforced:
+**Test Organization:**
+- **Unit tests** - Fast, isolated tests for domain entities, services, and adapters
+- **Integration tests** - Real TypeScript compiler + file system with fixture directories
+- **E2E tests** - Complete CLI workflows via subprocess invocation
+
+**Coverage thresholds** are strictly enforced:
 - Domain layer: 90% lines/functions, 75% branches
 - Application layer: 95% lines, 100% functions, 85% branches
+
+See **[tests/README.md](tests/README.md)** for complete testing documentation, including how to run tests, write new tests, and use shared utilities.
 
 ### Interactive Notebooks
 
 Jupyter notebooks in `notebooks/` provide interactive walkthroughs:
 
 ```
-01-define-kinds.ipynb           Defining architectural Kinds
-02-declare-instances.ipynb      Instance declarations
-03-quickstart-workflow.ipynb    End-to-end workflow
-04-all-contract-types.ipynb     All 5 contract types with examples
-05-architecture-inference.ipynb Using ksc infer
-06-standard-library.ipynb       Standard library packages
-07-ci-integration.ipynb         CI/CD integration
+01-quickstart.ipynb       From zero to enforced architecture (infer, scaffold, check)
+02-contracts.ipynb        All 5 contract types + existence checking, with examples
+03-stdlib-and-ci.ipynb    Standard library packages and CI integration
 ```
 
 ## Why KindScript?
@@ -409,7 +420,7 @@ KindScript moves architectural rules into the compiler:
 
 **Version:** `0.8.0-m8`
 
-All core functionality is implemented and tested. See [STATUS_DONE_VS_TODO.md](docs/STATUS_DONE_VS_TODO.md) for the detailed breakdown.
+All core functionality is implemented and tested. See [DONE_VS_TODO.md](docs/status/DONE_VS_TODO.md) for the detailed breakdown.
 
 **What's working:**
 - All 5 contract types (noDependency, mustImplement, purity, noCycles, colocated)
@@ -429,10 +440,10 @@ All core functionality is implemented and tested. See [STATUS_DONE_VS_TODO.md](d
 
 ## Documentation
 
-- [Architecture V4](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md) -- Full architectural specification
-- [Status: Done vs TODO](docs/STATUS_DONE_VS_TODO.md) -- Implementation progress
-- [Build Plan](docs/BUILD_PLAN_INCREMENTAL.md) -- Milestone roadmap
-- [Infrastructure Review](docs/REVIEW_LEVERAGING_TS_INFRASTRUCTURE.md) -- Design decisions
+- [Architecture V4](docs/architecture/COMPILER_ARCHITECTURE.md) -- Full architectural specification
+- [Status: Done vs TODO](docs/status/DONE_VS_TODO.md) -- Implementation progress
+- [Build Plan](docs/architecture/BUILD_PLAN.md) -- Milestone roadmap
+- [Design Decisions](docs/architecture/DESIGN_DECISIONS.md) -- Build/Wrap/Skip rationale
 
 ## License
 

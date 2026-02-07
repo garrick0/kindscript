@@ -20,8 +20,10 @@ export interface ASTNodePort {
   isObjectLiteral(node: ASTNode): boolean;
   isCallExpression(node: ASTNode): boolean;
   isArrayLiteral(node: ASTNode): boolean;
+  isIdentifier(node: ASTNode): boolean;
   getDeclarationName(node: ASTNode): string | undefined;
   getStringValue(node: ASTNode): string | undefined;
+  getIdentifierName(node: ASTNode): string | undefined;
   getInitializer(node: ASTNode): ASTNode | undefined;
 }
 
@@ -52,13 +54,13 @@ export interface ASTExpressionPort {
  */
 export interface ASTTraversalPort {
   getStatements(sourceFile: SourceFile): ASTNode[];
-  forEachStatement(sourceFile: SourceFile, callback: (node: ASTNode) => void): void;
 }
 
 /**
- * Full AST port — composition of all sub-ports.
+ * Full AST port — convenience type composing all sub-ports.
  *
- * Consumers should depend on the specific sub-port they need.
- * This composite type is kept for backward compatibility.
+ * Services that need methods from multiple sub-ports can depend on this
+ * composite type. Services with narrower needs should depend on the
+ * specific sub-port instead.
  */
 export type ASTPort = ASTNodePort & ASTDeclarationPort & ASTExpressionPort & ASTTraversalPort;

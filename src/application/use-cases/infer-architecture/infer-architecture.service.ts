@@ -3,10 +3,13 @@ import { InferArchitectureRequest, InferArchitectureResponse } from './infer-arc
 import { DetectArchitectureUseCase } from '../detect-architecture/detect-architecture.use-case';
 import { FileSystemPort } from '../../ports/filesystem.port';
 import { DetectedArchitecture } from '../../../domain/entities/detected-architecture';
-import { InferredDefinitions, InferredContracts } from '../../../domain/value-objects/inferred-definitions';
+import { InferredDefinitions } from '../../../domain/value-objects/inferred-definitions';
+import { InferredContract } from '../../../domain/value-objects/inferred-contract';
+import { ContractType } from '../../../domain/types/contract-type';
 import { ArchitecturePattern } from '../../../domain/types/architecture-pattern';
 import { DetectedLayer } from '../../../domain/value-objects/detected-layer';
 import { isNodeBuiltin } from '../../../domain/constants/node-builtins';
+import { toContextName, toLayerTypeName } from '../../../domain/constants/naming-conventions';
 
 /**
  * Real implementation of InferArchitectureUseCase.
@@ -39,9 +42,8 @@ export class InferArchitectureService implements InferArchitectureUseCase {
       if (!warnings.some(w => w.includes('No architectural layers'))) {
         warnings.push('No recognized architectural pattern detected');
       }
-      const emptyContracts: InferredContracts = { noDependency: [], mustImplement: [], purity: [] };
       return {
-        definitions: new InferredDefinitions('', '', '', emptyContracts, ''),
+        definitions: new InferredDefinitions('', '', '', [], ''),
         detected,
         warnings,
       };
@@ -65,6 +67,17 @@ export class InferArchitectureService implements InferArchitectureUseCase {
     return `interface Kind<N extends string = string> {
   readonly kind: N;
   readonly location: string;
+}
+
+type MemberMap<T extends Kind> = {
+  [K in keyof T as K extends 'kind' | 'location' ? never : K]:
+    T[K] extends Kind
+      ? MemberMap<T[K]> | { path: string } & Partial<MemberMap<T[K]>> | Record<string, never>
+      : never;
+};
+function locate<T extends Kind>(root: string, members: MemberMap<T>): MemberMap<T> {
+  void root;
+  return members;
 }
 
 interface ContractConfig {
@@ -111,35 +124,28 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
     // Determine the src dir prefix by finding the common relative root
     const srcPrefix = this.inferSrcPrefix(detected.layers, projectRoot);
 
-    lines.push(`export const app: ${contextName} = {`);
-    lines.push(`  kind: "${contextName}",`);
-    lines.push(`  location: "${srcPrefix}",`);
+    lines.push(`export const app = locate<${contextName}>("${srcPrefix}", {`);
 
     for (const layer of detected.layers) {
-      const typeName = toLayerTypeName(layer.name);
-      const relPath = this.fsPort.relativePath(projectRoot, layer.path);
-      lines.push(`  ${layer.name}: {`);
-      lines.push(`    kind: "${typeName}",`);
-      lines.push(`    location: "${relPath}",`);
-      lines.push('  },');
+      lines.push(`  ${layer.name}: {},`);
     }
 
-    lines.push('};');
+    lines.push('});');
     lines.push('');
 
     return lines.join('\n');
   }
 
-  private buildContractData(detected: DetectedArchitecture): InferredContracts {
-    return {
-      noDependency: this.inferNoDependencyContracts(detected),
-      mustImplement: this.inferMustImplementContracts(detected),
-      purity: this.inferPureLayers(detected),
-    };
+  private buildContractData(detected: DetectedArchitecture): InferredContract[] {
+    return [
+      ...this.inferNoDependencyContracts(detected),
+      ...this.inferMustImplementContracts(detected),
+      ...this.inferPureLayers(detected),
+    ];
   }
 
-  private inferNoDependencyContracts(detected: DetectedArchitecture): [string, string][] {
-    const pairs: [string, string][] = [];
+  private inferNoDependencyContracts(detected: DetectedArchitecture): InferredContract[] {
+    const contracts: InferredContract[] = [];
     const depSet = new Set(detected.dependencies.map(e => `${e.from}->${e.to}`));
 
     switch (detected.pattern) {
@@ -148,14 +154,14 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
         // domain should not depend on anything
         for (const target of layerNames) {
           if (target !== 'domain' && !depSet.has(`domain->${target}`)) {
-            pairs.push(['domain', target]);
+            contracts.push(new InferredContract(ContractType.NoDependency, ['domain', target]));
           }
         }
         // application should not depend on infrastructure
         if (!depSet.has('application->infrastructure')) {
           const hasInfra = layerNames.includes('infrastructure');
           if (hasInfra) {
-            pairs.push(['application', 'infrastructure']);
+            contracts.push(new InferredContract(ContractType.NoDependency, ['application', 'infrastructure']));
           }
         }
         break;
@@ -164,7 +170,7 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
         const layerNames = detected.layers.map(l => l.name);
         // domain should not depend on adapters
         if (layerNames.includes('adapters') && !depSet.has('domain->adapters')) {
-          pairs.push(['domain', 'adapters']);
+          contracts.push(new InferredContract(ContractType.NoDependency, ['domain', 'adapters']));
         }
         break;
       }
@@ -180,7 +186,7 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
               const fromOutward = detected.getDependenciesOf(from).length;
               const toOutward = detected.getDependenciesOf(to).length;
               if (fromOutward <= toOutward && fromOutward === 0) {
-                pairs.push([from, to]);
+                contracts.push(new InferredContract(ContractType.NoDependency, [from, to]));
               }
             }
           }
@@ -189,19 +195,19 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
       }
     }
 
-    return pairs;
+    return contracts;
   }
 
-  private inferPureLayers(detected: DetectedArchitecture): string[] {
-    const pureLayers: string[] = [];
+  private inferPureLayers(detected: DetectedArchitecture): InferredContract[] {
+    const contracts: InferredContract[] = [];
 
     for (const layer of detected.layers) {
       if (this.isLayerPure(layer)) {
-        pureLayers.push(layer.name);
+        contracts.push(new InferredContract(ContractType.Purity, [layer.name]));
       }
     }
 
-    return pureLayers;
+    return contracts;
   }
 
   private isLayerPure(layer: DetectedLayer): boolean {
@@ -227,14 +233,14 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
     return true;
   }
 
-  private inferMustImplementContracts(detected: DetectedArchitecture): [string, string][] {
+  private inferMustImplementContracts(detected: DetectedArchitecture): InferredContract[] {
     if (detected.pattern !== ArchitecturePattern.Hexagonal) {
       return [];
     }
 
     const layerNames = detected.layers.map(l => l.name);
     if (layerNames.includes('ports') && layerNames.includes('adapters')) {
-      return [['ports', 'adapters']];
+      return [new InferredContract(ContractType.MustImplement, ['ports', 'adapters'])];
     }
 
     return [];
@@ -265,26 +271,3 @@ function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig {
   }
 }
 
-/** Convert ArchitecturePattern to a context type name. */
-function toContextName(pattern: ArchitecturePattern): string {
-  switch (pattern) {
-    case ArchitecturePattern.CleanArchitecture:
-      return 'CleanArchitectureContext';
-    case ArchitecturePattern.Hexagonal:
-      return 'HexagonalContext';
-    case ArchitecturePattern.Layered:
-      return 'LayeredContext';
-    default:
-      return 'UnknownContext';
-  }
-}
-
-/** Convert a layer directory name to a TypeScript type name. */
-function toLayerTypeName(name: string): string {
-  // Split on hyphens and capitalize each segment, then append "Layer"
-  const capitalized = name
-    .split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-  return capitalized + 'Layer';
-}

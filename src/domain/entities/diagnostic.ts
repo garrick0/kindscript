@@ -123,6 +123,26 @@ export class Diagnostic {
   }
 
   /**
+   * Create a diagnostic for a missing derived location (existence check).
+   */
+  static locationNotFound(
+    derivedPath: string,
+    memberName: string,
+    kindTypeName: string,
+    rootLocation: string,
+  ): Diagnostic {
+    return new Diagnostic(
+      `Derived location '${derivedPath}' does not exist. ` +
+      `Expected directory for member '${memberName}' of ${kindTypeName} ` +
+      `(derived from root '${rootLocation}').`,
+      DiagnosticCode.LocationNotFound,
+      derivedPath,
+      0,
+      0,
+    );
+  }
+
+  /**
    * Human-readable representation of this diagnostic.
    */
   toString(): string {

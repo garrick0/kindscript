@@ -1,4 +1,6 @@
-import { InferredDefinitions, InferredContracts } from '../../src/domain/value-objects/inferred-definitions';
+import { InferredDefinitions } from '../../src/domain/value-objects/inferred-definitions';
+import { InferredContract } from '../../src/domain/value-objects/inferred-contract';
+import { ContractType } from '../../src/domain/types/contract-type';
 
 describe('InferredDefinitions', () => {
   const boilerplate = '// boilerplate\n';
@@ -6,23 +8,18 @@ describe('InferredDefinitions', () => {
   const instance = '// instance declaration\n';
   const contextName = 'TestContext';
 
-  const emptyContracts: InferredContracts = {
-    noDependency: [],
-    mustImplement: [],
-    purity: [],
-  };
+  const emptyContracts: InferredContract[] = [];
 
-  const sampleContracts: InferredContracts = {
-    noDependency: [['domain', 'infrastructure']],
-    mustImplement: [],
-    purity: ['domain'],
-  };
+  const sampleContracts: InferredContract[] = [
+    new InferredContract(ContractType.NoDependency, ['domain', 'infrastructure']),
+    new InferredContract(ContractType.Purity, ['domain']),
+  ];
 
   function makeDefs(
     b = boilerplate,
     k = kindDef,
     i = instance,
-    c: InferredContracts = sampleContracts,
+    c: InferredContract[] = sampleContracts,
     cn = contextName,
   ): InferredDefinitions {
     return new InferredDefinitions(b, k, i, c, cn);
@@ -83,11 +80,9 @@ describe('InferredDefinitions', () => {
 
   it('equals() returns false when contracts differ', () => {
     const a = makeDefs();
-    const differentContracts: InferredContracts = {
-      noDependency: [['a', 'b']],
-      mustImplement: [],
-      purity: [],
-    };
+    const differentContracts = [
+      new InferredContract(ContractType.NoDependency, ['a', 'b']),
+    ];
     const b = makeDefs(boilerplate, kindDef, instance, differentContracts);
 
     expect(a.equals(b)).toBe(false);
@@ -103,8 +98,12 @@ describe('InferredDefinitions', () => {
   it('contractData is accessible for programmatic use', () => {
     const defs = makeDefs();
 
-    expect(defs.contractData.noDependency).toEqual([['domain', 'infrastructure']]);
-    expect(defs.contractData.purity).toEqual(['domain']);
-    expect(defs.contractData.mustImplement).toEqual([]);
+    const noDeps = defs.contractData.filter(c => c.type === ContractType.NoDependency);
+    const purity = defs.contractData.filter(c => c.type === ContractType.Purity);
+
+    expect(noDeps).toHaveLength(1);
+    expect(noDeps[0].args).toEqual(['domain', 'infrastructure']);
+    expect(purity).toHaveLength(1);
+    expect(purity[0].args).toEqual(['domain']);
   });
 });

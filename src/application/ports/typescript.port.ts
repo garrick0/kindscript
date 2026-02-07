@@ -45,9 +45,10 @@ export interface CodeAnalysisPort {
 }
 
 /**
- * Full TypeScript port — composition of all sub-ports.
+ * Full TypeScript port — convenience type composing all sub-ports.
  *
- * Consumers should depend on the specific sub-port they need.
- * This composite type is kept for backward compatibility.
+ * Services that need methods from multiple sub-ports can depend on this
+ * composite type. Services with narrower needs should depend on the
+ * specific sub-port instead.
  */
 export type TypeScriptPort = CompilerPort & CodeAnalysisPort;

@@ -1,18 +1,7 @@
-import { CleanContext } from '@kindscript/clean-architecture';
+import { CleanContext, locate } from '@kindscript/clean-architecture';
 
-export const app: CleanContext = {
-  kind: "CleanContext",
-  location: "src",
-  domain: {
-    kind: "DomainLayer",
-    location: "src/domain",
-  },
-  application: {
-    kind: "ApplicationLayer",
-    location: "src/application",
-  },
-  infrastructure: {
-    kind: "InfrastructureLayer",
-    location: "src/infrastructure",
-  },
-};
+export const app = locate<CleanContext>("src", {
+  domain: {},
+  application: {},
+  infrastructure: {},
+});

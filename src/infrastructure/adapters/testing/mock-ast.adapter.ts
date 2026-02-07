@@ -46,6 +46,11 @@ interface MockArrayLiteralNode extends ASTNode {
   elements: ASTNode[];
 }
 
+interface MockIdentifierNode extends ASTNode {
+  __type: 'identifier';
+  name: string;
+}
+
 type MockNode =
   | MockInterfaceNode
   | MockVariableStatementNode
@@ -53,7 +58,8 @@ type MockNode =
   | MockObjectLiteralNode
   | MockCallExpressionNode
   | MockStringLiteralNode
-  | MockArrayLiteralNode;
+  | MockArrayLiteralNode
+  | MockIdentifierNode;
 
 /**
  * Mock implementation of ASTPort for testing ClassifyASTService.
@@ -144,6 +150,35 @@ export class MockASTAdapter implements ASTPort {
     return this;
   }
 
+  /**
+   * Add a locate<T>(root, members) call expression to a source file.
+   */
+  withLocateCall(
+    fileName: string,
+    varName: string,
+    kindName: string,
+    rootLocation: string,
+    membersObject: ASTNode
+  ): this {
+    const call: MockCallExpressionNode = {
+      __type: 'callExpression',
+      functionName: 'locate',
+      typeArgNames: [kindName],
+      args: [MockASTAdapter.stringLiteral(rootLocation), membersObject],
+    };
+    const decl: MockVariableDeclarationNode = {
+      __type: 'variableDeclaration',
+      name: varName,
+      initializer: call,
+    };
+    const stmt: MockVariableStatementNode = {
+      __type: 'variableStatement',
+      declarations: [decl],
+    };
+    this.addStatement(fileName, stmt);
+    return this;
+  }
+
   /** Create a mock object literal node */
   static objectLiteral(props: Array<{ name: string; value: ASTNode }>): MockObjectLiteralNode {
     return { __type: 'objectLiteral', properties: props };
@@ -157,6 +192,11 @@ export class MockASTAdapter implements ASTPort {
   /** Create a mock array literal node */
   static arrayLiteral(elements: ASTNode[]): MockArrayLiteralNode {
     return { __type: 'arrayLiteral', elements };
+  }
+
+  /** Create a mock identifier node */
+  static identifier(name: string): MockIdentifierNode {
+    return { __type: 'identifier', name };
   }
 
   /**
@@ -245,6 +285,16 @@ export class MockASTAdapter implements ASTPort {
     return undefined;
   }
 
+  isIdentifier(node: ASTNode): boolean {
+    return (node as MockNode).__type === 'identifier';
+  }
+
+  getIdentifierName(node: ASTNode): string | undefined {
+    const mock = node as MockNode;
+    if (mock.__type === 'identifier') return mock.name;
+    return undefined;
+  }
+
   isCallExpression(node: ASTNode): boolean {
     return (node as MockNode).__type === 'callExpression';
   }
@@ -275,13 +325,6 @@ export class MockASTAdapter implements ASTPort {
     const mock = node as MockNode;
     if (mock.__type === 'arrayLiteral') return mock.elements;
     return [];
-  }
-
-  forEachStatement(sourceFile: SourceFile, callback: (node: ASTNode) => void): void {
-    const stmts = this.statements.get(sourceFile.fileName) ?? [];
-    for (const stmt of stmts) {
-      callback(stmt);
-    }
   }
 
   // --- Private helpers ---

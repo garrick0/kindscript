@@ -12,7 +12,10 @@
  * @see https://alistair.cockburn.us/hexagonal-architecture/
  */
 
-import { Kind, ContractConfig, defineContracts } from 'kindscript';
+import { Kind, ContractConfig, defineContracts, locate, MemberMap } from 'kindscript';
+
+// Re-export locate and MemberMap for consumers of this package
+export { locate, MemberMap };
 
 /** A bounded context following Hexagonal Architecture (Ports & Adapters). */
 export interface HexagonalContext extends Kind<"HexagonalContext"> {

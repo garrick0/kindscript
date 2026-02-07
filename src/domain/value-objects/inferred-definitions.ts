@@ -1,11 +1,5 @@
-/**
- * Structured representation of inferred contracts.
- */
-export interface InferredContracts {
-  noDependency: [string, string][];
-  mustImplement: [string, string][];
-  purity: string[];
-}
+import { InferredContract } from './inferred-contract';
+import { ContractType, contractTypeToKey } from '../types/contract-type';
 
 /**
  * Value object holding the generated architecture.ts output sections.
@@ -26,7 +20,7 @@ export class InferredDefinitions {
     public readonly instanceDeclaration: string,
 
     /** Structured contract data for programmatic access */
-    public readonly contractData: InferredContracts,
+    public readonly contractData: InferredContract[],
 
     /** Context type name used in defineContracts<T> */
     public readonly contextName: string,
@@ -34,32 +28,33 @@ export class InferredDefinitions {
 
   /** Generate the contracts source text from structured data. */
   get contracts(): string {
-    const { noDependency, mustImplement, purity } = this.contractData;
-    if (noDependency.length === 0 && mustImplement.length === 0 && purity.length === 0) {
-      return '';
+    if (this.contractData.length === 0) return '';
+
+    // Group contracts by type, preserving insertion order
+    const grouped = new Map<ContractType, InferredContract[]>();
+    for (const c of this.contractData) {
+      const list = grouped.get(c.type) ?? [];
+      list.push(c);
+      grouped.set(c.type, list);
     }
 
     const lines: string[] = [];
     lines.push(`export const contracts = defineContracts<${this.contextName}>({`);
 
-    if (noDependency.length > 0) {
-      lines.push('  noDependency: [');
-      for (const [from, to] of noDependency) {
-        lines.push(`    ["${from}", "${to}"],`);
+    for (const [type, contracts] of grouped) {
+      const key = contractTypeToKey(type);
+      if (type === ContractType.Purity) {
+        // Purity args are individual member names: purity: ["domain", "application"]
+        const allArgs = contracts.flatMap(c => c.args);
+        lines.push(`  ${key}: [${allArgs.map(a => `"${a}"`).join(', ')}],`);
+      } else {
+        // Tuple-pair types: noDependency: [["domain", "infrastructure"]]
+        lines.push(`  ${key}: [`);
+        for (const c of contracts) {
+          lines.push(`    [${c.args.map(a => `"${a}"`).join(', ')}],`);
+        }
+        lines.push('  ],');
       }
-      lines.push('  ],');
-    }
-
-    if (mustImplement.length > 0) {
-      lines.push('  mustImplement: [');
-      for (const [port, adapter] of mustImplement) {
-        lines.push(`    ["${port}", "${adapter}"],`);
-      }
-      lines.push('  ],');
-    }
-
-    if (purity.length > 0) {
-      lines.push(`  purity: [${purity.map(l => `"${l}"`).join(', ')}],`);
     }
 
     lines.push('});');
@@ -82,7 +77,7 @@ export class InferredDefinitions {
    * instead of inlining type stubs and contracts.
    */
   toImportBasedContent(packageName: string, contextType: string): string {
-    const importLine = `import { ${contextType} } from '${packageName}';\n\n`;
+    const importLine = `import { ${contextType}, locate } from '${packageName}';\n\n`;
     return importLine + this.instanceDeclaration;
   }
 

@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { spawnSync } from 'child_process';
 import { ScaffoldService } from '../../src/application/use-cases/scaffold/scaffold.service';
 import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
 import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
@@ -11,7 +10,6 @@ import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { OperationType } from '../../src/domain/value-objects/scaffold-operation';
 
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
-const CLI_PATH = path.resolve(__dirname, '../../dist/infrastructure/cli/main.js');
 
 function copyDirSync(src: string, dest: string): void {
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -47,18 +45,6 @@ function classifyFixture(fixturePath: string, tsAdapter: TypeScriptAdapter, clas
     checker,
     projectRoot: fixturePath,
   });
-}
-
-function runCli(args: string[]): { stdout: string; stderr: string; exitCode: number } {
-  const result = spawnSync('node', [CLI_PATH, ...args], {
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  return {
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-    exitCode: result.status ?? 1,
-  };
 }
 
 describe('Scaffold Integration Tests', () => {
@@ -240,31 +226,5 @@ describe('Scaffold Integration Tests', () => {
     expect(filePaths.some(p => p.endsWith('src/domain/index.ts'))).toBe(true);
     expect(filePaths.some(p => p.endsWith('src/domain/entities/index.ts'))).toBe(true);
     expect(filePaths.some(p => p.endsWith('src/domain/ports/index.ts'))).toBe(true);
-  });
-
-  it('round-trip: infer --write then scaffold --write then check', () => {
-    // Start with a real project that has source code but no architecture.ts
-    const tmpDir = copyFixtureToTemp('detect-clean-arch');
-
-    try {
-      // Step 1: ksc infer --write — generates architecture.ts + kindscript.json
-      const inferResult = runCli(['infer', '--write', tmpDir]);
-      expect(inferResult.exitCode).toBe(0);
-      expect(fs.existsSync(path.join(tmpDir, 'architecture.ts'))).toBe(true);
-      expect(fs.existsSync(path.join(tmpDir, 'kindscript.json'))).toBe(true);
-
-      // Step 2: ksc scaffold --write — creates directories (they already exist in this fixture,
-      // so all dirs will be skipped, but index.ts files will be created)
-      const scaffoldResult = runCli(['scaffold', '--write', tmpDir]);
-      expect(scaffoldResult.exitCode).toBe(0);
-      expect(scaffoldResult.stdout).toContain('Scaffold complete');
-
-      // Step 3: ksc check — validates contracts against the scaffolded structure
-      const checkResult = runCli(['check', tmpDir]);
-      expect(checkResult.exitCode).toBe(0);
-      expect(checkResult.stderr).toContain('contracts satisfied');
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
   });
 });

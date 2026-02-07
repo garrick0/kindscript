@@ -14,7 +14,10 @@
  * @see https://jeffreypalermo.com/2008/07/the-onion-architecture-part-1/
  */
 
-import { Kind, ContractConfig, defineContracts } from 'kindscript';
+import { Kind, ContractConfig, defineContracts, locate, MemberMap } from 'kindscript';
+
+// Re-export locate and MemberMap for consumers of this package
+export { locate, MemberMap };
 
 /** A bounded context following Onion Architecture. */
 export interface OnionContext extends Kind<"OnionContext"> {

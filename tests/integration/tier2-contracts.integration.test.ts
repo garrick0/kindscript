@@ -1,46 +1,8 @@
 import * as path from 'path';
-import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
-import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
-import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
-import { FileSystemAdapter } from '../../src/infrastructure/adapters/filesystem/filesystem.adapter';
-import { ASTAdapter } from '../../src/infrastructure/adapters/ast/ast.adapter';
 import { ContractType } from '../../src/domain/types/contract-type';
+import { runPipeline } from '../helpers/test-pipeline';
 
 const FIXTURES = path.resolve(__dirname, 'fixtures');
-
-/**
- * Helper: run the full classify + check pipeline on a fixture.
- */
-function runPipeline(fixturePath: string) {
-  const tsAdapter = new TypeScriptAdapter();
-  const fsAdapter = new FileSystemAdapter();
-  const astAdapter = new ASTAdapter();
-  const classifyService = new ClassifyASTService(astAdapter);
-  const checkService = new CheckContractsService(tsAdapter, fsAdapter);
-
-  const archFile = path.join(fixturePath, 'architecture.ts');
-  const srcFiles = fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
-  const allRootFiles = [...new Set([...srcFiles, archFile])];
-
-  const program = tsAdapter.createProgram(allRootFiles, {});
-  const checker = tsAdapter.getTypeChecker(program);
-  const sourceFile = tsAdapter.getSourceFile(program, archFile)!;
-
-  const classifyResult = classifyService.execute({
-    definitionFiles: [sourceFile],
-    checker,
-    projectRoot: fixturePath,
-  });
-
-  const checkResult = checkService.execute({
-    symbols: classifyResult.symbols,
-    contracts: classifyResult.contracts,
-    config: {},
-    program,
-  });
-
-  return { classifyResult, checkResult };
-}
 
 describe('Tier 2 Contract Integration Tests', () => {
   describe('purity contract', () => {

@@ -3,7 +3,7 @@ import { ClassifyProjectRequest, ClassifyProjectResult, ClassifyProjectSuccess }
 import { ClassifyASTUseCase } from '../classify-ast/classify-ast.use-case';
 import { ConfigPort } from '../../ports/config.port';
 import { FileSystemPort } from '../../ports/filesystem.port';
-import { TypeScriptPort } from '../../ports/typescript.port';
+import { CompilerPort } from '../../ports/typescript.port';
 import { resolvePackageDefinitions } from '../../services/resolve-package-definitions';
 import { CompilerOptions } from '../../../domain/types/compiler-options';
 
@@ -22,7 +22,7 @@ export class ClassifyProjectService implements ClassifyProjectUseCase {
   constructor(
     private readonly configPort: ConfigPort,
     private readonly fsPort: FileSystemPort,
-    private readonly tsPort: TypeScriptPort,
+    private readonly tsPort: CompilerPort,
     private readonly classifyService: ClassifyASTUseCase,
   ) {}
 

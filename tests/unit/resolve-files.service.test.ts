@@ -21,7 +21,7 @@ describe('ResolveFilesService', () => {
       .withFile('/project/src/domain/entity.ts', '')
       .withFile('/project/src/domain/service.ts', '');
 
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, '/project/src/domain');
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, '/project/src/domain');
 
     const result = service.execute({
       symbol,
@@ -38,7 +38,7 @@ describe('ResolveFilesService', () => {
     mockFS
       .withFile('/project/src/domain/entity.ts', '');
 
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain');
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/domain');
 
     const result = service.execute({
       symbol,
@@ -50,7 +50,7 @@ describe('ResolveFilesService', () => {
   });
 
   it('returns empty for symbol with no location', () => {
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer);
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member);
 
     const result = service.execute({
       symbol,
@@ -63,7 +63,7 @@ describe('ResolveFilesService', () => {
   });
 
   it('returns error for nonexistent directory', () => {
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/nonexistent');
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/nonexistent');
 
     const result = service.execute({
       symbol,
@@ -81,14 +81,14 @@ describe('ResolveFilesService', () => {
       .withFile('/project/src/domain/entities/entity.ts', '')
       .withFile('/project/src/domain/ports/port.ts', '');
 
-    const entitiesMember = new ArchSymbol('entities', ArchSymbolKind.Layer, 'src/domain/entities');
-    const portsMember = new ArchSymbol('ports', ArchSymbolKind.Layer, 'src/domain/ports');
+    const entitiesMember = new ArchSymbol('entities', ArchSymbolKind.Member, 'src/domain/entities');
+    const portsMember = new ArchSymbol('ports', ArchSymbolKind.Member, 'src/domain/ports');
 
     const members = new Map<string, ArchSymbol>();
     members.set('entities', entitiesMember);
     members.set('ports', portsMember);
 
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain', members);
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/domain', members);
 
     const result = service.execute({
       symbol,
@@ -106,11 +106,11 @@ describe('ResolveFilesService', () => {
       .withFile('/project/src/domain/service.ts', '')
       .withFile('/project/src/domain/entities/entity.ts', '');
 
-    const entitiesMember = new ArchSymbol('entities', ArchSymbolKind.Layer, 'src/domain/entities');
+    const entitiesMember = new ArchSymbol('entities', ArchSymbolKind.Member, 'src/domain/entities');
     const domainMembers = new Map<string, ArchSymbol>();
     domainMembers.set('entities', entitiesMember);
 
-    const domainMember = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain', domainMembers);
+    const domainMember = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/domain', domainMembers);
     const topMembers = new Map<string, ArchSymbol>();
     topMembers.set('domain', domainMember);
 
@@ -132,11 +132,11 @@ describe('ResolveFilesService', () => {
       .withFile('/project/src/domain/service.ts', '');
 
     // Child member with no location — should be skipped during exclusion
-    const childNoLocation = new ArchSymbol('abstract', ArchSymbolKind.Layer);
+    const childNoLocation = new ArchSymbol('abstract', ArchSymbolKind.Member);
     const members = new Map<string, ArchSymbol>();
     members.set('abstract', childNoLocation);
 
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain', members);
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/domain', members);
 
     const result = service.execute({
       symbol,
@@ -152,7 +152,7 @@ describe('ResolveFilesService', () => {
       .withFile('/project/src/domain/entity.ts', '')
       .withFile('/project/src/domain/service.ts', '');
 
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, 'src/domain');
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/domain');
 
     const result = service.execute({
       symbol,
@@ -166,7 +166,7 @@ describe('ResolveFilesService', () => {
     mockFS
       .withFile('/absolute/path/domain/entity.ts', '');
 
-    const symbol = new ArchSymbol('domain', ArchSymbolKind.Layer, '/absolute/path/domain');
+    const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, '/absolute/path/domain');
 
     const result = service.execute({
       symbol,

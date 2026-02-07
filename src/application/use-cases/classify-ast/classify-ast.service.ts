@@ -59,24 +59,49 @@ export class ClassifyASTService implements ClassifyASTUseCase {
         }
       }
 
-      // Phase 2: Find Instance declarations
+      // Build variable map for identifier resolution in locate() calls
+      const varMap = new Map<string, { typeName?: string; initializer?: ASTNode }>();
       for (const stmt of statements) {
         if (this.astPort.isVariableStatement(stmt)) {
           const decls = this.astPort.getVariableDeclarations(stmt);
           for (const decl of decls) {
-            const result = this.classifyInstance(decl, kindDefs, request.projectRoot);
-            if (result) {
-              if (result.error) {
-                errors.push(result.error);
-              } else if (result.symbol) {
-                symbols.push(result.symbol);
-                const typeName = this.astPort.getVariableTypeName(decl);
-                if (typeName) {
-                  instanceSymbols.set(typeName, result.symbol);
-                  instanceTypeNames.set(result.symbol.name, typeName);
+            const varName = this.astPort.getDeclarationName(decl);
+            if (varName) {
+              varMap.set(varName, {
+                typeName: this.astPort.getVariableTypeName(decl),
+                initializer: this.astPort.getInitializer(decl),
+              });
+            }
+          }
+        }
+      }
+
+      // Phase 2: Find Instance declarations (locate<T>() calls)
+      for (const stmt of statements) {
+        if (this.astPort.isVariableStatement(stmt)) {
+          const decls = this.astPort.getVariableDeclarations(stmt);
+          for (const decl of decls) {
+            // Check for locate<T>(root, members) call first
+            const init = this.astPort.getInitializer(decl);
+            if (init && this.astPort.isCallExpression(init)) {
+              const funcName = this.astPort.getCallExpressionName(init);
+              if (funcName === 'locate') {
+                const result = this.classifyLocateInstance(decl, init, kindDefs, request.projectRoot, varMap);
+                if (result.error) {
+                  errors.push(result.error);
+                } else if (result.symbol) {
+                  symbols.push(result.symbol);
+                  const kindName = this.astPort.getCallTypeArgumentNames(init)[0];
+                  if (kindName) {
+                    instanceSymbols.set(kindName, result.symbol);
+                    instanceTypeNames.set(result.symbol.name, kindName);
+                  }
                 }
+                continue;
               }
             }
+
+            // Not a locate<T>() call — skip
           }
         }
       }
@@ -135,117 +160,135 @@ export class ClassifyASTService implements ClassifyASTUseCase {
   }
 
   /**
-   * Phase 2: Check if a variable declaration is typed as a known Kind type.
-   * If so, extract the instance location and member locations from the initializer.
+   * Phase 2 (locate path): Classify a locate<T>(root, members) call.
+   * Derives member paths from root + member name using the Kind definition tree.
    */
-  private classifyInstance(
+  private classifyLocateInstance(
     decl: ASTNode,
+    callNode: ASTNode,
     kindDefs: Map<string, KindDefinition>,
-    projectRoot: string
-  ): { symbol?: ArchSymbol; error?: string } | undefined {
-    const typeName = this.astPort.getVariableTypeName(decl);
-    if (!typeName) return undefined;
+    projectRoot: string,
+    varMap: Map<string, { typeName?: string; initializer?: ASTNode }> = new Map(),
+  ): { symbol?: ArchSymbol; error?: string } {
+    const typeArgNames = this.astPort.getCallTypeArgumentNames(callNode);
+    const kindName = typeArgNames[0];
 
-    const kindDef = kindDefs.get(typeName);
-    if (!kindDef) return undefined;
-
-    const init = this.astPort.getInitializer(decl);
-    if (!init || !this.astPort.isObjectLiteral(init)) {
-      return { error: `Instance '${this.astPort.getDeclarationName(decl)}' typed as '${typeName}' has no object literal initializer.` };
+    if (!kindName) {
+      return { error: `locate() call has no type argument. Expected locate<KindName>(...).` };
     }
 
-    const objProps = this.astPort.getObjectProperties(init);
-    const locationProp = objProps.find(p => p.name === 'location');
-    const rawLocation = locationProp ? this.astPort.getStringValue(locationProp.value) : undefined;
-    const location = rawLocation ? this.resolveLocation(rawLocation, projectRoot) : undefined;
-
-    // Build member symbols from the object literal
-    const members = new Map<string, ArchSymbol>();
-
-    for (const prop of objProps) {
-      if (prop.name === 'kind' || prop.name === 'location') continue;
-
-      // Check if this member's value is a nested object literal (sub-kind instance)
-      if (this.astPort.isObjectLiteral(prop.value)) {
-        const memberSymbol = this.extractMemberSymbol(prop.name, prop.value, projectRoot);
-        if (memberSymbol) {
-          members.set(prop.name, memberSymbol);
-        }
-      } else {
-        // String member — leaf location relative to parent
-        const memberLocation = this.astPort.getStringValue(prop.value);
-        if (memberLocation && rawLocation) {
-          const resolvedMemberLocation = this.resolveLocation(
-            joinPath(rawLocation, memberLocation),
-            projectRoot
-          );
-          const memberSymbol = new ArchSymbol(
-            prop.name,
-            ArchSymbolKind.Layer,
-            resolvedMemberLocation,
-          );
-          members.set(prop.name, memberSymbol);
-        }
-      }
+    const kindDef = kindDefs.get(kindName);
+    if (!kindDef) {
+      return { error: `locate<${kindName}>: no Kind definition found for '${kindName}'.` };
     }
 
-    const instanceName = this.astPort.getDeclarationName(decl) ?? typeName;
+    const args = this.astPort.getCallArguments(callNode);
+    if (args.length < 2) {
+      return { error: `locate<${kindName}>: expected locate<T>(root, members).` };
+    }
+
+    const rootLocation = this.astPort.getStringValue(args[0]);
+    if (!rootLocation) {
+      return { error: `locate<${kindName}>: first argument must be a string literal (root location).` };
+    }
+
+    const membersArg = args[1];
+    if (!this.astPort.isObjectLiteral(membersArg)) {
+      return { error: `locate<${kindName}>: second argument must be an object literal (members).` };
+    }
+
+    const resolvedRoot = this.resolveLocation(rootLocation, projectRoot);
+
+    // Derive member symbols from the Kind definition tree
+    const members = this.deriveMembers(
+      kindDef, resolvedRoot, membersArg, kindDefs, projectRoot, varMap
+    );
+
+    const instanceName = this.astPort.getDeclarationName(decl) ?? kindName;
     const symbol = new ArchSymbol(
       instanceName,
       ArchSymbolKind.Instance,
-      location,
+      resolvedRoot,
       members,
+      kindName,
     );
 
     return { symbol };
   }
 
   /**
-   * Extract a member ArchSymbol from a nested object literal.
+   * Recursively derive member ArchSymbols from a Kind definition tree.
+   * Each member's path is derived as parentPath + "/" + memberName.
    */
-  private extractMemberSymbol(
-    name: string,
-    objNode: ASTNode,
-    projectRoot: string
-  ): ArchSymbol | undefined {
-    const props = this.astPort.getObjectProperties(objNode);
-    const locationProp = props.find(p => p.name === 'location');
-    const rawLocation = locationProp ? this.astPort.getStringValue(locationProp.value) : undefined;
-    const location = rawLocation ? this.resolveLocation(rawLocation, projectRoot) : undefined;
-
-    // Recursively extract sub-members
+  private deriveMembers(
+    kindDef: KindDefinition,
+    parentPath: string,
+    membersObj: ASTNode,
+    kindDefs: Map<string, KindDefinition>,
+    projectRoot: string,
+    varMap: Map<string, { typeName?: string; initializer?: ASTNode }> = new Map(),
+  ): Map<string, ArchSymbol> {
     const members = new Map<string, ArchSymbol>();
-    for (const prop of props) {
-      if (prop.name === 'kind' || prop.name === 'location') continue;
+    const objProps = this.astPort.getObjectProperties(membersObj);
 
-      if (this.astPort.isObjectLiteral(prop.value)) {
-        const subMember = this.extractMemberSymbol(prop.name, prop.value, projectRoot);
-        if (subMember) {
-          members.set(prop.name, subMember);
-        }
-      } else {
-        // String member — leaf location relative to parent
-        const memberLocation = this.astPort.getStringValue(prop.value);
-        if (memberLocation && rawLocation) {
-          const resolvedLocation = this.resolveLocation(
-            joinPath(rawLocation, memberLocation),
-            projectRoot
-          );
-          members.set(prop.name, new ArchSymbol(
-            prop.name,
-            ArchSymbolKind.Layer,
-            resolvedLocation,
-          ));
+    for (const property of kindDef.properties) {
+      const memberName = property.name;
+      const memberKindTypeName = property.typeName;
+
+      // Get child Kind definition for recursion
+      const childKindDef = memberKindTypeName ? kindDefs.get(memberKindTypeName) : undefined;
+
+      // Find corresponding property in the object literal (for sub-member assignments)
+      const objProp = objProps.find(p => p.name === memberName);
+      let memberValue = objProp?.value;
+
+      // Resolve identifier references: { domain } or { domain: domainVar }
+      if (memberValue && this.astPort.isIdentifier(memberValue)) {
+        const identName = this.astPort.getIdentifierName(memberValue);
+        if (identName) {
+          const resolved = varMap.get(identName);
+          if (resolved?.initializer) {
+            memberValue = resolved.initializer;
+          }
         }
       }
+
+      // Check for path override: { path: "value-objects" }
+      let pathSegment = memberName;
+      if (memberValue && this.astPort.isObjectLiteral(memberValue)) {
+        const memberObjProps = this.astPort.getObjectProperties(memberValue);
+        const pathProp = memberObjProps.find(p => p.name === 'path');
+        if (pathProp) {
+          const overridePath = this.astPort.getStringValue(pathProp.value);
+          if (overridePath) {
+            pathSegment = overridePath;
+          }
+        }
+      }
+
+      const memberPath = joinPath(parentPath, pathSegment);
+      const resolvedPath = this.resolveLocation(memberPath, projectRoot);
+
+      // Recurse if child Kind has properties and member value is an object literal
+      let childMembers = new Map<string, ArchSymbol>();
+      if (childKindDef && childKindDef.properties.length > 0 && memberValue && this.astPort.isObjectLiteral(memberValue)) {
+        childMembers = this.deriveMembers(
+          childKindDef, resolvedPath, memberValue, kindDefs, projectRoot, varMap
+        );
+      }
+
+      const memberSymbol = new ArchSymbol(
+        memberName,
+        ArchSymbolKind.Member,
+        resolvedPath,
+        childMembers,
+        memberKindTypeName,
+        true, // locationDerived
+      );
+      members.set(memberName, memberSymbol);
     }
 
-    return new ArchSymbol(
-      name,
-      ArchSymbolKind.Layer,
-      location,
-      members,
-    );
+    return members;
   }
 
   /**

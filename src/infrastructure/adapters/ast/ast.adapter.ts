@@ -143,6 +143,10 @@ export class ASTAdapter implements ASTPort {
             ? prop.name.text
             : prop.name.getText();
         props.push({ name, value: this.wrapNode(prop.initializer) });
+      } else if (ts.isShorthandPropertyAssignment(prop)) {
+        // { domain } shorthand — the name is the identifier, value is the identifier itself
+        const name = prop.name.text;
+        props.push({ name, value: this.wrapNode(prop.name) });
       }
     }
     return props;
@@ -151,6 +155,18 @@ export class ASTAdapter implements ASTPort {
   getStringValue(node: ASTNode): string | undefined {
     const tsNode = this.toTsNode(node);
     if (ts.isStringLiteral(tsNode)) {
+      return tsNode.text;
+    }
+    return undefined;
+  }
+
+  isIdentifier(node: ASTNode): boolean {
+    return ts.isIdentifier(this.toTsNode(node));
+  }
+
+  getIdentifierName(node: ASTNode): string | undefined {
+    const tsNode = this.toTsNode(node);
+    if (ts.isIdentifier(tsNode)) {
       return tsNode.text;
     }
     return undefined;
@@ -198,19 +214,6 @@ export class ASTAdapter implements ASTPort {
     const tsNode = this.toTsNode(node);
     if (!ts.isArrayLiteralExpression(tsNode)) return [];
     return this.wrapNodes(Array.from(tsNode.elements));
-  }
-
-  forEachStatement(sourceFile: SourceFile, callback: (node: ASTNode) => void): void {
-    const tsSourceFile = this.toTsSourceFile(sourceFile);
-    if (!tsSourceFile) return;
-
-    for (const stmt of tsSourceFile.statements) {
-      // Handle export declarations that wrap statements
-      if (ts.isExportDeclaration(stmt)) {
-        continue; // skip re-exports
-      }
-      callback(this.wrapNode(stmt));
-    }
   }
 
   /** Documented unsafe boundary: wraps a ts.Node as ASTNode for the port interface. */

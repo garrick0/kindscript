@@ -17,8 +17,8 @@ describe('GetPluginDiagnosticsService', () => {
   let mockClassifyProject: ClassifyProjectUseCase;
   let service: GetPluginDiagnosticsService;
 
-  const domainSymbol = new ArchSymbol('domain', ArchSymbolKind.Layer, '/project/src/domain');
-  const infraSymbol = new ArchSymbol('infrastructure', ArchSymbolKind.Layer, '/project/src/infrastructure');
+  const domainSymbol = new ArchSymbol('domain', ArchSymbolKind.Member, '/project/src/domain');
+  const infraSymbol = new ArchSymbol('infrastructure', ArchSymbolKind.Member, '/project/src/infrastructure');
 
   const noDependencyContract = new Contract(
     ContractType.NoDependency,

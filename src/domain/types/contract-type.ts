@@ -20,3 +20,14 @@ export enum ContractType {
   /** Requires that related files are co-located in the same directory */
   Colocated = 'colocated',
 }
+
+/** Map a ContractType to the key used in defineContracts<T>() config objects. */
+export function contractTypeToKey(type: ContractType): string {
+  switch (type) {
+    case ContractType.NoDependency: return 'noDependency';
+    case ContractType.MustImplement: return 'mustImplement';
+    case ContractType.Purity: return 'purity';
+    case ContractType.NoCycles: return 'noCycles';
+    case ContractType.Colocated: return 'colocated';
+  }
+}
