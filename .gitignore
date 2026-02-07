@@ -38,5 +38,10 @@ Thumbs.db
 # Claude Code local settings
 .claude/settings.local.json
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # Working notes
 .working/

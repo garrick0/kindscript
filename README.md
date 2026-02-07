@@ -1,439 +1,439 @@
 # KindScript
 
-> **TypeScript for Architecture** — Define architectural patterns as types, enforce them at compile time.
+> **TypeScript for Architecture** -- Define architectural patterns as types, enforce them at compile time.
 
-KindScript is a TypeScript-based architectural compiler that validates codebases against architectural contracts. Just as TypeScript validates that values conform to types, KindScript validates that codebases conform to architectural patterns.
-
-## The Core Insight
-
-Architecture has the same normative/descriptive split as types:
-
-```typescript
-// TypeScript: Types vs Values
-type User = { name: string; age: number }  // ← Normative (what must be true)
-const user: User = { name: "Alice", age: 30 }  // ← Descriptive (what is true)
-
-// KindScript: Architectural Patterns vs Codebases
-type CleanArchContext = Kind<"CleanArchContext"> & {
-  domain: DomainLayer;      // ← Normative (what architecture must have)
-  application: ApplicationLayer;
-  infrastructure: InfrastructureLayer;
-}
-
-const ordering: CleanArchContext = {  // ← Descriptive (what codebase has)
-  kind: "CleanArchContext",
-  location: "src/contexts/ordering",
-  domain: { kind: "DomainLayer", location: "src/contexts/ordering/domain" },
-  // ... architectural violations detected at compile time
-}
-```
-
-**TypeScript checks structure.** KindScript adds **behavioral contracts**:
-- `noDependency(domain, infrastructure)` — domain can't import from infrastructure
-- `mustImplement(ports, adapters)` — every port must have an adapter
-- `purity(domain)` — domain layer has no side effects
-- `noCycles(...)` — no circular dependencies between contexts
-
-## Project Status
-
-🚧 **Early Development** — M0 complete, M1 in progress.
-
-### What's Done
-
-✅ **Layer 1: Type Primitives** (Complete)
-- `Kind<N>`, `IsLeaf<T>`, `Multiple<T>`, `WithLocation<T>`
-- ~70 lines of pure TypeScript types
-- Full IDE support (autocomplete, go-to-definition) for free
-
-✅ **Architecture Design** (Complete)
-- [V4 Architecture Document](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md) — Complete architectural specification
-- [Incremental Build Plan](docs/BUILD_PLAN_INCREMENTAL.md) — 8 milestones from prototype to production
-- [Infrastructure Review](docs/REVIEW_LEVERAGING_TS_INFRASTRUCTURE.md) — Ecosystem analysis and design decisions
-
-✅ **Milestone 0: Architecture Validation** (Complete)
-- ✅ Core domain entities (ArchSymbol, Contract, Diagnostic)
-- ✅ All ports defined (TypeScriptPort, FileSystemPort, ConfigPort, DiagnosticPort)
-- ✅ Mock implementations for testing
-- ✅ 20+ architecture validation tests
-- ✅ **Zero** TypeScript API dependencies in domain/application
-- ✅ **Zero** real file I/O in tests
-- See [M0 Implementation Plan](docs/IMPLEMENTATION_PLAN_M0.md) for details
-
-### What's Next
-
-See [BUILD_PLAN_INCREMENTAL.md](docs/BUILD_PLAN_INCREMENTAL.md) for the detailed roadmap.
-
-**Milestone 1** (2 weeks): Single Contract End-to-End — NEXT
-- Real TypeScript and filesystem adapters
-- Working CLI: `ksc check`
-- Detects violations in real projects
-- Exit code integration for CI
-
-**Milestone 2** (3 weeks): Real Classifier
-- Parse kind definitions from TypeScript
-- Parse instance declarations
-- Symbol-to-files resolution
-- Type-safe definitions with full IDE support
-
-**Milestones 3-8**: Full contracts, project references, plugin, inference, generator, standard library
-
-**Total timeline**: ~16 weeks (4 months) to full feature set
-
-## Quick Start (Current Capabilities)
-
-Right now, you can use KindScript's type primitives to define architectural patterns:
-
-```typescript
-import type { Kind, IsLeaf, Multiple, WithLocation } from "./lib/mod.ts";
-
-// Define your architecture as types
-type Entity = Kind<"Entity">;
-type Repository = Kind<"Repository">;
-
-type DomainLayer = Kind<"DomainLayer"> & {
-  entities: Multiple<Entity>;
-  repositories: Multiple<Repository>;
-};
-
-type ApplicationLayer = Kind<"ApplicationLayer"> & {
-  useCases: string;  // Directory path
-};
-
-type InfrastructureLayer = Kind<"InfrastructureLayer"> & {
-  adapters: string;
-};
-
-type CleanArchContext = Kind<"CleanArchContext"> & {
-  domain: DomainLayer;
-  application: ApplicationLayer;
-  infrastructure: InfrastructureLayer;
-};
-
-// TypeScript validates structural conformance automatically
-const ordering: CleanArchContext = {
-  kind: "CleanArchContext",
-  domain: {
-    kind: "DomainLayer",
-    entities: [
-      { kind: "Entity" },
-      { kind: "Entity" },
-    ],
-    repositories: [
-      { kind: "Repository" },
-    ],
-  },
-  application: {
-    kind: "ApplicationLayer",
-    useCases: "use-cases",
-  },
-  infrastructure: {
-    kind: "InfrastructureLayer",
-    adapters: "adapters",
-  },
-};
-
-// ❌ TypeScript error if structure is wrong:
-const badApp: CleanArchContext = {
-  kind: "CleanArchContext",
-  domain: { kind: "DomainLayer", entities: [], repositories: [] },
-  // Error: Property 'application' is missing
-};
-```
-
-**What works today:**
-- ✅ Define architectural patterns as TypeScript types
-- ✅ TypeScript validates structural conformance
-- ✅ Full IDE support (autocomplete, refactoring, type checking)
-- ✅ Derive properties (IsLeaf, etc.) from structure
-
-**What's coming:**
-- 🚧 Behavioral contract validation (`noDependency`, `mustImplement`, etc.)
-- 🚧 CLI tool (`ksc check`, `ksc infer`, `ksc scaffold`)
-- 🚧 IDE plugin (violations shown inline)
-- 🚧 Inference engine (generate definitions from existing code)
-- 🚧 Code generation (scaffold structure from definitions)
-
-## Documentation
-
-### Core Documents
-
-- **[Architecture V4](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md)** — Complete architectural specification
-  - How KindScript maps to TypeScript compiler architecture
-  - Build/Wrap/Skip decisions with ecosystem evidence
-  - Plugin-based language service (not custom LSP)
-  - Incremental compilation strategy
-  - Standard library distribution (npm packages)
-
-- **[Incremental Build Plan](docs/BUILD_PLAN_INCREMENTAL.md)** — Implementation roadmap
-  - 8 milestones with customer validation gates
-  - Clean Architecture with ports/adapters throughout
-  - Jupyter notebooks for UX validation
-  - 16-week timeline to full feature set
-
-- **[Infrastructure Review](docs/REVIEW_LEVERAGING_TS_INFRASTRUCTURE.md)** — Design decisions
-  - Evaluation of "leverage TypeScript vs build custom" for each component
-  - Analysis of plugin vs LSP approach
-  - Project references as zero-config tier
-  - ts-morph decision (no dependency, use raw API)
-
-### Archive
-
-Older design iterations preserved in [docs/archive/](docs/archive/):
-- V1, V2, V3 architecture documents (superseded by V4)
-- Early design explorations
-
-## Architecture Principles
-
-KindScript follows **strict Clean Architecture**:
+KindScript is an architectural enforcement tool that plugs into the TypeScript compiler. Just as TypeScript validates that values conform to types, KindScript validates that codebases conform to architectural patterns -- dependency rules, purity constraints, port/adapter completeness, and more.
 
 ```
-Domain Layer (Pure Business Logic)
-  └─ Entities: ArchSymbol, Contract, Diagnostic
-  └─ Value Objects: ImportEdge, Location
+                 TypeScript                            KindScript
+          ========================             ========================
 
-Application Layer (Use Cases + Ports)
-  └─ Ports: TypeScriptPort, FileSystemPort, ConfigPort
-  └─ Use Cases: ClassifyAST, CheckContracts, InferArchitecture
+          type User = {                        interface CleanContext
+            name: string;                        extends Kind<"CleanContext"> {
+            age: number;                           domain: DomainLayer;
+          }                                        application: ApplicationLayer;
+                                                   infrastructure: InfrastructureLayer;
+                                                 }
 
-Infrastructure Layer (Adapters)
-  └─ TypeScriptAdapter (wraps ts.Program)
-  └─ FileSystemAdapter (wraps fs)
-  └─ CLIAdapter, PluginAdapter
+          const user: User = {                 const ordering: CleanContext = {
+            name: "Alice",                       kind: "CleanContext",
+            age: 30,                             location: "src/ordering",
+          }                                      domain: { ... },
+                                                 application: { ... },
+                                               }
+
+          TS checks: "does value                KS checks: "does codebase
+           match the type?"                      match the architecture?"
 ```
 
-**Key decisions:**
-- Use TypeScript's parser (don't rebuild it)
-- Use TypeScript's module resolution (don't reimplement it)
-- Use TypeScript's language service plugin API (not custom LSP)
-- Use ts.Diagnostic format (native integration)
-- Publish standard library as npm packages (like @types/*)
+## How It Works
 
-See [V4 Architecture](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md) for complete rationale.
+KindScript extends TypeScript's own compiler pipeline. It reuses the scanner, parser, and type checker, then adds three new phases for architectural analysis:
 
-## Examples
-
-### Clean Architecture Pattern
-
-```typescript
-type CleanArchContext = Kind<"CleanArchContext"> & {
-  domain: DomainLayer;
-  application: ApplicationLayer;
-  infrastructure: InfrastructureLayer;
-};
-
-const contracts = defineContracts<CleanArchContext>({
-  noDependency: [
-    ["domain", "infrastructure"],
-    ["domain", "application"],
-  ],
-  mustImplement: [
-    ["domain.ports", "infrastructure.adapters"],
-  ],
-  purity: ["domain"],
-});
+```
+  .ts source files
+       |
+  +---------+    +---------+    +---------+
+  | Scanner |===>| Parser  |===>|TS Binder|     TypeScript's own phases
+  +---------+    +---------+    +---------+     (reused as-is)
+       |              |              |
+    tokens        ts.Node AST    ts.Symbol
+                                     |
+                              +------+------+
+                              | TS Checker  |   TypeScript type checking
+                              +------+------+   (reused as-is)
+                                     |
+                               ts.Diagnostic
+                                     |
+  ================================== | ======   KindScript phases begin
+                                     |
+                              +------+------+
+                              | KS Binder   |   Classify AST nodes as
+                              | (Classifier)|   Kind definitions, instances,
+                              +------+------+   and contracts
+                                     |
+                                ArchSymbol
+                                     |
+                              +------+------+
+                              | KS Checker  |   Evaluate contracts against
+                              | (Contracts) |   resolved files and imports
+                              +------+------+
+                                     |
+                               ts.Diagnostic    (same format as TS errors)
+                                     |
+                    +----------------+----------------+
+                    |                |                |
+               CLI output      IDE squiggles    CI exit code
+               (ksc check)     (TS plugin)      (process.exit)
 ```
 
-### Hexagonal Architecture Pattern
+KindScript produces standard `ts.Diagnostic` objects (error codes 70001-70005), so violations appear alongside regular TypeScript errors in your editor and CI pipeline.
 
-```typescript
-type HexagonalContext = Kind<"HexagonalContext"> & {
-  core: CoreLayer;
-  ports: PortsLayer;
-  adapters: AdaptersLayer;
-};
+## Quick Start
 
-const contracts = defineContracts<HexagonalContext>({
-  noDependency: [
-    ["core", "adapters"],
-    ["ports", "adapters"],
-  ],
-  mustImplement: [
-    ["ports", "adapters"],
-  ],
-});
-```
-
-### Modular Monolith Pattern
-
-```typescript
-type ModularMonolith = Kind<"ModularMonolith"> & {
-  contexts: Multiple<BoundedContext>;
-};
-
-type BoundedContext = Kind<"BoundedContext"> & {
-  domain: string;
-  api: string;
-  infrastructure: string;
-};
-
-const contracts = defineContracts<ModularMonolith>({
-  noCycles: ["contexts"],  // No circular dependencies between contexts
-});
-```
-
-## Planned CLI Usage
-
-(Not yet implemented — see build plan for timeline)
+### 1. Install
 
 ```bash
-# Check architectural contracts
+npm install kindscript
+```
+
+### 2. Define your architecture (`architecture.ts`)
+
+```typescript
+import { Kind, defineContracts } from 'kindscript';
+
+// Define the pattern (normative -- what the architecture MUST look like)
+export interface OrderingContext extends Kind<"OrderingContext"> {
+  domain: DomainLayer;
+  application: ApplicationLayer;
+  infrastructure: InfrastructureLayer;
+}
+export interface DomainLayer extends Kind<"DomainLayer"> {}
+export interface ApplicationLayer extends Kind<"ApplicationLayer"> {}
+export interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+
+// Declare the instance (descriptive -- where the code ACTUALLY lives)
+export const ordering: OrderingContext = {
+  kind: "OrderingContext",
+  location: "src/ordering",
+  domain:         { kind: "DomainLayer",         location: "src/ordering/domain" },
+  application:    { kind: "ApplicationLayer",    location: "src/ordering/application" },
+  infrastructure: { kind: "InfrastructureLayer", location: "src/ordering/infrastructure" },
+};
+
+// Define behavioral contracts
+export const contracts = defineContracts<OrderingContext>({
+  noDependency: [
+    ["domain", "infrastructure"],  // domain cannot import from infrastructure
+    ["domain", "application"],     // domain cannot import from application
+  ],
+  purity: ["domain"],              // domain cannot use Node.js built-ins (fs, http, etc.)
+  mustImplement: [
+    ["domain", "infrastructure"],  // every interface in domain must have an implementation
+  ],
+});
+```
+
+### 3. Check contracts
+
+```bash
 $ ksc check
-src/ordering/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain → infrastructure
+src/ordering/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain -> infrastructure
+
+  12 import { Db } from '../../infrastructure/database';
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Found 1 architectural violation.
+```
 
-# Infer architecture from existing codebase
-$ ksc infer
-Detected pattern: Clean Architecture
-Generated architecture.ts with 2 violations.
+### 4. Enable the IDE plugin (`tsconfig.json`)
 
-# Generate structure from definitions
-$ ksc scaffold
-Created src/contexts/ordering/domain/
-Created src/contexts/ordering/application/
-✓ Scaffold complete.
+```json
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "kindscript" }]
+  }
+}
+```
 
-# Zero-config quick start with project references
-$ ksc init --detect
-Detected layers: domain, application, infrastructure
-Generated tsconfig.json files for project references.
-TypeScript will now enforce dependency boundaries.
+Violations now appear inline in VS Code, Vim, Emacs, WebStorm -- any editor using tsserver.
+
+## CLI Commands
+
+```
+ksc check [path]                   Check architectural contracts
+ksc init --detect [--write]        Detect architecture, generate project references
+ksc infer [path] [--write]         Infer Kind definitions from existing codebase
+ksc scaffold [path] [--write]      Scaffold directory structure from definitions
+```
+
+**`ksc check`** -- Validates all contracts against the codebase. Returns exit code 1 on violations (CI-ready).
+
+**`ksc init --detect`** -- Analyzes directory structure and import graph, detects architectural patterns (Clean Architecture, Hexagonal, Layered), and generates `tsconfig.json` files with TypeScript project references for immediate boundary enforcement.
+
+**`ksc infer`** -- Walks filesystem structure, analyzes imports, pattern-matches architecture, and generates a complete `architecture.ts` draft with Kind definitions and contracts.
+
+**`ksc scaffold`** -- Creates directories and stub files from Kind definitions. Use `--write` to execute (default is dry-run preview).
+
+## Contract Types
+
+KindScript enforces five contract types:
+
+```
+  +------------------------------------------------------------+
+  | Contract         | What it checks                          |
+  |------------------+-----------------------------------------|
+  | noDependency     | Layer A cannot import from Layer B      |
+  | mustImplement    | Every port interface has an adapter      |
+  | purity           | Layer has no side-effect imports         |
+  |                  | (no fs, http, crypto, etc.)              |
+  | noCycles         | No circular dependencies between layers  |
+  | colocated        | Related files exist in parallel dirs     |
+  |                  | (e.g. every component has a test)        |
+  +------------------------------------------------------------+
+```
+
+Each contract type produces a specific diagnostic code:
+
+```
+  KS70001  Forbidden dependency         (noDependency)
+  KS70002  Missing implementation        (mustImplement)
+  KS70003  Impure import in pure layer   (purity)
+  KS70004  Circular dependency           (noCycles)
+  KS70005  Missing colocated file        (colocated)
+```
+
+## Adoption Tiers
+
+KindScript offers a graduated adoption path -- start simple, add complexity only when needed:
+
+```
+  Tier 0.5                   Tier 1                     Tier 2
+  Zero-config boundaries     Config-based contracts     Full Kind definitions
+  ========================   ========================   =========================
+
+  $ ksc init --detect        kindscript.json:           architecture.ts:
+                             {                          interface CleanContext
+  Generates tsconfig.json      "contracts": {             extends Kind<"..."> {
+  with project references.       "noDependency": [          domain: DomainLayer;
+  TypeScript enforces              ["domain", "infra"]       ...
+  directory-level deps             ...                   }
+  natively.                      ]                      defineContracts<...>({
+                               }                          noDependency: [...],
+  Good for:                  }                            purity: [...],
+  - Quick start                                         })
+  - Directory-aligned        Good for:
+    boundaries               - Simple dependency rules   Good for:
+  - No definitions needed    - No TypeScript types       - Full IDE support
+                               needed                    - Type-safe definitions
+                                                         - All contract types
+                                                         - Autocomplete + go-to-def
+```
+
+## Standard Library
+
+Pre-built pattern packages so you don't have to write definitions from scratch:
+
+```bash
+npm install @kindscript/clean-architecture
+npm install @kindscript/hexagonal
+npm install @kindscript/onion
+```
+
+Usage with a standard library package:
+
+```typescript
+import { CleanContext, cleanArchitectureContracts } from '@kindscript/clean-architecture';
+
+export const ordering: CleanContext = {
+  kind: "CleanContext",
+  location: "src/ordering",
+  domain:         { kind: "DomainLayer",         location: "src/ordering/domain" },
+  application:    { kind: "ApplicationLayer",    location: "src/ordering/application" },
+  infrastructure: { kind: "InfrastructureLayer", location: "src/ordering/infrastructure" },
+};
+
+// Contracts are pre-configured:
+//   noDependency: domain -> infrastructure, domain -> application, application -> infrastructure
+//   purity: domain
+```
+
+## Architecture
+
+KindScript itself follows strict Clean Architecture. The domain layer has zero external dependencies -- no TypeScript compiler API, no Node.js `fs`, nothing.
+
+```
+  +-----------------------------------------------------------------------+
+  |                                                                       |
+  |   Domain Layer (pure business logic, zero dependencies)               |
+  |   =====================================================               |
+  |                                                                       |
+  |   Entities:       ArchSymbol, Contract, Diagnostic, Program           |
+  |   Value Objects:  ImportEdge, Location, ScaffoldPlan, ...             |
+  |   Types:          ArchSymbolKind, ContractType, ArchitecturePattern   |
+  |                                                                       |
+  +----------------------------------+------------------------------------+
+                                     |
+                                     | depends on (inward only)
+                                     |
+  +----------------------------------+------------------------------------+
+  |                                                                       |
+  |   Application Layer (use cases + port interfaces)                     |
+  |   ===================================================                 |
+  |                                                                       |
+  |   Ports:                                                              |
+  |     TypeScriptPort    FileSystemPort    ConfigPort                    |
+  |     ASTPort           DiagnosticPort    LanguageServicePort           |
+  |                                                                       |
+  |   Use Cases (9):                                                      |
+  |     CheckContracts        ClassifyAST          ResolveFiles           |
+  |     DetectArchitecture    InferArchitecture    GenerateProjectRefs    |
+  |     Scaffold              GetPluginDiagnostics GetPluginCodeFixes     |
+  |                                                                       |
+  +----------------------------------+------------------------------------+
+                                     |
+                                     | implements ports
+                                     |
+  +----------------------------------+------------------------------------+
+  |                                                                       |
+  |   Infrastructure Layer (adapters + entry points)                      |
+  |   ======================================================              |
+  |                                                                       |
+  |   Adapters:                                                           |
+  |     TypeScriptAdapter  (wraps ts.Program, ts.TypeChecker)             |
+  |     FileSystemAdapter  (wraps Node.js fs + path)                      |
+  |     ASTAdapter         (wraps ts.Node traversal)                      |
+  |     ConfigAdapter      (reads kindscript.json / tsconfig.json)        |
+  |     DiagnosticAdapter  (formats diagnostics for terminal)             |
+  |     LanguageServiceAdapter (wraps ts.server.PluginCreateInfo)         |
+  |                                                                       |
+  |   Entry Points (composition roots):                                   |
+  |     CLI  (main.ts)  -----> ksc check | init | infer | scaffold       |
+  |     Plugin (index.ts) ---> TS language service plugin                 |
+  |                                                                       |
+  +-----------------------------------------------------------------------+
+```
+
+### Source Layout
+
+```
+src/
+  index.ts                        Public API (exports Kind, defineContracts)
+  runtime/
+    kind.ts                       Kind<N> base interface
+    define-contracts.ts           defineContracts<T>() marker function
+
+  domain/
+    entities/                     ArchSymbol, Contract, Diagnostic, ...
+    value-objects/                ImportEdge, Location, ScaffoldPlan, ...
+    types/                       ArchSymbolKind, ContractType, ...
+
+  application/
+    ports/                       TypeScriptPort, FileSystemPort, ...
+    services/                    ConfigSymbolBuilder
+    use-cases/
+      check-contracts/           Contract evaluation (all 5 types)
+      classify-ast/              AST -> ArchSymbol classification
+      resolve-files/             ArchSymbol -> filesystem files
+      detect-architecture/       Pattern detection from structure
+      infer-architecture/        Generate architecture.ts drafts
+      generate-project-refs/     TypeScript project reference generation
+      scaffold/                  Directory/file scaffolding
+      get-plugin-diagnostics/    Plugin diagnostic integration
+      get-plugin-code-fixes/     Plugin quick-fix suggestions
+
+  infrastructure/
+    adapters/                    Real implementations + mock test doubles
+    cli/                         CLI entry point + commands
+    plugin/                      TS language service plugin
+
+packages/
+  clean-architecture/            @kindscript/clean-architecture
+  hexagonal/                     @kindscript/hexagonal
+  onion/                         @kindscript/onion
+
+tests/
+  architecture/                  Domain entity + layer validation tests
+  unit/                          Service + adapter unit tests
+  integration/                   End-to-end contract validation (23 fixtures)
+  e2e/                           Full CLI + plugin workflow tests
 ```
 
 ## Development
 
-### Project Structure
-
-```
-lib/
-  mod.ts       # Public exports
-  types.ts     # Type primitives (Kind, IsLeaf, etc.)
-
-notebooks/
-  01-define-kinds.ipynb       # Interactive examples
-  02-declare-instances.ipynb
-
-docs/
-  ANALYSIS_COMPILER_ARCHITECTURE_V4.md  # Architecture spec
-  BUILD_PLAN_INCREMENTAL.md             # Build plan
-  REVIEW_LEVERAGING_TS_INFRASTRUCTURE.md # Design decisions
-  archive/                               # Old versions
-
-src/  (coming in M0+)
-  domain/
-    entities/     # ArchSymbol, Contract, Diagnostic
-    value-objects/ # ImportEdge, Location
-
-  application/
-    ports/        # TypeScriptPort, FileSystemPort, etc.
-    use-cases/    # ClassifyAST, CheckContracts, etc.
-
-  infrastructure/
-    adapters/     # TypeScriptAdapter, FileSystemAdapter, etc.
-```
-
-### Running Examples
-
 ```bash
-# Run Jupyter notebooks
-deno jupyter --install
-jupyter notebook
+npm install              # Install dependencies
+npm run build            # Compile TypeScript
+npm test                 # Run all tests (45 test files)
+npm run test:coverage    # Run with coverage report
+npm run test:watch       # Watch mode
+npm run lint             # ESLint
+```
 
-# Run tests (coming in M0)
-deno test
+### Testing
 
-# Check types
-deno check lib/mod.ts
+Tests are organized in four layers with 23 integration fixtures:
+
+```
+  tests/
+    architecture/     Domain entity tests + architectural validation
+    unit/             Service and adapter tests (mock implementations)
+    integration/      Real TypeScript programs in fixtures/ directories
+    e2e/              Full CLI subprocess + plugin loading tests
+```
+
+Coverage thresholds are enforced:
+- Domain layer: 90% lines/functions, 75% branches
+- Application layer: 95% lines, 100% functions, 85% branches
+
+### Interactive Notebooks
+
+Jupyter notebooks in `notebooks/` provide interactive walkthroughs:
+
+```
+01-define-kinds.ipynb           Defining architectural Kinds
+02-declare-instances.ipynb      Instance declarations
+03-quickstart-workflow.ipynb    End-to-end workflow
+04-all-contract-types.ipynb     All 5 contract types with examples
+05-architecture-inference.ipynb Using ksc infer
+06-standard-library.ipynb       Standard library packages
+07-ci-integration.ipynb         CI/CD integration
 ```
 
 ## Why KindScript?
 
-**Problem:** Architectural rules live in documentation, Confluence pages, and senior engineers' heads. They're not enforced, they drift, and new developers violate them unknowingly.
+Architectural rules typically live in documentation, wiki pages, and senior engineers' heads. They drift. New developers violate them unknowingly. PR reviews catch some violations, after the code is already written.
 
-**Solution:** Define architecture as types, validate at compile time.
+KindScript moves architectural rules into the compiler:
 
-**Benefits:**
-- ✅ Architecture violations caught in IDE (before PR)
-- ✅ Refactoring-safe (rename a layer → all violations surface)
-- ✅ Self-documenting (architecture.ts is the source of truth)
-- ✅ Gradual adoption (works on existing codebases)
-- ✅ Zero runtime overhead (compile-time only)
+- Violations caught in the IDE, before commit
+- Refactoring-safe -- rename a layer and all violations surface
+- Self-documenting -- `architecture.ts` is the source of truth
+- Gradual adoption -- works on existing codebases, three tiers of investment
+- Zero runtime overhead -- compile-time only
 
-**Comparison to other tools:**
+**Comparison:**
 
-| Tool | Approach | KindScript Difference |
-|------|----------|----------------------|
-| ArchUnit (Java) | Runtime reflection + rules | Compile-time validation, type-safe definitions |
-| dependency-cruiser | Config-based rules | Type-safe definitions, full IDE support |
-| Nx boundaries | ESLint + tags | TypeScript integration, behavioral contracts |
-| Madge | Visualization only | Enforcement + validation |
+```
+  +---------------------+--------------------------+---------------------------+
+  | Tool                | Approach                 | KindScript difference     |
+  |---------------------+--------------------------+---------------------------|
+  | ArchUnit (Java)     | Runtime reflection       | Compile-time, type-safe   |
+  | dependency-cruiser  | Config-based rules       | Type-safe defs, IDE       |
+  | Nx boundaries       | ESLint + tags            | TS-native, behavioral     |
+  | Madge               | Visualization only       | Enforcement + validation  |
+  +---------------------+--------------------------+---------------------------+
+```
 
-**KindScript is TypeScript-native:** Definitions are real TypeScript types, contracts are checked by a TypeScript plugin, errors appear as TypeScript diagnostics. No new language to learn.
+## Project Status
 
-## Contributing
+**Version:** `0.8.0-m8`
 
-This project is in early development. The architecture is complete (see [docs/](docs/)), implementation is beginning.
+All core functionality is implemented and tested. See [STATUS_DONE_VS_TODO.md](docs/STATUS_DONE_VS_TODO.md) for the detailed breakdown.
 
-**Current phase:** Milestone 0 (Domain + Ports + Test Infrastructure)
+**What's working:**
+- All 5 contract types (noDependency, mustImplement, purity, noCycles, colocated)
+- CLI with 4 commands (check, init, infer, scaffold)
+- TypeScript language service plugin (inline diagnostics + code fix suggestions)
+- AST classifier (Kind definitions, instances, contracts)
+- Architecture inference from existing codebases
+- 3 standard library packages (clean-architecture, hexagonal, onion)
+- 45 test files across architecture/unit/integration/e2e layers
 
-**How to contribute:**
-1. Read [ANALYSIS_COMPILER_ARCHITECTURE_V4.md](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md)
-2. Read [BUILD_PLAN_INCREMENTAL.md](docs/BUILD_PLAN_INCREMENTAL.md)
-3. Check current milestone in build plan
-4. Implement following Clean Architecture (ports/adapters)
-5. Write tests using mock implementations
+**What's next:**
+- Watch mode and incremental compilation (`.ksbuildinfo` caching)
+- Plugin code fix auto-application (currently description-only)
+- Diagnostic `relatedInformation` linking to contract definitions
+- `@kindscript/modular-monolith` standard library package
+- npm publishing pipeline
+
+## Documentation
+
+- [Architecture V4](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md) -- Full architectural specification
+- [Status: Done vs TODO](docs/STATUS_DONE_VS_TODO.md) -- Implementation progress
+- [Build Plan](docs/BUILD_PLAN_INCREMENTAL.md) -- Milestone roadmap
+- [Infrastructure Review](docs/REVIEW_LEVERAGING_TS_INFRASTRUCTURE.md) -- Design decisions
 
 ## License
 
 MIT
-
----
-
-## Type System Primitives Reference
-
-(Current implementation — Layer 1 complete)
-
-### `Kind<N>`
-Base type with kind discriminator:
-```typescript
-type MyKind = Kind<"MyKind">;  // → { kind: "MyKind" }
-```
-
-### `IsLeaf<T>`
-Derives whether a kind has children:
-```typescript
-type Entity = Kind<"Entity">;
-type IsLeaf<Entity>  // → true (no children)
-
-type Layer = Kind<"Layer"> & { entities: Entity[] };
-type IsLeaf<Layer>  // → false (has children)
-```
-
-### `Multiple<T>`
-Alias for `T[]` (documentation):
-```typescript
-type Layer = Kind<"Layer"> & {
-  entities: Multiple<Entity>;  // Same as Entity[], but clearer intent
-};
-```
-
-### `WithLocation<T>`
-Adds filesystem location:
-```typescript
-type Layer = Kind<"Layer">;
-type LayerWithLocation = WithLocation<Layer>;
-// → { kind: "Layer"; location: string }
-```
-
-### `File`
-Represents a file:
-```typescript
-type File = { kind: "File"; path: string };
-```
-
-## Links
-
-- [Architecture V4](docs/ANALYSIS_COMPILER_ARCHITECTURE_V4.md)
-- [Build Plan](docs/BUILD_PLAN_INCREMENTAL.md)
-- [Design Review](docs/REVIEW_LEVERAGING_TS_INFRASTRUCTURE.md)
-- [Deno Documentation](https://deno.land)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
