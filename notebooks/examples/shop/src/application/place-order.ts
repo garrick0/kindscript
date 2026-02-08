@@ -3,11 +3,12 @@ import { OrderRepositoryPort } from './order-repository.port';
 import { ProductCatalogPort } from './product-catalog.port';
 import { NotificationPort } from './notification.port';
 
-export interface PlaceOrderRequest {
+// Using `type` (not `interface`) so mustImplement doesn't treat this DTO as a port
+export type PlaceOrderRequest = {
   orderId: string;
   customerId: string;
   items: Array<{ productId: string; quantity: number }>;
-}
+};
 
 export function placeOrder(
   request: PlaceOrderRequest,
