@@ -17,184 +17,177 @@ describe('ASTAdapter', () => {
     adapter = new ASTAdapter();
   });
 
-  describe('interface declarations', () => {
-    it('identifies interface declarations', () => {
-      const sf = parseSource('test.ts', `
-        interface Foo {}
-        const x = 1;
-      `);
-
-      const stmts = adapter.getStatements(sf);
-      expect(stmts.length).toBeGreaterThanOrEqual(2);
-      expect(adapter.isInterfaceDeclaration(stmts[0])).toBe(true);
-      expect(adapter.isInterfaceDeclaration(stmts[1])).toBe(false);
+  describe('getKindDefinitions', () => {
+    it('extracts a simple Kind definition', () => {
+      const sf = parseSource('test.ts', `type Ctx = Kind<"Ctx">;`);
+      const defs = adapter.getKindDefinitions(sf);
+      expect(defs).toHaveLength(1);
+      expect(defs[0].typeName).toBe('Ctx');
+      expect(defs[0].kindNameLiteral).toBe('Ctx');
+      expect(defs[0].members).toEqual([]);
+      expect(defs[0].constraints).toBeUndefined();
     });
 
-    it('extracts declaration name', () => {
-      const sf = parseSource('test.ts', `interface MyInterface {}`);
-      const stmts = adapter.getStatements(sf);
-      expect(adapter.getDeclarationName(stmts[0])).toBe('MyInterface');
-    });
-
-    it('extracts heritage type names', () => {
+    it('extracts Kind with members', () => {
       const sf = parseSource('test.ts', `
-        interface OrderingContext extends Kind<"OrderingContext"> {}
-      `);
-      const stmts = adapter.getStatements(sf);
-      const names = adapter.getHeritageTypeNames(stmts[0]);
-      expect(names).toContain('Kind');
-    });
-
-    it('extracts heritage type argument string literals', () => {
-      const sf = parseSource('test.ts', `
-        interface OrderingContext extends Kind<"OrderingContext"> {}
-      `);
-      const stmts = adapter.getStatements(sf);
-      const literals = adapter.getHeritageTypeArgLiterals(stmts[0]);
-      expect(literals).toContain('OrderingContext');
-    });
-
-    it('extracts property signatures', () => {
-      const sf = parseSource('test.ts', `
-        interface Ctx {
+        type Ctx = Kind<"Ctx", {
           domain: DomainLayer;
-          name: string;
-        }
+          infra: InfraLayer;
+        }>;
       `);
-      const stmts = adapter.getStatements(sf);
-      const props = adapter.getPropertySignatures(stmts[0]);
-      expect(props).toHaveLength(2);
-      expect(props[0]).toEqual({ name: 'domain', typeName: 'DomainLayer' });
-      expect(props[1]).toEqual({ name: 'name', typeName: 'string' });
+      const defs = adapter.getKindDefinitions(sf);
+      expect(defs).toHaveLength(1);
+      expect(defs[0].members).toEqual([
+        { name: 'domain', typeName: 'DomainLayer' },
+        { name: 'infra', typeName: 'InfraLayer' },
+      ]);
     });
 
-    it('returns empty for non-interface node', () => {
-      const sf = parseSource('test.ts', `const x = 1;`);
-      const stmts = adapter.getStatements(sf);
-      expect(adapter.getHeritageTypeNames(stmts[0])).toEqual([]);
-      expect(adapter.getPropertySignatures(stmts[0])).toEqual([]);
-    });
-  });
-
-  describe('variable statements', () => {
-    it('identifies variable statements', () => {
+    it('extracts Kind with constraints', () => {
       const sf = parseSource('test.ts', `
-        const x: MyType = {};
-        interface Foo {}
+        type Ctx = Kind<"Ctx", {
+          domain: DomainLayer;
+          infra: InfraLayer;
+        }, {
+          noDependency: [["domain", "infra"]];
+        }>;
       `);
-      const stmts = adapter.getStatements(sf);
-      expect(adapter.isVariableStatement(stmts[0])).toBe(true);
-      expect(adapter.isVariableStatement(stmts[1])).toBe(false);
+      const defs = adapter.getKindDefinitions(sf);
+      expect(defs).toHaveLength(1);
+      expect(defs[0].constraints).toBeDefined();
+      expect(defs[0].constraints!.kind).toBe('object');
     });
 
-    it('extracts variable declarations', () => {
-      const sf = parseSource('test.ts', `const x = 1;`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
+    it('extracts multiple Kind definitions from one file', () => {
+      const sf = parseSource('test.ts', `
+        type DomainLayer = Kind<"DomainLayer">;
+        type InfraLayer = Kind<"InfraLayer">;
+        type Ctx = Kind<"Ctx", { domain: DomainLayer; infra: InfraLayer }>;
+      `);
+      const defs = adapter.getKindDefinitions(sf);
+      expect(defs).toHaveLength(3);
+      expect(defs.map(d => d.typeName)).toEqual(['DomainLayer', 'InfraLayer', 'Ctx']);
+    });
+
+    it('ignores non-Kind type aliases', () => {
+      const sf = parseSource('test.ts', `
+        type Foo = string;
+        type Bar = Kind<"Bar">;
+        interface Baz {}
+      `);
+      const defs = adapter.getKindDefinitions(sf);
+      expect(defs).toHaveLength(1);
+      expect(defs[0].typeName).toBe('Bar');
+    });
+
+    it('extracts string keyword member type', () => {
+      const sf = parseSource('test.ts', `
+        type Ctx = Kind<"Ctx", { name: string }>;
+      `);
+      const defs = adapter.getKindDefinitions(sf);
+      expect(defs[0].members).toEqual([{ name: 'name', typeName: 'string' }]);
+    });
+  });
+
+  describe('getInstanceDeclarations', () => {
+    it('extracts a simple instance declaration', () => {
+      const sf = parseSource('test.ts', `
+        const app = {
+          domain: {},
+          infra: {},
+        } satisfies InstanceConfig<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
       expect(decls).toHaveLength(1);
+      expect(decls[0].variableName).toBe('app');
+      expect(decls[0].kindTypeName).toBe('Ctx');
+      expect(decls[0].members).toHaveLength(2);
+      expect(decls[0].members[0].name).toBe('domain');
+      expect(decls[0].members[1].name).toBe('infra');
     });
 
-    it('extracts variable type name', () => {
-      const sf = parseSource('test.ts', `const ordering: OrderingContext = {} as any;`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      expect(adapter.getVariableTypeName(decls[0])).toBe('OrderingContext');
+    it('extracts path override from member', () => {
+      const sf = parseSource('test.ts', `
+        const app = {
+          valueObjects: { path: "value-objects" },
+        } satisfies InstanceConfig<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls).toHaveLength(1);
+      expect(decls[0].members[0].name).toBe('valueObjects');
+      expect(decls[0].members[0].pathOverride).toBe('value-objects');
     });
 
-    it('returns undefined for untyped variable', () => {
-      const sf = parseSource('test.ts', `const x = {};`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      expect(adapter.getVariableTypeName(decls[0])).toBeUndefined();
-    });
-  });
-
-  describe('object literals', () => {
-    it('identifies object literal initializers', () => {
-      const sf = parseSource('test.ts', `const x = { a: 1 };`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0]);
-      expect(init).toBeDefined();
-      expect(adapter.isObjectLiteral(init!)).toBe(true);
+    it('resolves identifier references via variable map', () => {
+      const sf = parseSource('test.ts', `
+        const domain = { entities: {}, ports: {} };
+        const app = {
+          domain: domain,
+        } satisfies InstanceConfig<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls).toHaveLength(1);
+      expect(decls[0].members[0].name).toBe('domain');
+      expect(decls[0].members[0].children).toHaveLength(2);
+      expect(decls[0].members[0].children![0].name).toBe('entities');
+      expect(decls[0].members[0].children![1].name).toBe('ports');
     });
 
-    it('extracts object properties', () => {
-      const sf = parseSource('test.ts', `const x = { kind: "Ctx", location: "src/ordering" };`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      const props = adapter.getObjectProperties(init);
-      expect(props).toHaveLength(2);
-      expect(props[0].name).toBe('kind');
-      expect(props[1].name).toBe('location');
+    it('extracts nested object children', () => {
+      const sf = parseSource('test.ts', `
+        const app = {
+          domain: {
+            entities: {},
+            ports: {},
+          },
+        } satisfies InstanceConfig<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls[0].members[0].children).toHaveLength(2);
+      expect(decls[0].members[0].children![0].name).toBe('entities');
+      expect(decls[0].members[0].children![1].name).toBe('ports');
     });
 
-    it('extracts string values from string literals', () => {
-      const sf = parseSource('test.ts', `const x = { location: "src/domain" };`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      const props = adapter.getObjectProperties(init);
-      expect(adapter.getStringValue(props[0].value)).toBe('src/domain');
-    });
-  });
-
-  describe('call expressions', () => {
-    it('identifies call expressions', () => {
-      const sf = parseSource('test.ts', `const x = defineContracts({});`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      expect(adapter.isCallExpression(init)).toBe(true);
+    it('ignores non-InstanceConfig satisfies expressions', () => {
+      const sf = parseSource('test.ts', `
+        const app = { domain: {} } satisfies SomeOtherType<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls).toHaveLength(0);
     });
 
-    it('extracts call expression name', () => {
-      const sf = parseSource('test.ts', `const x = defineContracts({});`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      expect(adapter.getCallExpressionName(init)).toBe('defineContracts');
+    it('handles multiple instance declarations', () => {
+      const sf = parseSource('test.ts', `
+        const ordering = { domain: {} } satisfies InstanceConfig<Ctx>;
+        const billing = { domain: {} } satisfies InstanceConfig<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls).toHaveLength(2);
+      expect(decls[0].variableName).toBe('ordering');
+      expect(decls[1].variableName).toBe('billing');
     });
 
-    it('extracts call type argument names', () => {
-      const sf = parseSource('test.ts', `const x = defineContracts<OrderingContext>({});`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      const typeArgs = adapter.getCallTypeArgumentNames(init);
-      expect(typeArgs).toEqual(['OrderingContext']);
+    it('handles path override alongside children', () => {
+      const sf = parseSource('test.ts', `
+        const app = {
+          valueObjects: {
+            path: "value-objects",
+            entities: {},
+          },
+        } satisfies InstanceConfig<Ctx>;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls[0].members[0].pathOverride).toBe('value-objects');
+      expect(decls[0].members[0].children).toHaveLength(1);
+      expect(decls[0].members[0].children![0].name).toBe('entities');
     });
 
-    it('extracts call arguments', () => {
-      const sf = parseSource('test.ts', `const x = foo({}, []);`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      const args = adapter.getCallArguments(init);
-      expect(args).toHaveLength(2);
-    });
-  });
-
-  describe('array literals', () => {
-    it('identifies array literals', () => {
-      const sf = parseSource('test.ts', `const x = [1, 2, 3];`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      expect(adapter.isArrayLiteral(init)).toBe(true);
-    });
-
-    it('extracts array elements', () => {
-      const sf = parseSource('test.ts', `const x = ["a", "b"];`);
-      const stmts = adapter.getStatements(sf);
-      const decls = adapter.getVariableDeclarations(stmts[0]);
-      const init = adapter.getInitializer(decls[0])!;
-      const elements = adapter.getArrayElements(init);
-      expect(elements).toHaveLength(2);
-      expect(adapter.getStringValue(elements[0])).toBe('a');
-      expect(adapter.getStringValue(elements[1])).toBe('b');
+    it('skips instance with no type argument', () => {
+      const sf = parseSource('test.ts', `
+        const app = { domain: {} } satisfies InstanceConfig;
+      `);
+      const decls = adapter.getInstanceDeclarations(sf);
+      expect(decls).toHaveLength(0);
     });
   });
-
 });

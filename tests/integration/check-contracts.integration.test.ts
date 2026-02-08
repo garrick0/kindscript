@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
+import { createAllCheckers } from '../../src/application/use-cases/check-contracts/create-checkers';
 import { GetPluginDiagnosticsService } from '../../src/application/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
 import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
 import { ClassifyProjectService } from '../../src/application/use-cases/classify-project/classify-project.service';
@@ -7,6 +8,7 @@ import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/
 import { FileSystemAdapter } from '../../src/infrastructure/adapters/filesystem/filesystem.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/adapters/config/config.adapter';
 import { ASTAdapter } from '../../src/infrastructure/adapters/ast/ast.adapter';
+import { resolveSymbolFiles } from '../../src/application/services/resolve-symbol-files';
 
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
 
@@ -24,20 +26,19 @@ describe('Check Contracts Integration Tests', () => {
     fsAdapter = new FileSystemAdapter();
     configAdapter = new ConfigAdapter();
     astAdapter = new ASTAdapter();
-    checkService = new CheckContractsService(tsAdapter, fsAdapter);
+    checkService = new CheckContractsService(createAllCheckers(), tsAdapter);
     classifyService = new ClassifyASTService(astAdapter);
 
     const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyService);
-    pluginService = new GetPluginDiagnosticsService(checkService, classifyProject);
+    pluginService = new GetPluginDiagnosticsService(checkService, classifyProject, fsAdapter);
   });
 
   function classifyFixture(fixturePath: string) {
-    const ksConfig = configAdapter.readKindScriptConfig(fixturePath);
-    expect(ksConfig).toBeDefined();
-    expect(ksConfig!.definitions).toBeDefined();
+    const allFiles = fsAdapter.readDirectory(fixturePath, true);
+    const definitionPaths = allFiles.filter(f => f.endsWith('.k.ts'));
+    expect(definitionPaths.length).toBeGreaterThan(0);
 
-    const definitionPaths = ksConfig!.definitions!.map(d => path.resolve(fixturePath, d));
-    const program = tsAdapter.createProgram(definitionPaths, {});
+    const program = tsAdapter.createProgram(allFiles, {});
     const checker = tsAdapter.getTypeChecker(program);
 
     const definitionSourceFiles = definitionPaths
@@ -55,13 +56,6 @@ describe('Check Contracts Integration Tests', () => {
     it('detects violation in clean-arch-violation fixture', () => {
       const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-violation');
 
-      const ksConfig = configAdapter.readKindScriptConfig(fixturePath);
-      expect(ksConfig).toBeDefined();
-
-      const tsconfigPath = path.join(fixturePath, 'tsconfig.json');
-      const tsConfig = configAdapter.readTSConfig(tsconfigPath);
-      expect(tsConfig).toBeDefined();
-
       const classifyResult = classifyFixture(fixturePath);
       expect(classifyResult.contracts).toHaveLength(1);
       expect(classifyResult.errors).toHaveLength(0);
@@ -70,12 +64,16 @@ describe('Check Contracts Integration Tests', () => {
       const rootFiles = fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
       expect(rootFiles.length).toBeGreaterThan(0);
 
+      const program = tsAdapter.createProgram(rootFiles, {});
+      const resolvedFiles = resolveSymbolFiles(classifyResult.symbols, fsAdapter);
+
       // Execute check
       const result = checkService.execute({
         symbols: classifyResult.symbols,
         contracts: classifyResult.contracts,
-        config: ksConfig!,
-        program: tsAdapter.createProgram(rootFiles, {}),
+        config: {},
+        program,
+        resolvedFiles,
       });
 
       // Should detect the domain -> infrastructure violation
@@ -92,17 +90,18 @@ describe('Check Contracts Integration Tests', () => {
     it('reports clean result for clean-arch-valid fixture', () => {
       const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-valid');
 
-      const ksConfig = configAdapter.readKindScriptConfig(fixturePath);
-      expect(ksConfig).toBeDefined();
-
       const classifyResult = classifyFixture(fixturePath);
       const rootFiles = fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
+
+      const program = tsAdapter.createProgram(rootFiles, {});
+      const resolvedFiles = resolveSymbolFiles(classifyResult.symbols, fsAdapter);
 
       const result = checkService.execute({
         symbols: classifyResult.symbols,
         contracts: classifyResult.contracts,
-        config: ksConfig!,
-        program: tsAdapter.createProgram(rootFiles, {}),
+        config: {},
+        program,
+        resolvedFiles,
       });
 
       // No violations
@@ -152,7 +151,7 @@ describe('Check Contracts Integration Tests', () => {
       expect(result.elapsedMs).toBeLessThan(2000);
     });
 
-    it('returns empty diagnostics when project has no kindscript.json', () => {
+    it('returns empty diagnostics when project has no .k.ts files', () => {
       const result = pluginService.execute({
         fileName: '/nonexistent/src/index.ts',
         projectRoot: '/nonexistent',
@@ -174,15 +173,6 @@ describe('Check Contracts Integration Tests', () => {
       expect(domainFiles.length).toBeGreaterThanOrEqual(2);
       expect(domainFiles.some(f => f.includes('entity.ts'))).toBe(true);
       expect(domainFiles.some(f => f.includes('service.ts'))).toBe(true);
-    });
-
-    it('config adapter reads kindscript.json correctly', () => {
-      const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-violation');
-      const config = configAdapter.readKindScriptConfig(fixturePath);
-
-      expect(config).toBeDefined();
-      expect(config!.definitions).toBeDefined();
-      expect(config!.definitions).toHaveLength(1);
     });
 
     it('config adapter returns undefined for missing config', () => {

@@ -8,7 +8,7 @@ This directory contains the complete test suite for KindScript, organized into t
 - **Integration Tests** (`tests/integration/`) - Tests combining multiple components with real I/O
 - **E2E Tests** (`tests/e2e/`) - End-to-end tests via CLI subprocess invocation
 
-**Current Stats:** 33 test files, 392 tests, 100% passing (as of Phase 2C completion, 2026-02-07)
+**Current Stats:** 29 test files, 278 tests, 100% passing
 
 ---
 
@@ -22,25 +22,28 @@ tests/
 │   ├── test-pipeline.ts         # Integration test pipeline helper
 │   └── (E2E helpers in tests/e2e/helpers.ts)
 │
-├── unit/                         # 28 files - Component tests
+├── unit/                         # 24 files - Component tests
 │   ├── Domain entities/         # ArchSymbol, Contract, Diagnostic, etc.
 │   ├── Services/                # All use case services
 │   │   ├── classify-ast-kind-parsing.test.ts      # Kind definition parsing
 │   │   ├── classify-ast-contracts.test.ts         # Contract parsing & validation
-│   │   ├── classify-ast-locate.test.ts            # locate<T>() recognition
-│   │   ├── check-contracts-dependency.test.ts     # noDependency + noCycles
-│   │   ├── check-contracts-implementation.test.ts # mustImplement + colocated
-│   │   ├── check-contracts-purity.test.ts         # purity + existence + general
+│   │   ├── classify-ast-locate.test.ts            # InstanceConfig<T> recognition
+│   │   ├── no-dependency.checker.test.ts          # NoDependencyChecker
+│   │   ├── no-cycles.checker.test.ts              # NoCyclesChecker
+│   │   ├── purity.checker.test.ts                 # PurityChecker
+│   │   ├── must-implement.checker.test.ts         # MustImplementChecker
+│   │   ├── exists.checker.test.ts                 # ExistsChecker
+│   │   ├── mirrors.checker.test.ts                # MirrorsChecker
+│   │   ├── check-contracts-service.test.ts        # Dispatcher (validation + aggregation)
 │   │   └── ... (other services)
 │   ├── Adapters/                # Infrastructure adapters
 │   └── Value objects/           # value-objects.test.ts (consolidated)
 │
-├── integration/                  # 4 files - Multi-component tests
+├── integration/                  # 3 files - Multi-component tests
 │   ├── check-contracts.integration.test.ts
 │   ├── tier2-contracts.integration.test.ts
 │   ├── tier2-locate.integration.test.ts
-│   ├── infer-and-detect.integration.test.ts
-│   └── fixtures/                # 26 fixture directories
+│   └── fixtures/                # 18 fixture directories
 │       └── README.md            # Complete fixture catalog
 │
 └── e2e/                          # 1 file - CLI tests (consolidated)
@@ -156,7 +159,7 @@ describe('CLI E2E', () => {
 });
 ```
 
-**Note:** All E2E tests are consolidated into a single `cli.e2e.test.ts` file, organized by command (check, infer).
+**Note:** All E2E tests are consolidated into a single `cli.e2e.test.ts` file, organized by command (check).
 
 ---
 
@@ -220,10 +223,8 @@ Test fixtures are located in `tests/integration/fixtures/`. See [fixtures/README
 **Fixture Naming Convention:**
 - `*-clean` - Satisfies all contracts
 - `*-violation` - Violates contracts
-- `detect-*` - For architecture detection
 - `tier2-*` - Kind-based definitions
-- `locate-*` - Uses locate<T>() pattern
-- `stdlib-*` - Uses @kindscript packages
+- `locate-*` - Uses InstanceConfig<T> pattern
 
 ---
 
@@ -317,14 +318,6 @@ it('reads real files', () => {
   const files = fsAdapter.readDirectory(FIXTURES.CLEAN_ARCH_VALID, true);
   expect(files.length).toBeGreaterThan(0);
 });
-
-// E2E test with temp directory
-it('writes files', () => {
-  const tmpDir = copyFixtureToTemp('detect-clean-arch');
-  const result = run(['infer', '--write', tmpDir]);
-  expect(fs.existsSync(path.join(tmpDir, 'architecture.ts'))).toBe(true);
-  fs.rmSync(tmpDir, { recursive: true });
-});
 ```
 
 ---
@@ -365,8 +358,8 @@ Add to `.vscode/launch.json`:
 
 1. **Domain layer** - Add contract type to `src/domain/types/contract-type.ts`
 2. **Domain layer** - Add diagnostic code to `src/domain/constants/diagnostic-codes.ts`
-3. **Application layer** - Implement validation in `src/application/use-cases/check-contracts/`
-4. **Unit tests** - Add tests in appropriate `tests/unit/check-contracts-*.test.ts` file
+3. **Application layer** - Create checker + generator in `src/application/use-cases/check-contracts/<name>/`
+4. **Unit tests** - Add tests in `tests/unit/<name>.checker.test.ts`
 5. **Integration tests** - Add tests in `tests/integration/tier2-contracts.integration.test.ts`
 6. **Fixtures** - Create clean + violation fixtures in `tests/integration/fixtures/`
 7. **E2E tests** - Add tests in `tests/e2e/cli.e2e.test.ts` under `describe('ksc check')`
@@ -389,22 +382,29 @@ Add to `.vscode/launch.json`:
 
 ---
 
-## Recent Improvements (Phase 2C - 2026-02-07)
+## Recent Improvements (2026-02-08)
 
-**Major file splits completed:**
-- Split `classify-ast.service.test.ts` (1,034 lines) → 3 focused files
-- Split `check-contracts.service.test.ts` (686 lines) → 3 focused files
-- Consolidated all E2E tests into single `cli.e2e.test.ts` file
-- Largest file reduced from 1,034 to 570 lines (-45%)
-- All 392 tests passing, 100% pass rate maintained
+**Vertical slices for contract checkers:**
+- Each contract type has its own checker class, generator function, and test file
+- `CheckContractsService` is a thin dispatcher (~60 lines)
+- Tests call `checker.check(contract, context)` directly for fast, focused testing
+- 6 per-contract test files + 1 dispatcher test (was 3 grouped files)
 
-**Benefits:**
-- Much easier navigation - tests grouped by feature/contract type
-- Faster test execution - can run specific test groups independently
-- No massive files - all files under 600 lines
-- Clear organization - each file has a single, focused purpose
-
-**See:** [TEST_CONSOLIDATION_PHASE2_SUMMARY.md](../docs/archive/test-consolidation/TEST_CONSOLIDATION_PHASE2_SUMMARY.md) for complete details
+**Source structure:**
+```
+src/application/use-cases/check-contracts/
+├── check-contracts.service.ts      # Thin dispatcher
+├── contract-checker.ts             # ContractChecker interface
+├── contract-generator.ts           # ContractGenerator type
+├── create-checkers.ts              # Factory
+├── generator-registry.ts           # GENERATORS map
+├── no-dependency/                  # checker + generator
+├── purity/                         # checker + generator + hasIntrinsicPure
+├── no-cycles/                      # checker + generator
+├── must-implement/                 # checker + generator
+├── exists/                         # checker + generator
+└── mirrors/                        # checker + generator
+```
 
 ---
 

@@ -151,10 +151,10 @@ describe('Diagnostic', () => {
       });
     });
 
-    describe('notColocated', () => {
-      it('creates diagnostic for colocation violation', () => {
+    describe('mirrorMismatch', () => {
+      it('creates diagnostic for mirror mismatch', () => {
         const contract = new Contract(
-          ContractType.Colocated,
+          ContractType.Mirrors,
           'tests-with-features',
           [
             new ArchSymbol('feature', ArchSymbolKind.Member),
@@ -162,14 +162,14 @@ describe('Diagnostic', () => {
           ]
         );
 
-        const diagnostic = Diagnostic.notColocated(
+        const diagnostic = Diagnostic.mirrorMismatch(
           'src/features/user.ts',
           'tests/unit/user.test.ts',
           contract
         );
 
         expect(diagnostic.code).toBe(70005);
-        expect(diagnostic.message).toContain('must be co-located');
+        expect(diagnostic.message).toContain('no counterpart');
         expect(diagnostic.message).toContain('src/features/user.ts');
         expect(diagnostic.message).toContain('tests/unit/user.test.ts');
       });

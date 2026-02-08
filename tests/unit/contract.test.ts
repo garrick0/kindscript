@@ -153,12 +153,48 @@ describe('Contract', () => {
       expect(error).toContain('requires at least 1 argument');
     });
 
-    it('validates colocated contract with correct args', () => {
+    it('validates exists contract with multiple args', () => {
+      const s1 = new ArchSymbol('s1', ArchSymbolKind.Member);
+      const s2 = new ArchSymbol('s2', ArchSymbolKind.Member);
+
+      const contract = new Contract(
+        ContractType.Exists,
+        'dirs-exist',
+        [s1, s2]
+      );
+
+      expect(contract.validate()).toBeNull();
+    });
+
+    it('validates exists contract with single arg', () => {
+      const symbol = new ArchSymbol('module', ArchSymbolKind.Member);
+
+      const contract = new Contract(
+        ContractType.Exists,
+        'dir-exists',
+        [symbol]
+      );
+
+      expect(contract.validate()).toBeNull();
+    });
+
+    it('rejects exists contract with no args', () => {
+      const contract = new Contract(
+        ContractType.Exists,
+        'invalid',
+        []
+      );
+
+      const error = contract.validate();
+      expect(error).toContain('requires at least 1 argument');
+    });
+
+    it('validates mirrors contract with correct args', () => {
       const feature = new ArchSymbol('feature', ArchSymbolKind.Member);
       const test = new ArchSymbol('test', ArchSymbolKind.Member);
 
       const contract = new Contract(
-        ContractType.Colocated,
+        ContractType.Mirrors,
         'tests-with-features',
         [feature, test]
       );
@@ -166,17 +202,47 @@ describe('Contract', () => {
       expect(contract.validate()).toBeNull();
     });
 
-    it('rejects colocated contract with wrong arg count', () => {
+    it('rejects mirrors contract with wrong arg count', () => {
       const symbol = new ArchSymbol('feature', ArchSymbolKind.Member);
 
       const contract = new Contract(
-        ContractType.Colocated,
+        ContractType.Mirrors,
         'invalid',
         [symbol]
       );
 
       const error = contract.validate();
       expect(error).toContain('requires exactly 2 arguments');
+    });
+
+    it('rejects unknown contract type', () => {
+      const symbol = new ArchSymbol('domain', ArchSymbolKind.Member);
+
+      const contract = new Contract(
+        'unknownType' as ContractType,
+        'invalid',
+        [symbol]
+      );
+
+      const error = contract.validate();
+      expect(error).toContain('Unknown contract type');
+    });
+  });
+
+  describe('toReference', () => {
+    it('creates a ContractReference', () => {
+      const symbol = new ArchSymbol('domain', ArchSymbolKind.Member);
+      const contract = new Contract(
+        ContractType.Purity,
+        'pure-domain',
+        [symbol],
+        'arch.ts'
+      );
+
+      const ref = contract.toReference();
+      expect(ref.contractName).toBe('pure-domain');
+      expect(ref.contractType).toBe(ContractType.Purity);
+      expect(ref.location).toBe('arch.ts');
     });
   });
 
@@ -207,6 +273,16 @@ describe('Contract', () => {
 
       const contract1 = new Contract(ContractType.NoDependency, 'rule1', [from, to]);
       const contract2 = new Contract(ContractType.NoDependency, 'rule2', [from, to]);
+
+      expect(contract1.equals(contract2)).toBe(false);
+    });
+
+    it('does not equal contract with different arg count', () => {
+      const s1 = new ArchSymbol('s1', ArchSymbolKind.Member);
+      const s2 = new ArchSymbol('s2', ArchSymbolKind.Member);
+
+      const contract1 = new Contract(ContractType.NoCycles, 'rule1', [s1, s2]);
+      const contract2 = new Contract(ContractType.NoCycles, 'rule1', [s1]);
 
       expect(contract1.equals(contract2)).toBe(false);
     });

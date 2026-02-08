@@ -58,10 +58,18 @@ export function noCycles(symbols: ArchSymbol[], name?: string): Contract {
   );
 }
 
-export function colocated(primary: ArchSymbol, related: ArchSymbol, name?: string): Contract {
+export function exists(symbols: ArchSymbol[], name?: string): Contract {
   return new Contract(
-    ContractType.Colocated,
-    name ?? `colocated(${primary.name} -> ${related.name})`,
+    ContractType.Exists,
+    name ?? `exists(${symbols.map(s => s.name).join(', ')})`,
+    symbols,
+  );
+}
+
+export function mirrors(primary: ArchSymbol, related: ArchSymbol, name?: string): Contract {
+  return new Contract(
+    ContractType.Mirrors,
+    name ?? `mirrors(${primary.name} -> ${related.name})`,
     [primary, related],
   );
 }
@@ -70,12 +78,17 @@ export function colocated(primary: ArchSymbol, related: ArchSymbol, name?: strin
 // CheckContractsRequest builder
 // ---------------------------------------------------------------------------
 
-export function makeCheckRequest(contracts: Contract[], program?: Program) {
+export function makeCheckRequest(
+  contracts: Contract[],
+  program?: Program,
+  resolvedFiles?: Map<string, string[]>,
+) {
   return {
     symbols: [] as ArchSymbol[],
     contracts,
     config: {},
     program: program ?? new Program([], {}),
+    resolvedFiles: resolvedFiles ?? new Map<string, string[]>(),
   };
 }
 

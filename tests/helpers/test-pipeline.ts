@@ -1,12 +1,13 @@
-import * as path from 'path';
 import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
+import { createAllCheckers } from '../../src/application/use-cases/check-contracts/create-checkers';
 import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../../src/infrastructure/adapters/filesystem/filesystem.adapter';
 import { ASTAdapter } from '../../src/infrastructure/adapters/ast/ast.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/adapters/config/config.adapter';
 import { ClassifyASTResponse } from '../../src/application/use-cases/classify-ast/classify-ast.types';
 import { CheckContractsResponse } from '../../src/application/use-cases/check-contracts/check-contracts.response';
+import { resolveSymbolFiles } from '../../src/application/services/resolve-symbol-files';
 
 /**
  * Standard integration test services
@@ -29,7 +30,7 @@ export function createTestPipeline(): TestPipeline {
   const astAdapter = new ASTAdapter();
   const configAdapter = new ConfigAdapter();
   const classifyService = new ClassifyASTService(astAdapter);
-  const checkService = new CheckContractsService(tsAdapter, fsAdapter);
+  const checkService = new CheckContractsService(createAllCheckers(), tsAdapter);
 
   return {
     tsAdapter,
@@ -42,26 +43,41 @@ export function createTestPipeline(): TestPipeline {
 }
 
 /**
- * Classify a fixture's architecture.ts file
+ * Discover .k.ts definition files within a fixture directory.
+ */
+function discoverDefinitionFiles(pipeline: TestPipeline, fixturePath: string): string[] {
+  const allFiles = pipeline.fsAdapter.readDirectory(fixturePath, true);
+  return allFiles.filter(f => f.endsWith('.k.ts'));
+}
+
+/**
+ * Classify a fixture's .k.ts definition files
  */
 export function classifyFixture(
   pipeline: TestPipeline,
   fixturePath: string
 ): ClassifyASTResponse {
-  const archFile = path.join(fixturePath, 'architecture.ts');
-  const srcFiles = pipeline.fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
-  const allRootFiles = [...new Set([...srcFiles, archFile])];
+  const allFiles = pipeline.fsAdapter.readDirectory(fixturePath, true);
+  const definitionFiles = discoverDefinitionFiles(pipeline, fixturePath);
 
+  if (definitionFiles.length === 0) {
+    throw new Error(`No .k.ts definition files found in: ${fixturePath}`);
+  }
+
+  const allRootFiles = [...new Set([...allFiles])];
   const program = pipeline.tsAdapter.createProgram(allRootFiles, {});
   const checker = pipeline.tsAdapter.getTypeChecker(program);
-  const sourceFile = pipeline.tsAdapter.getSourceFile(program, archFile);
 
-  if (!sourceFile) {
-    throw new Error(`Could not load source file: ${archFile}`);
+  const sourceFiles = definitionFiles
+    .map(f => pipeline.tsAdapter.getSourceFile(program, f))
+    .filter((sf): sf is NonNullable<typeof sf> => sf !== undefined);
+
+  if (sourceFiles.length === 0) {
+    throw new Error(`Could not load any .k.ts source files in: ${fixturePath}`);
   }
 
   return pipeline.classifyService.execute({
-    definitionFiles: [sourceFile],
+    definitionFiles: sourceFiles,
     checker,
     projectRoot: fixturePath,
   });
@@ -74,29 +90,39 @@ export function runFullPipeline(
   pipeline: TestPipeline,
   fixturePath: string
 ): { classifyResult: ClassifyASTResponse; checkResult: CheckContractsResponse } {
-  const archFile = path.join(fixturePath, 'architecture.ts');
-  const srcFiles = pipeline.fsAdapter.readDirectory(path.join(fixturePath, 'src'), true);
-  const allRootFiles = [...new Set([...srcFiles, archFile])];
+  const allFiles = pipeline.fsAdapter.readDirectory(fixturePath, true);
+  const definitionFiles = discoverDefinitionFiles(pipeline, fixturePath);
 
+  if (definitionFiles.length === 0) {
+    throw new Error(`No .k.ts definition files found in: ${fixturePath}`);
+  }
+
+  const allRootFiles = [...new Set([...allFiles])];
   const program = pipeline.tsAdapter.createProgram(allRootFiles, {});
   const checker = pipeline.tsAdapter.getTypeChecker(program);
-  const sourceFile = pipeline.tsAdapter.getSourceFile(program, archFile);
 
-  if (!sourceFile) {
-    throw new Error(`Could not load source file: ${archFile}`);
+  const sourceFiles = definitionFiles
+    .map(f => pipeline.tsAdapter.getSourceFile(program, f))
+    .filter((sf): sf is NonNullable<typeof sf> => sf !== undefined);
+
+  if (sourceFiles.length === 0) {
+    throw new Error(`Could not load any .k.ts source files in: ${fixturePath}`);
   }
 
   const classifyResult = pipeline.classifyService.execute({
-    definitionFiles: [sourceFile],
+    definitionFiles: sourceFiles,
     checker,
     projectRoot: fixturePath,
   });
+
+  const resolvedFiles = resolveSymbolFiles(classifyResult.symbols, pipeline.fsAdapter);
 
   const checkResult = pipeline.checkService.execute({
     symbols: classifyResult.symbols,
     contracts: classifyResult.contracts,
     config: {},
     program,
+    resolvedFiles,
   });
 
   return { classifyResult, checkResult };

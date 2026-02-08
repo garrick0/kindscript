@@ -13,15 +13,6 @@ export const FIXTURES = {
   CLEAN_ARCH_VALID: path.join(FIXTURES_BASE, 'clean-arch-valid'),
   CLEAN_ARCH_VIOLATION: path.join(FIXTURES_BASE, 'clean-arch-violation'),
 
-  // Architecture detection fixtures
-  DETECT_CLEAN_ARCH: path.join(FIXTURES_BASE, 'detect-clean-arch'),
-  DETECT_CLEAN_ARCH_IMPURE: path.join(FIXTURES_BASE, 'detect-clean-arch-impure'),
-  DETECT_HEXAGONAL: path.join(FIXTURES_BASE, 'detect-hexagonal'),
-  DETECT_UNKNOWN: path.join(FIXTURES_BASE, 'detect-unknown'),
-
-  // Inference fixtures
-  INFER_WITH_STDLIB: path.join(FIXTURES_BASE, 'infer-with-stdlib'),
-
   // Tier 2 (Kind-based) fixtures
   TIER2_CLEAN_ARCH: path.join(FIXTURES_BASE, 'tier2-clean-arch'),
   TIER2_VIOLATION: path.join(FIXTURES_BASE, 'tier2-violation'),
@@ -32,15 +23,10 @@ export const FIXTURES = {
   NO_CYCLES_VIOLATION: path.join(FIXTURES_BASE, 'no-cycles-violation'),
   MUST_IMPLEMENT_CLEAN: path.join(FIXTURES_BASE, 'must-implement-clean'),
   MUST_IMPLEMENT_VIOLATION: path.join(FIXTURES_BASE, 'must-implement-violation'),
-  COLOCATED_CLEAN: path.join(FIXTURES_BASE, 'colocated-clean'),
-  COLOCATED_VIOLATION: path.join(FIXTURES_BASE, 'colocated-violation'),
+  MIRRORS_CLEAN: path.join(FIXTURES_BASE, 'mirrors-clean'),
+  MIRRORS_VIOLATION: path.join(FIXTURES_BASE, 'mirrors-violation'),
 
-  // Stdlib package fixtures
-  STDLIB_CLEAN_ARCH: path.join(FIXTURES_BASE, 'stdlib-clean-arch'),
-  STDLIB_CLEAN_ARCH_VIOLATION: path.join(FIXTURES_BASE, 'stdlib-clean-arch-violation'),
-  STDLIB_MISSING_PKG: path.join(FIXTURES_BASE, 'stdlib-missing-pkg'),
-
-  // locate<T>() feature fixtures
+  // InstanceConfig<T> feature fixtures
   LOCATE_CLEAN_ARCH: path.join(FIXTURES_BASE, 'locate-clean-arch'),
   LOCATE_VIOLATION: path.join(FIXTURES_BASE, 'locate-violation'),
   LOCATE_EXISTENCE: path.join(FIXTURES_BASE, 'locate-existence'),
@@ -56,11 +42,6 @@ export const FIXTURES = {
 export const FIXTURE_NAMES = {
   CLEAN_ARCH_VALID: 'clean-arch-valid',
   CLEAN_ARCH_VIOLATION: 'clean-arch-violation',
-  DETECT_CLEAN_ARCH: 'detect-clean-arch',
-  DETECT_CLEAN_ARCH_IMPURE: 'detect-clean-arch-impure',
-  DETECT_HEXAGONAL: 'detect-hexagonal',
-  DETECT_UNKNOWN: 'detect-unknown',
-  INFER_WITH_STDLIB: 'infer-with-stdlib',
   TIER2_CLEAN_ARCH: 'tier2-clean-arch',
   TIER2_VIOLATION: 'tier2-violation',
   PURITY_CLEAN: 'purity-clean',
@@ -68,11 +49,8 @@ export const FIXTURE_NAMES = {
   NO_CYCLES_VIOLATION: 'no-cycles-violation',
   MUST_IMPLEMENT_CLEAN: 'must-implement-clean',
   MUST_IMPLEMENT_VIOLATION: 'must-implement-violation',
-  COLOCATED_CLEAN: 'colocated-clean',
-  COLOCATED_VIOLATION: 'colocated-violation',
-  STDLIB_CLEAN_ARCH: 'stdlib-clean-arch',
-  STDLIB_CLEAN_ARCH_VIOLATION: 'stdlib-clean-arch-violation',
-  STDLIB_MISSING_PKG: 'stdlib-missing-pkg',
+  MIRRORS_CLEAN: 'mirrors-clean',
+  MIRRORS_VIOLATION: 'mirrors-violation',
   LOCATE_CLEAN_ARCH: 'locate-clean-arch',
   LOCATE_VIOLATION: 'locate-violation',
   LOCATE_EXISTENCE: 'locate-existence',

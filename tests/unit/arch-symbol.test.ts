@@ -163,6 +163,18 @@ describe('ArchSymbol', () => {
 
       expect(root.findByPath('child.nonexistent')).toBeUndefined();
     });
+
+    it('returns undefined early when intermediate segment is missing in multi-part path', () => {
+      const child = new ArchSymbol('child', ArchSymbolKind.Member);
+      const root = new ArchSymbol(
+        'root', ArchSymbolKind.Member, undefined,
+        new Map([['child', child]])
+      );
+
+      // 3-part path where the second part doesn't exist, so the
+      // third iteration sees current=undefined and returns early
+      expect(root.findByPath('child.missing.deep')).toBeUndefined();
+    });
   });
 
   describe('toString', () => {

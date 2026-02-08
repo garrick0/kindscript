@@ -10,7 +10,7 @@ describe('Tier 2 Locate Integration Tests', () => {
   describe('locate-clean-arch fixture (no violations)', () => {
     const fixturePath = path.join(FIXTURES, 'locate-clean-arch');
 
-    it('classifies locate<T>() instance with derived member locations', () => {
+    it('classifies InstanceConfig<T> instance with derived member locations', () => {
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -34,7 +34,7 @@ describe('Tier 2 Locate Integration Tests', () => {
       expect(infra!.locationDerived).toBe(true);
     });
 
-    it('classifies contracts from defineContracts calls', () => {
+    it('classifies contracts from Kind type constraints', () => {
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.contracts).toHaveLength(1);
@@ -180,7 +180,7 @@ describe('Tier 2 Locate Integration Tests', () => {
   });
 
   describe('locate-multi-instance fixture', () => {
-    it('classifies two locate<T>() calls in one file', () => {
+    it('classifies two InstanceConfig<T> declarations across .k.ts files', () => {
       const fixturePath = path.join(FIXTURES, 'locate-multi-instance');
       const { classifyResult } = runPipeline(fixturePath);
 

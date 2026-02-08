@@ -1,6 +1,7 @@
 import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
 import { MockASTAdapter } from '../../src/infrastructure/adapters/testing/mock-ast.adapter';
 import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.port';
+import { ContractType } from '../../src/domain/types/contract-type';
 
 const mockChecker = {} as TypeChecker;
 const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
@@ -19,14 +20,18 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
   });
 
   describe('Kind definition parsing', () => {
-    it('finds interface extending Kind<N>', () => {
-      mockAST.withInterface('arch.ts', 'OrderingContext', 'Kind', 'OrderingContext', [
-        { name: 'domain', typeName: 'DomainLayer' },
-        { name: 'infrastructure', typeName: 'InfrastructureLayer' },
-      ]);
+    it('finds type alias referencing Kind<N>', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'OrderingContext',
+        kindNameLiteral: 'OrderingContext',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'infrastructure', typeName: 'InfrastructureLayer' },
+        ],
+      });
 
       const result = service.execute({
-        definitionFiles: [sourceFile('arch.ts')],
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
         checker: mockChecker,
         projectRoot: '/project',
       });
@@ -37,10 +42,14 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
     });
 
     it('extracts kind name from type parameter', () => {
-      mockAST.withInterface('arch.ts', 'MyContext', 'Kind', 'MyContext', []);
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'MyContext',
+        kindNameLiteral: 'MyContext',
+        members: [],
+      });
 
       const result = service.execute({
-        definitionFiles: [sourceFile('arch.ts')],
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
         checker: mockChecker,
         projectRoot: '/project',
       });
@@ -48,13 +57,10 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
       expect(result.symbols.some(s => s.name === 'MyContext')).toBe(true);
     });
 
-    it('ignores interfaces not extending Kind', () => {
-      // Add a regular interface (not extending Kind)
-      const statements = mockAST.getStatements(sourceFile('arch.ts'));
-      expect(statements).toHaveLength(0); // nothing added yet
-
+    it('ignores type aliases not referencing Kind', () => {
+      // No kind definition added
       const result = service.execute({
-        definitionFiles: [sourceFile('arch.ts')],
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
         checker: mockChecker,
         projectRoot: '/project',
       });
@@ -63,16 +69,268 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
       expect(result.contracts).toHaveLength(0);
     });
 
-    it('handles interface with no members', () => {
-      mockAST.withInterface('arch.ts', 'EmptyKind', 'Kind', 'EmptyKind', []);
+    it('handles type alias with no members', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'EmptyKind',
+        kindNameLiteral: 'EmptyKind',
+        members: [],
+      });
 
       const result = service.execute({
-        definitionFiles: [sourceFile('arch.ts')],
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
         checker: mockChecker,
         projectRoot: '/project',
       });
 
       expect(result.symbols.some(s => s.name === 'EmptyKind')).toBe(true);
+    });
+  });
+
+  describe('Constraint config extraction', () => {
+    it('extracts constraint config from Kind third type parameter', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'infra', typeName: 'InfraLayer' },
+        ],
+        constraints: MockASTAdapter.constraintView({
+          noDependency: [['domain', 'infra']],
+        }),
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [
+          { name: 'domain' },
+          { name: 'infra' },
+        ],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.contracts).toHaveLength(1);
+      expect(result.contracts[0].type).toBe(ContractType.NoDependency);
+      expect(result.contracts[0].args[0].name).toBe('domain');
+      expect(result.contracts[0].args[1].name).toBe('infra');
+    });
+
+    it('returns no constraints when Kind has no third parameter', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [{ name: 'domain', typeName: 'DomainLayer' }],
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.contracts).toHaveLength(0);
+    });
+
+    it('extracts pure: true from leaf Kind and propagates to composite', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'DomainLayer',
+        kindNameLiteral: 'DomainLayer',
+        members: [],
+        constraints: MockASTAdapter.constraintView({ pure: true }),
+      });
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [{ name: 'domain', typeName: 'DomainLayer' }],
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      // Purity contract should be auto-generated from DomainLayer's { pure: true }
+      expect(result.contracts).toHaveLength(1);
+      expect(result.contracts[0].type).toBe(ContractType.Purity);
+      expect(result.contracts[0].args[0].name).toBe('domain');
+    });
+
+    it('reports error when InstanceConfig references unknown Kind', () => {
+      // No Kind definition — only the instance declaration
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'UnknownKind',
+        members: [],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('UnknownKind');
+    });
+
+    it('reports error when constraint references nonexistent member', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [{ name: 'domain', typeName: 'DomainLayer' }],
+        constraints: MockASTAdapter.constraintView({
+          noDependency: [['domain', 'nonexistent']],
+        }),
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.errors.some(e => e.includes('nonexistent'))).toBe(true);
+    });
+
+    it('reports error when noCycles constraint references nonexistent member', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [{ name: 'domain', typeName: 'DomainLayer' }],
+        constraints: MockASTAdapter.constraintView({
+          noCycles: ['domain', 'nonexistent'],
+        }),
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.errors.some(e => e.includes('nonexistent'))).toBe(true);
+    });
+
+    it('reports error when first member of type-level noDependency is nonexistent', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [{ name: 'domain', typeName: 'DomainLayer' }],
+        constraints: MockASTAdapter.constraintView({
+          noDependency: [['nonexistent_first', 'domain']],
+        }),
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.errors.some(e => e.includes('nonexistent_first'))).toBe(true);
+    });
+
+    it('purity propagation deduplication runs when other contracts exist', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'DomainLayer',
+        kindNameLiteral: 'DomainLayer',
+        members: [],
+        constraints: MockASTAdapter.constraintView({ pure: true }),
+      });
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'infra', typeName: 'InfraLayer' },
+        ],
+        constraints: MockASTAdapter.constraintView({
+          noDependency: [['domain', 'infra']],
+        }),
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }, { name: 'infra' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      // Should have both: noDependency from relational constraint + purity from propagation
+      expect(result.contracts).toHaveLength(2);
+      expect(result.contracts.some(c => c.type === ContractType.NoDependency)).toBe(true);
+      expect(result.contracts.some(c => c.type === ContractType.Purity)).toBe(true);
+    });
+
+    it('extracts mixed constraints from Kind type', () => {
+      mockAST.withKindDefinition('/project/src/arch.k.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'infra', typeName: 'InfraLayer' },
+        ],
+        constraints: MockASTAdapter.constraintView({
+          noDependency: [['domain', 'infra']],
+          noCycles: ['domain', 'infra'],
+        }),
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.k.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }, { name: 'infra' }],
+      });
+
+      const result = service.execute({
+        definitionFiles: [sourceFile('/project/src/arch.k.ts')],
+        checker: mockChecker,
+        projectRoot: '/project',
+      });
+
+      expect(result.contracts).toHaveLength(2);
     });
   });
 });

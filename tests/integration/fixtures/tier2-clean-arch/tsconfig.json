@@ -8,5 +8,5 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["src/**/*", "architecture.ts"]
+  "include": ["src/**/*"]
 }

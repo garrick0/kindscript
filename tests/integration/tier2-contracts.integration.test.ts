@@ -73,24 +73,24 @@ describe('Tier 2 Contract Integration Tests', () => {
     });
   });
 
-  describe('colocated contract', () => {
-    it('detects missing counterpart in colocated-violation fixture', () => {
+  describe('mirrors contract', () => {
+    it('detects missing counterpart in mirrors-violation fixture', () => {
       const { classifyResult, checkResult } = runPipeline(
-        path.join(FIXTURES, 'colocated-violation')
+        path.join(FIXTURES, 'mirrors-violation')
       );
 
       expect(classifyResult.errors).toHaveLength(0);
       expect(classifyResult.contracts).toHaveLength(1);
-      expect(classifyResult.contracts[0].type).toBe(ContractType.Colocated);
+      expect(classifyResult.contracts[0].type).toBe(ContractType.Mirrors);
 
       expect(checkResult.violationsFound).toBe(1);
       expect(checkResult.diagnostics[0].code).toBe(70005);
       expect(checkResult.diagnostics[0].message).toContain('form.ts');
     });
 
-    it('passes when all files have counterparts in colocated-clean fixture', () => {
+    it('passes when all files have counterparts in mirrors-clean fixture', () => {
       const { classifyResult, checkResult } = runPipeline(
-        path.join(FIXTURES, 'colocated-clean')
+        path.join(FIXTURES, 'mirrors-clean')
       );
 
       expect(classifyResult.errors).toHaveLength(0);

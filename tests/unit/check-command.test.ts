@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { CheckCommand } from '../../src/infrastructure/cli/commands/check.command';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
+import { createAllCheckers } from '../../src/application/use-cases/check-contracts/create-checkers';
 import { ClassifyASTService } from '../../src/application/use-cases/classify-ast/classify-ast.service';
 import { ClassifyProjectService } from '../../src/application/use-cases/classify-project/classify-project.service';
 import { TypeScriptAdapter } from '../../src/infrastructure/adapters/typescript/typescript.adapter';
@@ -39,9 +40,9 @@ describe('CLI E2E Tests', () => {
 
     const classifyAST = new ClassifyASTService(astAdapter);
     const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyAST);
-    const checkContracts = new CheckContractsService(tsAdapter, fsAdapter);
+    const checkContracts = new CheckContractsService(createAllCheckers(), tsAdapter);
 
-    return new CheckCommand(checkContracts, classifyProject, diagnosticAdapter);
+    return new CheckCommand(checkContracts, classifyProject, diagnosticAdapter, fsAdapter);
   }
 
   it('returns exit code 1 for project with violations', () => {
@@ -66,14 +67,14 @@ describe('CLI E2E Tests', () => {
     expect(exitCode).toBe(0);
   });
 
-  it('returns exit code 1 when no kindscript.json exists', () => {
+  it('returns exit code 1 when no TypeScript files found', () => {
     const cmd = createCheckCommand();
 
     const exitCode = cmd.execute('/nonexistent/path');
 
     expect(exitCode).toBe(1);
     const allStderr = stderrCaptured.join('');
-    expect(allStderr).toContain('No kindscript.json');
+    expect(allStderr).toContain('No TypeScript files found');
   });
 
   it('reports violation details including file path', () => {

@@ -16,54 +16,14 @@ describe('ConfigAdapter', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  describe('readKindScriptConfig — packages field', () => {
-    it('parses packages field correctly', () => {
-      const config = {
-        definitions: ['architecture.ts'],
-        packages: ['@kindscript/clean-architecture', '@kindscript/hexagonal'],
-      };
-      fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), JSON.stringify(config));
-
-      const result = adapter.readKindScriptConfig(tmpDir);
-
-      expect(result).toBeDefined();
-      expect(result!.packages).toEqual(['@kindscript/clean-architecture', '@kindscript/hexagonal']);
-    });
-
-    it('returns empty array when packages is empty', () => {
-      const config = {
-        definitions: ['architecture.ts'],
-        packages: [],
-      };
-      fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), JSON.stringify(config));
-
-      const result = adapter.readKindScriptConfig(tmpDir);
-
-      expect(result).toBeDefined();
-      expect(result!.packages).toEqual([]);
-    });
-
-    it('returns undefined packages when field is missing', () => {
-      const config = {
-        definitions: ['architecture.ts'],
-      };
-      fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), JSON.stringify(config));
-
-      const result = adapter.readKindScriptConfig(tmpDir);
-
-      expect(result).toBeDefined();
-      expect(result!.packages).toBeUndefined();
-    });
-
+  describe('readKindScriptConfig', () => {
     it('returns undefined when kindscript.json does not exist', () => {
       const result = adapter.readKindScriptConfig(tmpDir);
       expect(result).toBeUndefined();
     });
 
-    it('preserves other config fields alongside packages', () => {
+    it('parses rootDir field correctly', () => {
       const config = {
-        definitions: ['architecture.ts'],
-        packages: ['@kindscript/clean-architecture'],
         rootDir: 'src',
       };
       fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), JSON.stringify(config));
@@ -71,9 +31,21 @@ describe('ConfigAdapter', () => {
       const result = adapter.readKindScriptConfig(tmpDir);
 
       expect(result).toBeDefined();
-      expect(result!.definitions).toEqual(['architecture.ts']);
-      expect(result!.packages).toEqual(['@kindscript/clean-architecture']);
       expect(result!.rootDir).toBe('src');
+    });
+
+    it('preserves all config fields', () => {
+      const config = {
+        rootDir: 'src',
+        compilerOptions: { strict: true },
+      };
+      fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), JSON.stringify(config));
+
+      const result = adapter.readKindScriptConfig(tmpDir);
+
+      expect(result).toBeDefined();
+      expect(result!.rootDir).toBe('src');
+      expect(result!.compilerOptions).toEqual({ strict: true });
     });
   });
 });

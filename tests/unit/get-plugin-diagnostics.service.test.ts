@@ -1,5 +1,6 @@
 import { GetPluginDiagnosticsService } from '../../src/application/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
 import { CheckContractsService } from '../../src/application/use-cases/check-contracts/check-contracts.service';
+import { createAllCheckers } from '../../src/application/use-cases/check-contracts/create-checkers';
 import { ClassifyProjectUseCase } from '../../src/application/use-cases/classify-project/classify-project.use-case';
 import { ClassifyProjectResult } from '../../src/application/use-cases/classify-project/classify-project.types';
 import { MockFileSystemAdapter } from '../../src/infrastructure/adapters/testing/mock-filesystem.adapter';
@@ -24,7 +25,7 @@ describe('GetPluginDiagnosticsService', () => {
     ContractType.NoDependency,
     'noDependency(domain -> infrastructure)',
     [domainSymbol, infraSymbol],
-    '/project/architecture.ts',
+    '/project/src/context.k.ts',
   );
 
   function makeSuccessResult(overrides?: Partial<Extract<ClassifyProjectResult, { ok: true }>>): ClassifyProjectResult {
@@ -40,8 +41,7 @@ describe('GetPluginDiagnosticsService', () => {
       instanceTypeNames: new Map(),
       program: new Program(rootFiles, {}),
       rootFiles,
-      config: { definitions: ['architecture.ts'] },
-      packageWarnings: [],
+      config: {},
       ...overrides,
     };
   }
@@ -49,13 +49,13 @@ describe('GetPluginDiagnosticsService', () => {
   beforeEach(() => {
     mockFS = new MockFileSystemAdapter();
     mockTS = new MockTypeScriptAdapter();
-    checkContracts = new CheckContractsService(mockTS, mockFS);
+    checkContracts = new CheckContractsService(createAllCheckers(), mockTS);
 
     mockClassifyProject = {
       execute: jest.fn().mockReturnValue(makeSuccessResult()),
     };
 
-    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject);
+    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject, mockFS);
   });
 
   it('returns diagnostics for a file violating noDependency contract', () => {
@@ -100,7 +100,7 @@ describe('GetPluginDiagnosticsService', () => {
         ],
       })),
     };
-    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject);
+    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject, mockFS);
 
     const result = service.execute({
       fileName: '/project/src/domain/entity.ts',
@@ -112,9 +112,9 @@ describe('GetPluginDiagnosticsService', () => {
 
   it('returns empty diagnostics when classify returns error', () => {
     mockClassifyProject = {
-      execute: jest.fn().mockReturnValue({ ok: false, error: 'No kindscript.json found' }),
+      execute: jest.fn().mockReturnValue({ ok: false, error: 'No .k.ts definition files found in the project.' }),
     };
-    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject);
+    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject, mockFS);
 
     const result = service.execute({
       fileName: '/project/src/domain/service.ts',
@@ -128,7 +128,7 @@ describe('GetPluginDiagnosticsService', () => {
     mockClassifyProject = {
       execute: jest.fn().mockReturnValue(makeSuccessResult({ contracts: [] })),
     };
-    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject);
+    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject, mockFS);
 
     const result = service.execute({
       fileName: '/project/src/index.ts',
@@ -174,7 +174,7 @@ describe('GetPluginDiagnosticsService', () => {
         ],
       })),
     };
-    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject);
+    service = new GetPluginDiagnosticsService(checkContracts, mockClassifyProject, mockFS);
 
     // Check entity.ts — should have no diagnostics
     const result = service.execute({
@@ -211,6 +211,7 @@ describe('GetPluginDiagnosticsService', () => {
     const errorService = new GetPluginDiagnosticsService(
       checkContracts,
       mockClassifyProject,
+      mockFS,
     );
 
     const result = errorService.execute({
