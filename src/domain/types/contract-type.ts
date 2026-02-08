@@ -17,17 +17,9 @@ export enum ContractType {
   /** Forbids circular dependencies within or between symbols */
   NoCycles = 'noCycles',
 
-  /** Requires that related files are co-located in the same directory */
-  Colocated = 'colocated',
-}
+  /** Requires that listed member directories exist on disk */
+  Exists = 'exists',
 
-/** Map a ContractType to the key used in defineContracts<T>() config objects. */
-export function contractTypeToKey(type: ContractType): string {
-  switch (type) {
-    case ContractType.NoDependency: return 'noDependency';
-    case ContractType.MustImplement: return 'mustImplement';
-    case ContractType.Purity: return 'purity';
-    case ContractType.NoCycles: return 'noCycles';
-    case ContractType.Colocated: return 'colocated';
-  }
+  /** Requires that files in one member have corresponding files in another */
+  Mirrors = 'mirrors',
 }

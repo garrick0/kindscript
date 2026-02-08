@@ -57,9 +57,15 @@ export class Contract {
         }
         break;
 
-      case ContractType.Colocated:
+      case ContractType.Exists:
+        if (this.args.length < 1) {
+          return `exists requires at least 1 argument, got ${this.args.length}`;
+        }
+        break;
+
+      case ContractType.Mirrors:
         if (this.args.length !== 2) {
-          return `colocated requires exactly 2 arguments (primary, related), got ${this.args.length}`;
+          return `mirrors requires exactly 2 arguments (primary, related), got ${this.args.length}`;
         }
         break;
 

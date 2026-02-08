@@ -105,16 +105,16 @@ export class Diagnostic {
   }
 
   /**
-   * Create a diagnostic for a co-location violation.
+   * Create a diagnostic for a mirrors constraint violation (missing counterpart file).
    */
-  static notColocated(
+  static mirrorMismatch(
     primaryFile: string,
-    relatedFile: string,
+    expectedFile: string,
     contract: Contract
   ): Diagnostic {
     return new Diagnostic(
-      `Files '${primaryFile}' and '${relatedFile}' must be co-located but are not`,
-      DiagnosticCode.NotColocated,
+      `File '${primaryFile}' has no counterpart at '${expectedFile}'`,
+      DiagnosticCode.MirrorMismatch,
       primaryFile,
       0,
       0,

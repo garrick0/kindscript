@@ -1,66 +1,55 @@
 import { SourceFile } from './typescript.port';
 
 /**
- * Opaque wrapper for a TypeScript AST node.
+ * Structural view of a type literal tree, preserving shape without semantic knowledge.
  *
- * The application layer sees nodes as opaque objects. The infrastructure
- * layer casts them to/from real ts.Node instances.
+ * The adapter infers the shape from AST node structure (not property names),
+ * so it remains constraint-agnostic. The classifier maps property names to
+ * contract types via the GENERATORS registry.
  */
-export interface ASTNode {
-  /** Opaque node kind identifier */
-  readonly __brand?: 'ASTNode';
+export type TypeNodeView =
+  | { kind: 'boolean' }
+  | { kind: 'stringList'; values: string[] }
+  | { kind: 'tuplePairs'; values: [string, string][] }
+  | { kind: 'object'; properties: Array<{ name: string; value: TypeNodeView }> };
+
+/**
+ * High-level view of a Kind definition extracted from a `type X = Kind<N, Members, Constraints>`.
+ */
+export interface KindDefinitionView {
+  typeName: string;
+  kindNameLiteral: string;
+  members: Array<{ name: string; typeName?: string }>;
+  constraints?: TypeNodeView;
 }
 
 /**
- * Node type checking and property access.
+ * High-level view of a member value from an InstanceConfig object literal.
+ * Represents a recursively-resolved member assignment with optional path override.
  */
-export interface ASTNodePort {
-  isInterfaceDeclaration(node: ASTNode): boolean;
-  isVariableStatement(node: ASTNode): boolean;
-  isObjectLiteral(node: ASTNode): boolean;
-  isCallExpression(node: ASTNode): boolean;
-  isArrayLiteral(node: ASTNode): boolean;
-  isIdentifier(node: ASTNode): boolean;
-  getDeclarationName(node: ASTNode): string | undefined;
-  getStringValue(node: ASTNode): string | undefined;
-  getIdentifierName(node: ASTNode): string | undefined;
-  getInitializer(node: ASTNode): ASTNode | undefined;
+export interface MemberValueView {
+  name: string;
+  pathOverride?: string;
+  children?: MemberValueView[];
 }
 
 /**
- * Interface and variable declaration queries.
+ * High-level view of an instance declaration extracted from
+ * `const x = { ... } satisfies InstanceConfig<T>`.
  */
-export interface ASTDeclarationPort {
-  getHeritageTypeNames(node: ASTNode): string[];
-  getHeritageTypeArgLiterals(node: ASTNode): string[];
-  getPropertySignatures(node: ASTNode): Array<{ name: string; typeName?: string }>;
-  getVariableDeclarations(node: ASTNode): ASTNode[];
-  getVariableTypeName(node: ASTNode): string | undefined;
+export interface InstanceDeclarationView {
+  variableName: string;
+  kindTypeName: string;
+  members: MemberValueView[];
 }
 
 /**
- * Call expression and collection queries.
- */
-export interface ASTExpressionPort {
-  getCallExpressionName(node: ASTNode): string | undefined;
-  getCallTypeArgumentNames(node: ASTNode): string[];
-  getCallArguments(node: ASTNode): ASTNode[];
-  getObjectProperties(node: ASTNode): Array<{ name: string; value: ASTNode }>;
-  getArrayElements(node: ASTNode): ASTNode[];
-}
-
-/**
- * Statement-level traversal.
- */
-export interface ASTTraversalPort {
-  getStatements(sourceFile: SourceFile): ASTNode[];
-}
-
-/**
- * Full AST port — convenience type composing all sub-ports.
+ * Port for extracting architectural information from TypeScript source files.
  *
- * Services that need methods from multiple sub-ports can depend on this
- * composite type. Services with narrower needs should depend on the
- * specific sub-port instead.
+ * Returns pre-extracted domain views — all AST mechanics are encapsulated
+ * in the adapter implementation.
  */
-export type ASTPort = ASTNodePort & ASTDeclarationPort & ASTExpressionPort & ASTTraversalPort;
+export interface ASTViewPort {
+  getKindDefinitions(sourceFile: SourceFile): KindDefinitionView[];
+  getInstanceDeclarations(sourceFile: SourceFile): InstanceDeclarationView[];
+}

@@ -4,14 +4,10 @@ import { CheckContractsResponse } from './check-contracts.response';
 /**
  * Use case interface for checking architectural contracts.
  *
- * This is the core use case of KindScript - it evaluates contracts
- * against the codebase and reports violations.
- *
- * The implementation will:
- * 1. Resolve each symbol to its files
- * 2. For each contract, evaluate it against the resolved files
- * 3. Collect diagnostics for violations
- * 4. Return results
+ * Evaluates contracts against a pre-built model of the project
+ * (resolved files + TypeScript program) and reports violations.
+ * The caller is responsible for resolving symbol locations to
+ * files before invoking this use case.
  *
  * Implemented in CheckContractsService.
  */

@@ -65,7 +65,7 @@ export class ConfigAdapter implements ConfigPort {
 
   mergeKindScriptConfig(
     projectPath: string,
-    updates: { definitions?: string[]; packages?: string[] }
+    _updates: Record<string, unknown>
   ): void {
     const configPath = nodePath.join(projectPath, 'kindscript.json');
     let config: Record<string, unknown> = {};
@@ -75,22 +75,6 @@ export class ConfigAdapter implements ConfigPort {
       config = JSON.parse(existing);
     } catch {
       // If missing or invalid JSON, start fresh
-    }
-
-    if (updates.definitions) {
-      const defs = (config['definitions'] as string[]) || [];
-      for (const d of updates.definitions) {
-        if (!defs.includes(d)) defs.push(d);
-      }
-      config['definitions'] = defs;
-    }
-
-    if (updates.packages) {
-      const pkgs = (config['packages'] as string[]) || [];
-      for (const p of updates.packages) {
-        if (!pkgs.includes(p)) pkgs.push(p);
-      }
-      config['packages'] = pkgs;
     }
 
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');

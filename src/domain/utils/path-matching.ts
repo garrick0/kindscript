@@ -43,3 +43,36 @@ export function joinPath(base: string, relative: string): string {
   const normalizedRelative = relative.replace(/^\//, '');
   return `${normalizedBase}/${normalizedRelative}`;
 }
+
+/**
+ * Pure dirname — returns the directory portion of a path.
+ *
+ * Works with both forward and back slashes.
+ * This is a domain-layer utility with no Node.js dependency.
+ */
+export function dirnamePath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash === -1) return '.';
+  if (lastSlash === 0) return '/';
+  return normalized.substring(0, lastSlash);
+}
+
+/**
+ * Pure relative-path computation — no filesystem needed.
+ *
+ * Given a base directory and a file path under it, returns the
+ * portion of `to` after `from`. If `to` doesn't start with `from`,
+ * returns `to` unchanged.
+ *
+ * This is a domain-layer utility with no Node.js dependency.
+ */
+export function relativePath(from: string, to: string): string {
+  const normalizedFrom = from.replace(/\\/g, '/').replace(/\/$/, '');
+  const normalizedTo = to.replace(/\\/g, '/');
+
+  if (normalizedTo.startsWith(normalizedFrom + '/')) {
+    return normalizedTo.substring(normalizedFrom.length + 1);
+  }
+  return normalizedTo;
+}

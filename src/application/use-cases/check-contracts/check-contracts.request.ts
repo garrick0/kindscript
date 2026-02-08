@@ -20,4 +20,11 @@ export interface CheckContractsRequest {
 
   /** The TypeScript program to analyze (reuse from ClassifyProject) */
   program: Program;
+
+  /**
+   * Pre-resolved mapping from symbol location → files on disk.
+   * Built by the orchestrator before checking begins.
+   * Replaces live FileSystemPort.readDirectory() calls during checking.
+   */
+  resolvedFiles: Map<string, string[]>;
 }

@@ -2,7 +2,7 @@
  * Node.js built-in modules that indicate impure imports.
  *
  * Includes bare names, `node:` prefixed variants, and `/promises` subpaths.
- * Used by purity checking and architecture inference.
+ * Used by purity checking.
  */
 const BARE_BUILTINS = [
   'fs', 'path', 'http', 'https', 'net', 'child_process', 'crypto', 'os',

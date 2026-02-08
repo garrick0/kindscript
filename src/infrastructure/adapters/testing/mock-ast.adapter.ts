@@ -1,337 +1,100 @@
-import { ASTPort, ASTNode } from '../../../application/ports/ast.port';
+import { ASTViewPort, TypeNodeView, KindDefinitionView, InstanceDeclarationView } from '../../../application/ports/ast.port';
 import { SourceFile } from '../../../application/ports/typescript.port';
 
 /**
- * Mock node types for testing.
- */
-interface MockInterfaceNode extends ASTNode {
-  __type: 'interface';
-  name: string;
-  heritageTypeNames: string[];
-  heritageTypeArgLiterals: string[];
-  properties: Array<{ name: string; typeName?: string }>;
-}
-
-interface MockVariableStatementNode extends ASTNode {
-  __type: 'variableStatement';
-  declarations: MockVariableDeclarationNode[];
-}
-
-interface MockVariableDeclarationNode extends ASTNode {
-  __type: 'variableDeclaration';
-  name: string;
-  typeName?: string;
-  initializer?: ASTNode;
-}
-
-interface MockObjectLiteralNode extends ASTNode {
-  __type: 'objectLiteral';
-  properties: Array<{ name: string; value: ASTNode }>;
-}
-
-interface MockCallExpressionNode extends ASTNode {
-  __type: 'callExpression';
-  functionName: string;
-  typeArgNames: string[];
-  args: ASTNode[];
-}
-
-interface MockStringLiteralNode extends ASTNode {
-  __type: 'stringLiteral';
-  value: string;
-}
-
-interface MockArrayLiteralNode extends ASTNode {
-  __type: 'arrayLiteral';
-  elements: ASTNode[];
-}
-
-interface MockIdentifierNode extends ASTNode {
-  __type: 'identifier';
-  name: string;
-}
-
-type MockNode =
-  | MockInterfaceNode
-  | MockVariableStatementNode
-  | MockVariableDeclarationNode
-  | MockObjectLiteralNode
-  | MockCallExpressionNode
-  | MockStringLiteralNode
-  | MockArrayLiteralNode
-  | MockIdentifierNode;
-
-/**
- * Mock implementation of ASTPort for testing ClassifyASTService.
+ * Mock implementation of ASTViewPort for testing ClassifyASTService.
  *
- * Provides a fluent API for building mock AST structures:
+ * Provides a fluent API for building mock domain views:
  * ```typescript
  * mockAST
- *   .withInterface('OrderingContext', 'Kind', 'OrderingContext', [
- *     { name: 'domain', typeName: 'DomainLayer' },
- *   ])
- *   .withVariable('ordering', 'OrderingContext', { ... });
+ *   .withKindDefinition('/project/src/arch.k.ts', {
+ *     typeName: 'OrderingContext',
+ *     kindNameLiteral: 'OrderingContext',
+ *     members: [{ name: 'domain', typeName: 'DomainLayer' }],
+ *   })
+ *   .withInstanceDeclaration('/project/src/arch.k.ts', {
+ *     variableName: 'app',
+ *     kindTypeName: 'OrderingContext',
+ *     members: [{ name: 'domain' }],
+ *   });
  * ```
  */
-export class MockASTAdapter implements ASTPort {
-  private statements = new Map<string, ASTNode[]>();
+export class MockASTAdapter implements ASTViewPort {
+  private kindDefinitions = new Map<string, KindDefinitionView[]>();
+  private instanceDeclarations = new Map<string, InstanceDeclarationView[]>();
 
   // --- Fluent configuration API ---
 
-  /**
-   * Add an interface declaration to a source file.
-   */
-  withInterface(
-    fileName: string,
-    name: string,
-    extendsType: string,
-    kindNameLiteral: string,
-    properties: Array<{ name: string; typeName?: string }>
-  ): this {
-    const node: MockInterfaceNode = {
-      __type: 'interface',
-      name,
-      heritageTypeNames: [extendsType],
-      heritageTypeArgLiterals: [kindNameLiteral],
-      properties,
-    };
-    this.addStatement(fileName, node);
+  withKindDefinition(fileName: string, view: KindDefinitionView): this {
+    const existing = this.kindDefinitions.get(fileName) ?? [];
+    existing.push(view);
+    this.kindDefinitions.set(fileName, existing);
+    return this;
+  }
+
+  withInstanceDeclaration(fileName: string, view: InstanceDeclarationView): this {
+    const existing = this.instanceDeclarations.get(fileName) ?? [];
+    existing.push(view);
+    this.instanceDeclarations.set(fileName, existing);
     return this;
   }
 
   /**
-   * Add a variable statement with one declaration to a source file.
+   * Build a TypeNodeView from a plain constraint config object.
+   * Converts the familiar { noDependency: [...], pure: true } format into TypeNodeView trees.
    */
-  withVariable(
-    fileName: string,
-    varName: string,
-    typeName: string,
-    initializer: ASTNode
-  ): this {
-    const decl: MockVariableDeclarationNode = {
-      __type: 'variableDeclaration',
-      name: varName,
-      typeName,
-      initializer,
+  static constraintView(config: {
+    pure?: boolean;
+    noDependency?: [string, string][];
+    mustImplement?: [string, string][];
+    noCycles?: string[];
+    filesystem?: {
+      exists?: string[];
+      mirrors?: [string, string][];
     };
-    const stmt: MockVariableStatementNode = {
-      __type: 'variableStatement',
-      declarations: [decl],
-    };
-    this.addStatement(fileName, stmt);
-    return this;
-  }
+  }): TypeNodeView {
+    const properties: Array<{ name: string; value: TypeNodeView }> = [];
 
-  /**
-   * Add a defineContracts call expression to a source file.
-   */
-  withDefineContractsCall(
-    fileName: string,
-    kindName: string,
-    configObject: ASTNode
-  ): this {
-    const call: MockCallExpressionNode = {
-      __type: 'callExpression',
-      functionName: 'defineContracts',
-      typeArgNames: [kindName],
-      args: [configObject],
-    };
-    // Wrap in a variable statement since that's how it appears in real code
-    const decl: MockVariableDeclarationNode = {
-      __type: 'variableDeclaration',
-      name: 'contracts',
-      initializer: call,
-    };
-    const stmt: MockVariableStatementNode = {
-      __type: 'variableStatement',
-      declarations: [decl],
-    };
-    this.addStatement(fileName, stmt);
-    return this;
-  }
+    if (config.pure) {
+      properties.push({ name: 'pure', value: { kind: 'boolean' } });
+    }
+    if (config.noDependency) {
+      properties.push({ name: 'noDependency', value: { kind: 'tuplePairs', values: config.noDependency } });
+    }
+    if (config.mustImplement) {
+      properties.push({ name: 'mustImplement', value: { kind: 'tuplePairs', values: config.mustImplement } });
+    }
+    if (config.noCycles) {
+      properties.push({ name: 'noCycles', value: { kind: 'stringList', values: config.noCycles } });
+    }
+    if (config.filesystem) {
+      const fsProps: Array<{ name: string; value: TypeNodeView }> = [];
+      if (config.filesystem.exists) {
+        fsProps.push({ name: 'exists', value: { kind: 'stringList', values: config.filesystem.exists } });
+      }
+      if (config.filesystem.mirrors) {
+        fsProps.push({ name: 'mirrors', value: { kind: 'tuplePairs', values: config.filesystem.mirrors } });
+      }
+      if (fsProps.length > 0) {
+        properties.push({ name: 'filesystem', value: { kind: 'object', properties: fsProps } });
+      }
+    }
 
-  /**
-   * Add a locate<T>(root, members) call expression to a source file.
-   */
-  withLocateCall(
-    fileName: string,
-    varName: string,
-    kindName: string,
-    rootLocation: string,
-    membersObject: ASTNode
-  ): this {
-    const call: MockCallExpressionNode = {
-      __type: 'callExpression',
-      functionName: 'locate',
-      typeArgNames: [kindName],
-      args: [MockASTAdapter.stringLiteral(rootLocation), membersObject],
-    };
-    const decl: MockVariableDeclarationNode = {
-      __type: 'variableDeclaration',
-      name: varName,
-      initializer: call,
-    };
-    const stmt: MockVariableStatementNode = {
-      __type: 'variableStatement',
-      declarations: [decl],
-    };
-    this.addStatement(fileName, stmt);
-    return this;
-  }
-
-  /** Create a mock object literal node */
-  static objectLiteral(props: Array<{ name: string; value: ASTNode }>): MockObjectLiteralNode {
-    return { __type: 'objectLiteral', properties: props };
-  }
-
-  /** Create a mock string literal node */
-  static stringLiteral(value: string): MockStringLiteralNode {
-    return { __type: 'stringLiteral', value };
-  }
-
-  /** Create a mock array literal node */
-  static arrayLiteral(elements: ASTNode[]): MockArrayLiteralNode {
-    return { __type: 'arrayLiteral', elements };
-  }
-
-  /** Create a mock identifier node */
-  static identifier(name: string): MockIdentifierNode {
-    return { __type: 'identifier', name };
-  }
-
-  /**
-   * Add a raw statement node to a source file (for edge-case testing).
-   */
-  withStatement(fileName: string, node: ASTNode): this {
-    this.addStatement(fileName, node);
-    return this;
+    return { kind: 'object', properties };
   }
 
   reset(): void {
-    this.statements.clear();
+    this.kindDefinitions.clear();
+    this.instanceDeclarations.clear();
   }
 
-  // --- ASTPort implementation ---
+  // --- ASTViewPort implementation ---
 
-  getStatements(sourceFile: SourceFile): ASTNode[] {
-    return this.statements.get(sourceFile.fileName) ?? [];
+  getKindDefinitions(sourceFile: SourceFile): KindDefinitionView[] {
+    return this.kindDefinitions.get(sourceFile.fileName) ?? [];
   }
 
-  isInterfaceDeclaration(node: ASTNode): boolean {
-    return (node as MockNode).__type === 'interface';
-  }
-
-  isVariableStatement(node: ASTNode): boolean {
-    return (node as MockNode).__type === 'variableStatement';
-  }
-
-  getDeclarationName(node: ASTNode): string | undefined {
-    const mock = node as MockNode;
-    if (mock.__type === 'interface') return mock.name;
-    if (mock.__type === 'variableDeclaration') return mock.name;
-    if (mock.__type === 'variableStatement') return mock.declarations[0]?.name;
-    return undefined;
-  }
-
-  getHeritageTypeNames(node: ASTNode): string[] {
-    const mock = node as MockNode;
-    if (mock.__type === 'interface') return mock.heritageTypeNames;
-    return [];
-  }
-
-  getHeritageTypeArgLiterals(node: ASTNode): string[] {
-    const mock = node as MockNode;
-    if (mock.__type === 'interface') return mock.heritageTypeArgLiterals;
-    return [];
-  }
-
-  getPropertySignatures(node: ASTNode): Array<{ name: string; typeName?: string }> {
-    const mock = node as MockNode;
-    if (mock.__type === 'interface') return mock.properties;
-    return [];
-  }
-
-  getVariableDeclarations(node: ASTNode): ASTNode[] {
-    const mock = node as MockNode;
-    if (mock.__type === 'variableStatement') return mock.declarations;
-    return [];
-  }
-
-  getVariableTypeName(node: ASTNode): string | undefined {
-    const mock = node as MockNode;
-    if (mock.__type === 'variableDeclaration') return mock.typeName;
-    return undefined;
-  }
-
-  getInitializer(node: ASTNode): ASTNode | undefined {
-    const mock = node as MockNode;
-    if (mock.__type === 'variableDeclaration') return mock.initializer;
-    return undefined;
-  }
-
-  isObjectLiteral(node: ASTNode): boolean {
-    return (node as MockNode).__type === 'objectLiteral';
-  }
-
-  getObjectProperties(node: ASTNode): Array<{ name: string; value: ASTNode }> {
-    const mock = node as MockNode;
-    if (mock.__type === 'objectLiteral') return mock.properties;
-    return [];
-  }
-
-  getStringValue(node: ASTNode): string | undefined {
-    const mock = node as MockNode;
-    if (mock.__type === 'stringLiteral') return mock.value;
-    return undefined;
-  }
-
-  isIdentifier(node: ASTNode): boolean {
-    return (node as MockNode).__type === 'identifier';
-  }
-
-  getIdentifierName(node: ASTNode): string | undefined {
-    const mock = node as MockNode;
-    if (mock.__type === 'identifier') return mock.name;
-    return undefined;
-  }
-
-  isCallExpression(node: ASTNode): boolean {
-    return (node as MockNode).__type === 'callExpression';
-  }
-
-  getCallExpressionName(node: ASTNode): string | undefined {
-    const mock = node as MockNode;
-    if (mock.__type === 'callExpression') return mock.functionName;
-    return undefined;
-  }
-
-  getCallTypeArgumentNames(node: ASTNode): string[] {
-    const mock = node as MockNode;
-    if (mock.__type === 'callExpression') return mock.typeArgNames;
-    return [];
-  }
-
-  getCallArguments(node: ASTNode): ASTNode[] {
-    const mock = node as MockNode;
-    if (mock.__type === 'callExpression') return mock.args;
-    return [];
-  }
-
-  isArrayLiteral(node: ASTNode): boolean {
-    return (node as MockNode).__type === 'arrayLiteral';
-  }
-
-  getArrayElements(node: ASTNode): ASTNode[] {
-    const mock = node as MockNode;
-    if (mock.__type === 'arrayLiteral') return mock.elements;
-    return [];
-  }
-
-  // --- Private helpers ---
-
-  private addStatement(fileName: string, node: ASTNode): void {
-    const existing = this.statements.get(fileName) ?? [];
-    existing.push(node);
-    this.statements.set(fileName, existing);
+  getInstanceDeclarations(sourceFile: SourceFile): InstanceDeclarationView[] {
+    return this.instanceDeclarations.get(sourceFile.fileName) ?? [];
   }
 }

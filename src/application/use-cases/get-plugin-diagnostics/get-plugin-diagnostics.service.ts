@@ -2,6 +2,8 @@ import { GetPluginDiagnosticsUseCase } from './get-plugin-diagnostics.use-case';
 import { GetPluginDiagnosticsRequest, GetPluginDiagnosticsResponse } from './get-plugin-diagnostics.types';
 import { CheckContractsUseCase } from '../check-contracts/check-contracts.use-case';
 import { ClassifyProjectUseCase } from '../classify-project/classify-project.use-case';
+import { FileSystemPort } from '../../ports/filesystem.port';
+import { resolveSymbolFiles } from '../../services/resolve-symbol-files';
 import { Diagnostic } from '../../../domain/entities/diagnostic';
 
 /**
@@ -16,6 +18,7 @@ export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase 
   constructor(
     private readonly checkContracts: CheckContractsUseCase,
     private readonly classifyProject: ClassifyProjectUseCase,
+    private readonly fsPort: FileSystemPort,
   ) {}
 
   execute(request: GetPluginDiagnosticsRequest): GetPluginDiagnosticsResponse {
@@ -47,6 +50,7 @@ export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase 
       contracts: result.contracts,
       config: result.config,
       program: result.program,
+      resolvedFiles: resolveSymbolFiles(result.symbols, this.fsPort),
     });
 
     return checkResult.diagnostics.filter(d => this.isRelevantToFile(d, request.fileName));

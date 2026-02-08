@@ -37,9 +37,6 @@ export interface ClassifyProjectSuccess {
 
   /** The parsed kindscript.json config */
   config: KindScriptConfig;
-
-  /** Warnings from package resolution */
-  packageWarnings: string[];
 }
 
 /**

@@ -7,12 +7,6 @@ import { CompilerOptions } from '../../domain/types/compiler-options';
  * to configure architectural contracts.
  */
 export interface KindScriptConfig {
-  /** Paths to kind definition files */
-  definitions?: string[];
-
-  /** Standard library package names (e.g., "@kindscript/clean-architecture") */
-  packages?: string[];
-
   /** Root directory for the project */
   rootDir?: string;
 
@@ -78,14 +72,11 @@ export interface ConfigPort {
   /**
    * Merge updates into an existing kindscript.json (or create one).
    *
-   * Reads the existing config, merges the provided definitions and packages
-   * arrays (appending unique values), and writes back.
-   *
    * @param projectPath - Path to the project directory
    * @param updates - Fields to merge into the config
    */
   mergeKindScriptConfig(
     projectPath: string,
-    updates: { definitions?: string[]; packages?: string[] }
+    updates: Record<string, unknown>
   ): void;
 }

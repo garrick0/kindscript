@@ -1,232 +1,205 @@
 import * as ts from 'typescript';
-import { ASTPort, ASTNode } from '../../../application/ports/ast.port';
+import { ASTViewPort, TypeNodeView, KindDefinitionView, MemberValueView, InstanceDeclarationView } from '../../../application/ports/ast.port';
 import { SourceFile } from '../../../application/ports/typescript.port';
 
 /**
- * Real implementation of ASTPort using the TypeScript compiler API.
+ * Real implementation of ASTViewPort using the TypeScript compiler API.
  *
- * Each method is a thin wrapper over ts.is*() checks and property access.
- * The adapter casts between ASTNode (domain-safe opaque type) and ts.Node.
+ * Extracts high-level domain views from TypeScript source files.
+ * All AST mechanics (node traversal, type resolution, identifier resolution)
+ * are encapsulated here — consumers see only domain-level views.
  */
-export class ASTAdapter implements ASTPort {
-  getStatements(sourceFile: SourceFile): ASTNode[] {
+export class ASTAdapter implements ASTViewPort {
+
+  getKindDefinitions(sourceFile: SourceFile): KindDefinitionView[] {
     const tsSourceFile = this.toTsSourceFile(sourceFile);
     if (!tsSourceFile) return [];
-    return this.wrapNodes(Array.from(tsSourceFile.statements));
-  }
 
-  isInterfaceDeclaration(node: ASTNode): boolean {
-    return ts.isInterfaceDeclaration(this.toTsNode(node));
-  }
+    const results: KindDefinitionView[] = [];
 
-  isVariableStatement(node: ASTNode): boolean {
-    return ts.isVariableStatement(this.toTsNode(node));
-  }
+    for (const stmt of tsSourceFile.statements) {
+      if (!ts.isTypeAliasDeclaration(stmt)) continue;
 
-  getDeclarationName(node: ASTNode): string | undefined {
-    const tsNode = this.toTsNode(node);
+      const type = stmt.type;
+      if (!ts.isTypeReferenceNode(type) || !ts.isIdentifier(type.typeName)) continue;
+      if (type.typeName.text !== 'Kind') continue;
 
-    if (ts.isInterfaceDeclaration(tsNode)) {
-      return tsNode.name.text;
-    }
-    if (ts.isVariableDeclaration(tsNode)) {
-      return ts.isIdentifier(tsNode.name) ? tsNode.name.text : undefined;
-    }
-    if (ts.isVariableStatement(tsNode)) {
-      const decl = tsNode.declarationList.declarations[0];
-      if (decl && ts.isIdentifier(decl.name)) {
-        return decl.name.text;
-      }
-    }
-    return undefined;
-  }
+      const typeName = stmt.name.text;
 
-  getHeritageTypeNames(node: ASTNode): string[] {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isInterfaceDeclaration(tsNode)) return [];
-    if (!tsNode.heritageClauses) return [];
-
-    const names: string[] = [];
-    for (const clause of tsNode.heritageClauses) {
-      for (const typeExpr of clause.types) {
-        const expr = typeExpr.expression;
-        if (ts.isIdentifier(expr)) {
-          names.push(expr.text);
+      // First type arg: kind name literal
+      let kindNameLiteral = typeName;
+      if (type.typeArguments && type.typeArguments.length >= 1) {
+        const firstArg = type.typeArguments[0];
+        if (ts.isLiteralTypeNode(firstArg) && ts.isStringLiteral(firstArg.literal)) {
+          kindNameLiteral = firstArg.literal.text;
         }
       }
-    }
-    return names;
-  }
 
-  getHeritageTypeArgLiterals(node: ASTNode): string[] {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isInterfaceDeclaration(tsNode)) return [];
-    if (!tsNode.heritageClauses) return [];
-
-    const literals: string[] = [];
-    for (const clause of tsNode.heritageClauses) {
-      for (const typeExpr of clause.types) {
-        if (typeExpr.typeArguments) {
-          for (const arg of typeExpr.typeArguments) {
-            if (ts.isLiteralTypeNode(arg) && ts.isStringLiteral(arg.literal)) {
-              literals.push(arg.literal.text);
+      // Second type arg: member properties
+      const members: Array<{ name: string; typeName?: string }> = [];
+      if (type.typeArguments && type.typeArguments.length >= 2) {
+        const membersArg = type.typeArguments[1];
+        if (ts.isTypeLiteralNode(membersArg)) {
+          for (const member of membersArg.members) {
+            if (ts.isPropertySignature(member) && member.name) {
+              const name = ts.isIdentifier(member.name) ? member.name.text : member.name.getText();
+              let memberTypeName: string | undefined;
+              if (member.type) {
+                if (ts.isTypeReferenceNode(member.type) && ts.isIdentifier(member.type.typeName)) {
+                  memberTypeName = member.type.typeName.text;
+                } else if (member.type.kind === ts.SyntaxKind.StringKeyword) {
+                  memberTypeName = 'string';
+                }
+              }
+              members.push({ name, typeName: memberTypeName });
             }
           }
         }
       }
+
+      // Third type arg: constraints
+      let constraints: TypeNodeView | undefined;
+      if (type.typeArguments && type.typeArguments.length >= 3) {
+        constraints = this.buildTypeNodeView(type.typeArguments[2]);
+      }
+
+      results.push({ typeName, kindNameLiteral, members, constraints });
     }
-    return literals;
+
+    return results;
   }
 
-  getPropertySignatures(node: ASTNode): Array<{ name: string; typeName?: string }> {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isInterfaceDeclaration(tsNode)) return [];
+  getInstanceDeclarations(sourceFile: SourceFile): InstanceDeclarationView[] {
+    const tsSourceFile = this.toTsSourceFile(sourceFile);
+    if (!tsSourceFile) return [];
 
-    const props: Array<{ name: string; typeName?: string }> = [];
-    for (const member of tsNode.members) {
-      if (ts.isPropertySignature(member) && member.name) {
-        const name = ts.isIdentifier(member.name) ? member.name.text : member.name.getText();
-        let typeName: string | undefined;
-
-        if (member.type) {
-          if (ts.isTypeReferenceNode(member.type) && ts.isIdentifier(member.type.typeName)) {
-            typeName = member.type.typeName.text;
-          } else if (member.type.kind === ts.SyntaxKind.StringKeyword) {
-            typeName = 'string';
-          }
+    // Build variable map for identifier resolution
+    const varMap = new Map<string, ts.Expression>();
+    for (const stmt of tsSourceFile.statements) {
+      if (!ts.isVariableStatement(stmt)) continue;
+      for (const decl of stmt.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.initializer) {
+          varMap.set(decl.name.text, decl.initializer);
         }
-
-        props.push({ name, typeName });
       }
     }
-    return props;
-  }
 
-  getVariableDeclarations(node: ASTNode): ASTNode[] {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isVariableStatement(tsNode)) return [];
-    return this.wrapNodes(Array.from(tsNode.declarationList.declarations));
-  }
+    const results: InstanceDeclarationView[] = [];
 
-  getVariableTypeName(node: ASTNode): string | undefined {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isVariableDeclaration(tsNode)) return undefined;
+    for (const stmt of tsSourceFile.statements) {
+      if (!ts.isVariableStatement(stmt)) continue;
+      for (const decl of stmt.declarationList.declarations) {
+        if (!decl.initializer || !ts.isSatisfiesExpression(decl.initializer)) continue;
 
-    if (tsNode.type && ts.isTypeReferenceNode(tsNode.type) && ts.isIdentifier(tsNode.type.typeName)) {
-      return tsNode.type.typeName.text;
+        const satisfies = decl.initializer;
+        const type = satisfies.type;
+        if (!ts.isTypeReferenceNode(type) || !ts.isIdentifier(type.typeName)) continue;
+        if (type.typeName.text !== 'InstanceConfig') continue;
+
+        // Extract kind type name from type argument
+        let kindTypeName: string | undefined;
+        if (type.typeArguments && type.typeArguments.length >= 1) {
+          const arg = type.typeArguments[0];
+          if (ts.isTypeReferenceNode(arg) && ts.isIdentifier(arg.typeName)) {
+            kindTypeName = arg.typeName.text;
+          }
+        }
+        if (!kindTypeName) continue;
+
+        const variableName = ts.isIdentifier(decl.name) ? decl.name.text : undefined;
+        if (!variableName) continue;
+
+        const expression = satisfies.expression;
+        if (!ts.isObjectLiteralExpression(expression)) continue;
+
+        const members = this.extractMemberValues(expression, varMap);
+        results.push({ variableName, kindTypeName, members });
+      }
     }
-    return undefined;
+
+    return results;
   }
 
-  getInitializer(node: ASTNode): ASTNode | undefined {
-    const tsNode = this.toTsNode(node);
-    if (ts.isVariableDeclaration(tsNode) && tsNode.initializer) {
-      return this.wrapNode(tsNode.initializer);
-    }
-    return undefined;
+  /**
+   * Recursively extract MemberValueView[] from an object literal expression.
+   * Resolves identifier references via varMap, extracts `path` as pathOverride,
+   * and recurses into nested object properties as children.
+   */
+  private extractMemberValues(
+    obj: ts.ObjectLiteralExpression,
+    varMap: Map<string, ts.Expression>,
+  ): MemberValueView[] {
+    return this.extractMemberValuesFromProps(Array.from(obj.properties), varMap);
   }
 
-  isObjectLiteral(node: ASTNode): boolean {
-    return ts.isObjectLiteralExpression(this.toTsNode(node));
-  }
+  /**
+   * Extract MemberValueView[] from an array of object literal element-like nodes.
+   */
+  private extractMemberValuesFromProps(
+    props: ts.ObjectLiteralElementLike[],
+    varMap: Map<string, ts.Expression>,
+  ): MemberValueView[] {
+    const results: MemberValueView[] = [];
 
-  getObjectProperties(node: ASTNode): Array<{ name: string; value: ASTNode }> {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isObjectLiteralExpression(tsNode)) return [];
+    for (const prop of props) {
+      let name: string;
+      let valueExpr: ts.Expression | undefined;
 
-    const props: Array<{ name: string; value: ASTNode }> = [];
-    for (const prop of tsNode.properties) {
       if (ts.isPropertyAssignment(prop) && prop.name) {
-        const name = ts.isIdentifier(prop.name)
+        name = ts.isIdentifier(prop.name)
           ? prop.name.text
           : ts.isStringLiteral(prop.name)
             ? prop.name.text
             : prop.name.getText();
-        props.push({ name, value: this.wrapNode(prop.initializer) });
+        valueExpr = prop.initializer;
       } else if (ts.isShorthandPropertyAssignment(prop)) {
-        // { domain } shorthand — the name is the identifier, value is the identifier itself
-        const name = prop.name.text;
-        props.push({ name, value: this.wrapNode(prop.name) });
+        name = prop.name.text;
+        // Shorthand: { domain } — resolve via varMap
+        valueExpr = varMap.get(name);
+      } else {
+        continue;
       }
-    }
-    return props;
-  }
 
-  getStringValue(node: ASTNode): string | undefined {
-    const tsNode = this.toTsNode(node);
-    if (ts.isStringLiteral(tsNode)) {
-      return tsNode.text;
-    }
-    return undefined;
-  }
-
-  isIdentifier(node: ASTNode): boolean {
-    return ts.isIdentifier(this.toTsNode(node));
-  }
-
-  getIdentifierName(node: ASTNode): string | undefined {
-    const tsNode = this.toTsNode(node);
-    if (ts.isIdentifier(tsNode)) {
-      return tsNode.text;
-    }
-    return undefined;
-  }
-
-  isCallExpression(node: ASTNode): boolean {
-    return ts.isCallExpression(this.toTsNode(node));
-  }
-
-  getCallExpressionName(node: ASTNode): string | undefined {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isCallExpression(tsNode)) return undefined;
-
-    if (ts.isIdentifier(tsNode.expression)) {
-      return tsNode.expression.text;
-    }
-    return undefined;
-  }
-
-  getCallTypeArgumentNames(node: ASTNode): string[] {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isCallExpression(tsNode)) return [];
-    if (!tsNode.typeArguments) return [];
-
-    const names: string[] = [];
-    for (const arg of tsNode.typeArguments) {
-      if (ts.isTypeReferenceNode(arg) && ts.isIdentifier(arg.typeName)) {
-        names.push(arg.typeName.text);
+      // Resolve identifier references
+      if (valueExpr && ts.isIdentifier(valueExpr)) {
+        const resolved = varMap.get(valueExpr.text);
+        if (resolved) {
+          valueExpr = resolved;
+        }
       }
+
+      const view: MemberValueView = { name };
+
+      if (valueExpr && ts.isObjectLiteralExpression(valueExpr)) {
+        // Check for path override: { path: "custom" }
+        const pathProp = valueExpr.properties.find(p =>
+          ts.isPropertyAssignment(p) &&
+          ts.isIdentifier(p.name) &&
+          p.name.text === 'path'
+        );
+        if (pathProp && ts.isPropertyAssignment(pathProp) && ts.isStringLiteral(pathProp.initializer)) {
+          view.pathOverride = pathProp.initializer.text;
+        }
+
+        // Extract children (non-path properties)
+        const childProps = valueExpr.properties.filter(p => {
+          if (!ts.isPropertyAssignment(p) || !p.name) return false;
+          const propName = ts.isIdentifier(p.name) ? p.name.text : '';
+          return propName !== 'path';
+        });
+
+        if (childProps.length > 0) {
+          const children = this.extractMemberValuesFromProps(childProps, varMap);
+          if (children.length > 0) {
+            view.children = children;
+          }
+        }
+      }
+
+      results.push(view);
     }
-    return names;
-  }
 
-  getCallArguments(node: ASTNode): ASTNode[] {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isCallExpression(tsNode)) return [];
-    return this.wrapNodes(Array.from(tsNode.arguments));
-  }
-
-  isArrayLiteral(node: ASTNode): boolean {
-    return ts.isArrayLiteralExpression(this.toTsNode(node));
-  }
-
-  getArrayElements(node: ASTNode): ASTNode[] {
-    const tsNode = this.toTsNode(node);
-    if (!ts.isArrayLiteralExpression(tsNode)) return [];
-    return this.wrapNodes(Array.from(tsNode.elements));
-  }
-
-  /** Documented unsafe boundary: wraps a ts.Node as ASTNode for the port interface. */
-  private wrapNode(node: ts.Node): ASTNode {
-    return node as unknown as ASTNode;
-  }
-
-  private wrapNodes(nodes: readonly ts.Node[]): ASTNode[] {
-    return nodes.map(n => this.wrapNode(n));
-  }
-
-  private toTsNode(node: ASTNode): ts.Node {
-    return node as unknown as ts.Node;
+    return results;
   }
 
   private toTsSourceFile(sourceFile: SourceFile): ts.SourceFile | undefined {
@@ -235,5 +208,104 @@ export class ASTAdapter implements ASTPort {
     }
     // Fallback for test scenarios where handle isn't set
     return ts.createSourceFile(sourceFile.fileName, sourceFile.text, ts.ScriptTarget.Latest, true);
+  }
+
+  /**
+   * Build a TypeNodeView by structural inference from a ts.TypeNode.
+   * Does not switch on property names — determines shape from AST node types.
+   */
+  private buildTypeNodeView(typeNode: ts.TypeNode): TypeNodeView | undefined {
+    // Boolean: true keyword
+    if (typeNode.kind === ts.SyntaxKind.TrueKeyword ||
+        (ts.isLiteralTypeNode(typeNode) && typeNode.literal.kind === ts.SyntaxKind.TrueKeyword)) {
+      return { kind: 'boolean' };
+    }
+
+    // Nested type literal → object with recursion
+    if (ts.isTypeLiteralNode(typeNode)) {
+      const properties: Array<{ name: string; value: TypeNodeView }> = [];
+      for (const member of typeNode.members) {
+        if (!ts.isPropertySignature(member) || !member.name || !member.type) continue;
+        const name = ts.isIdentifier(member.name) ? member.name.text : member.name.getText();
+        const value = this.buildTypeNodeView(member.type);
+        if (value) properties.push({ name, value });
+      }
+      if (properties.length === 0) return undefined;
+      return { kind: 'object', properties };
+    }
+
+    // Tuple or array type
+    const elements = this.getTypeElements(typeNode);
+    if (elements.length === 0) return undefined;
+
+    const first = elements[0];
+
+    // Check if first element is a string literal → stringList
+    if (ts.isLiteralTypeNode(first) && ts.isStringLiteral(first.literal)) {
+      const values = elements
+        .map(e => this.getStringLiteralFromType(e))
+        .filter((s): s is string => s !== undefined);
+      return { kind: 'stringList', values };
+    }
+
+    // Check if first element is a tuple (nested elements) → tuplePairs
+    const innerElements = this.getTypeElements(first);
+    if (innerElements.length > 0) {
+      const pairs = this.extractTuplePairs(typeNode);
+      if (pairs.length > 0) {
+        return { kind: 'tuplePairs', values: pairs };
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extract tuple pairs from a type node: [["a", "b"], ["c", "d"]]
+   */
+  private extractTuplePairs(typeNode: ts.TypeNode): [string, string][] {
+    const outerElements = this.getTypeElements(typeNode);
+    const pairs: [string, string][] = [];
+
+    for (const element of outerElements) {
+      const innerElements = this.getTypeElements(element);
+      if (innerElements.length === 2) {
+        const first = this.getStringLiteralFromType(innerElements[0]);
+        const second = this.getStringLiteralFromType(innerElements[1]);
+        if (first && second) {
+          pairs.push([first, second]);
+        }
+      }
+    }
+
+    return pairs;
+  }
+
+  /**
+   * Get elements from a tuple or array type node.
+   */
+  private getTypeElements(typeNode: ts.TypeNode): ts.TypeNode[] {
+    if (ts.isTupleTypeNode(typeNode)) {
+      return Array.from(typeNode.elements);
+    }
+    // Handle ReadonlyArray type reference
+    if (ts.isTypeReferenceNode(typeNode) && typeNode.typeArguments) {
+      return Array.from(typeNode.typeArguments);
+    }
+    return [];
+  }
+
+  /**
+   * Extract a string literal value from a LiteralTypeNode.
+   */
+  private getStringLiteralFromType(typeNode: ts.TypeNode): string | undefined {
+    if (ts.isLiteralTypeNode(typeNode) && ts.isStringLiteral(typeNode.literal)) {
+      return typeNode.literal.text;
+    }
+    // Handle NamedTupleMember (readonly [keyof Members & string, ...])
+    if (ts.isNamedTupleMember?.(typeNode)) {
+      return this.getStringLiteralFromType(typeNode.type);
+    }
+    return undefined;
   }
 }

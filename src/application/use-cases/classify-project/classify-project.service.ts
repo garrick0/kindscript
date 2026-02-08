@@ -4,7 +4,6 @@ import { ClassifyASTUseCase } from '../classify-ast/classify-ast.use-case';
 import { ConfigPort } from '../../ports/config.port';
 import { FileSystemPort } from '../../ports/filesystem.port';
 import { CompilerPort } from '../../ports/typescript.port';
-import { resolvePackageDefinitions } from '../../services/resolve-package-definitions';
 import { CompilerOptions } from '../../../domain/types/compiler-options';
 
 /**
@@ -29,15 +28,8 @@ export class ClassifyProjectService implements ClassifyProjectUseCase {
   execute(request: ClassifyProjectRequest): ClassifyProjectResult {
     const { projectRoot } = request;
 
-    // 1. Read kindscript.json
-    const ksConfig = this.configPort.readKindScriptConfig(projectRoot);
-    if (!ksConfig) {
-      return { ok: false, error: `No kindscript.json found in ${projectRoot}` };
-    }
-
-    if (!ksConfig.definitions || ksConfig.definitions.length === 0) {
-      return { ok: false, error: 'No definitions found in kindscript.json. Run `ksc infer --write` first.' };
-    }
+    // 1. Read kindscript.json (optional — used for settings only)
+    const ksConfig = this.configPort.readKindScriptConfig(projectRoot) ?? {};
 
     // 2. Read tsconfig.json and merge compiler options
     const tsconfigPath = this.fsPort.resolvePath(projectRoot, 'tsconfig.json');
@@ -63,38 +55,25 @@ export class ClassifyProjectService implements ClassifyProjectUseCase {
       return { ok: false, error: 'No TypeScript files found.' };
     }
 
-    // 4. Resolve package definitions
-    const packageResult = resolvePackageDefinitions(
-      ksConfig.packages ?? [], projectRoot, this.fsPort
-    );
+    // 4. Create TS program
+    const program = this.tsPort.createProgram(rootFiles, compilerOptions);
+    const checker = this.tsPort.getTypeChecker(program);
 
-    // 5. Resolve definition file paths
-    const definitionPaths = [
-      ...packageResult.paths,
-      ...ksConfig.definitions.map(d => this.fsPort.resolvePath(projectRoot, d)),
-    ];
+    // 5. Discover .k.ts definition files from the program's source files
+    const allSourceFiles = this.tsPort.getSourceFiles(program);
+    const definitionSourceFiles = allSourceFiles.filter(sf => sf.fileName.endsWith('.k.ts'));
+
+    if (definitionSourceFiles.length === 0) {
+      return { ok: false, error: 'No .k.ts definition files found in the project.' };
+    }
 
     // 5b. Return cached result if definition files haven't changed
-    const definitionKey = [...definitionPaths].sort().join('|');
+    const definitionKey = definitionSourceFiles.map(sf => sf.fileName).sort().join('|');
     if (this.cache && this.cache.definitionKey === definitionKey) {
       return this.cache.result;
     }
 
-    // 6. Create TS program (include root files + definition files)
-    const allRootFiles = [...new Set([...rootFiles, ...definitionPaths])];
-    const program = this.tsPort.createProgram(allRootFiles, compilerOptions);
-    const checker = this.tsPort.getTypeChecker(program);
-
-    // 7. Get source files for definitions
-    const definitionSourceFiles = definitionPaths
-      .map(path => this.tsPort.getSourceFile(program, path))
-      .filter((sf): sf is NonNullable<typeof sf> => sf !== undefined);
-
-    if (definitionSourceFiles.length === 0) {
-      return { ok: false, error: 'Could not load any definition files.' };
-    }
-
-    // 8. Classify definitions
+    // 6. Classify definitions
     const classifyResult = this.classifyService.execute({
       definitionFiles: definitionSourceFiles,
       checker,
@@ -110,7 +89,6 @@ export class ClassifyProjectService implements ClassifyProjectUseCase {
       program,
       rootFiles,
       config: ksConfig,
-      packageWarnings: packageResult.warnings,
     };
 
     this.cache = { definitionKey, result };
