@@ -1,12 +1,14 @@
 # Design: Kind-Derived Locations, Standalone Members, and Existence Checking
 
+> **Update (2026-02-07):** `defineContracts<T>()` and `ContractConfig<T>` have been removed from KindScript. All constraints are now declared on the Kind type's third parameter (`Kind<N, Members, Constraints>`). References to `defineContracts()` in examples below are historical. The locate/instance and existence checking designs described here were implemented; the contract declaration mechanism has changed.
+
 Three design decisions, and how they compose into a concrete system.
 
 ## The Three Axes
 
 ### Axis 1 — Kind definitions constrain member locations
 
-The Kind interface says where members live, relative to their parent. The instance provides a root. Member paths are derived. Compact, rigid, no redundancy.
+The Kind type alias says where members live, relative to their parent. The instance provides a root. Member paths are derived. Compact, rigid, no redundancy.
 
 ### Axis 2 — Standalone typed variables, composed into parent
 
@@ -25,25 +27,25 @@ The compiler verifies that derived/declared locations actually exist on the file
 ```typescript
 import { Kind, defineContracts } from 'kindscript';
 
-// The Kind interface defines STRUCTURE: what members exist and their types.
+// The Kind type alias defines STRUCTURE: what members exist and their types.
 // Member names ARE their relative paths by convention.
 // "domain" → ./domain, "application" → ./application
 
-export interface CleanContext extends Kind<"CleanContext"> {
+export type EntitiesModule = Kind<"EntitiesModule">;
+export type PortsModule = Kind<"PortsModule">;
+export type ApplicationLayer = Kind<"ApplicationLayer">;
+export type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+export type DomainLayer = Kind<"DomainLayer", {
+  entities: EntitiesModule;
+  ports: PortsModule;
+}>;
+
+export type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
-
-export interface DomainLayer extends Kind<"DomainLayer"> {
-  entities: EntitiesModule;
-  ports: PortsModule;
-}
-
-export interface EntitiesModule extends Kind<"EntitiesModule"> {}
-export interface PortsModule extends Kind<"PortsModule"> {}
-export interface ApplicationLayer extends Kind<"ApplicationLayer"> {}
-export interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+}>;
 
 export const cleanArchContracts = defineContracts<CleanContext>({
   noDependency: [
@@ -55,7 +57,7 @@ export const cleanArchContracts = defineContracts<CleanContext>({
 });
 ```
 
-Nothing new here — the Kind definitions stay the same. The change is in how they're used: the member name `domain` implies the relative path `./domain`. This is already the convention in every fixture and package today. The design just makes it the rule.
+Nothing new here — the Kind definitions stay the same (now using type alias syntax). The change is in how they're used: the member name `domain` implies the relative path `./domain`. This is already the convention in every fixture and package today. The design just makes it the rule.
 
 ### Instance declarations (user code)
 
@@ -140,17 +142,17 @@ Both contexts use the same Kind definition. `ordering.domain` resolves to `src/o
 ```typescript
 import { locate, Kind } from 'kindscript';
 
-interface AppContext extends Kind<"AppContext"> {
-  domain: DomainLayer;
-}
+type EntitiesModule = Kind<"EntitiesModule">;
+type PortsModule = Kind<"PortsModule">;
 
-interface DomainLayer extends Kind<"DomainLayer"> {
+type DomainLayer = Kind<"DomainLayer", {
   entities: EntitiesModule;
   ports: PortsModule;
-}
+}>;
 
-interface EntitiesModule extends Kind<"EntitiesModule"> {}
-interface PortsModule extends Kind<"PortsModule"> {}
+type AppContext = Kind<"AppContext", {
+  domain: DomainLayer;
+}>;
 
 // Standalone member with sub-structure
 const domain: DomainLayer = {
@@ -185,7 +187,7 @@ function locate<T extends Kind>(root: string, members: MemberMap<T>): MemberMap<
 
 ### Type-level
 
-`MemberMap<T>` transforms a Kind interface into a location-assignment type. It strips `kind` and `location` (these are derived), keeps member names, and allows either an empty object `{}` (leaf) or a nested `MemberMap<ChildKind>` (branch):
+`MemberMap<T>` transforms a Kind type alias into a location-assignment type. It strips `kind` and `location` (these are derived), keeps member names, and allows either an empty object `{}` (leaf) or a nested `MemberMap<ChildKind>` (branch):
 
 ```typescript
 type MemberMap<T extends Kind> = {
@@ -259,11 +261,15 @@ Derived paths:
 Convention works for 95% of cases. For the other 5%, the Kind definition can specify an explicit relative path using a second type parameter:
 
 ```typescript
-interface DomainLayer extends Kind<"DomainLayer"> {
+type EntitiesModule = Kind<"EntitiesModule">;
+type PortsModule = Kind<"PortsModule">;
+type ValueObjectsModule = Kind<"ValueObjectsModule">;
+
+type DomainLayer = Kind<"DomainLayer", {
   entities: EntitiesModule;        // → ./entities (convention)
   ports: PortsModule;              // → ./ports (convention)
   valueObjects: ValueObjectsModule; // → ./valueObjects (convention)
-}
+}>;
 ```
 
 If a project uses `value-objects/` on disk instead of `valueObjects/`, the instance can override:
@@ -369,7 +375,7 @@ This is a new capability — today the classifier only handles inline object lit
 
 2. **Readability.** Complex nested structure is defined once, named, and composed — instead of deeply nested inline objects.
 
-3. **Type identity.** `const domain: DomainLayer` carries the Kind type as a first-class annotation. The classifier reads it directly — no need to infer Kind type from the parent's interface definition.
+3. **Type identity.** `const domain: DomainLayer` carries the Kind type as a first-class annotation. The classifier reads it directly — no need to infer Kind type from the parent's type alias definition.
 
 4. **Incremental definition.** A large architecture can be built bottom-up:
 
@@ -517,8 +523,8 @@ interface Kind<N extends string = string> {
 interface ContractConfig { ... }
 function defineContracts<_T = unknown>(config: ContractConfig): ContractConfig { ... }
 
-export interface CleanContext extends Kind<"CleanContext"> { ... }
-export interface DomainLayer extends Kind<"DomainLayer"> {}
+export type DomainLayer = Kind<"DomainLayer">;
+export type CleanContext = Kind<"CleanContext", { ... }>;
 // etc.
 ```
 
@@ -558,21 +564,21 @@ export const app = locate<CleanContext>("src", {
 ```typescript
 import { Kind, locate, defineContracts } from 'kindscript';
 
-interface AppContext extends Kind<"AppContext"> {
+type EntitiesModule = Kind<"EntitiesModule">;
+type PortsModule = Kind<"PortsModule">;
+type ApplicationLayer = Kind<"ApplicationLayer">;
+type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+type DomainLayer = Kind<"DomainLayer", {
+  entities: EntitiesModule;
+  ports: PortsModule;
+}>;
+
+type AppContext = Kind<"AppContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
-
-interface DomainLayer extends Kind<"DomainLayer"> {
-  entities: EntitiesModule;
-  ports: PortsModule;
-}
-
-interface EntitiesModule extends Kind<"EntitiesModule"> {}
-interface PortsModule extends Kind<"PortsModule"> {}
-interface ApplicationLayer extends Kind<"ApplicationLayer"> {}
-interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+}>;
 
 const domain: DomainLayer = {
   entities: {},
@@ -618,17 +624,17 @@ export const billing = locate<CleanContext>("src/billing", {
 ```typescript
 import { Kind, locate } from 'kindscript';
 
-interface MyContext extends Kind<"MyContext"> {
+type ValueObjectsModule = Kind<"ValueObjectsModule">;
+type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+type DomainLayer = Kind<"DomainLayer", {
+  valueObjects: ValueObjectsModule;
+}>;
+
+type MyContext = Kind<"MyContext", {
   domain: DomainLayer;
   infrastructure: InfrastructureLayer;
-}
-
-interface DomainLayer extends Kind<"DomainLayer"> {
-  valueObjects: ValueObjectsModule;
-}
-
-interface ValueObjectsModule extends Kind<"ValueObjectsModule"> {}
-interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+}>;
 
 const domain: DomainLayer = {
   valueObjects: { path: "value-objects" },  // override: ./value-objects instead of ./valueObjects
@@ -978,7 +984,7 @@ const memberPath = parentPath + "/" + segment;
 | File | Change |
 |---|---|
 | `src/runtime/locate.ts` | **New file.** Export `locate<T>(root, members)` identity function and `MemberMap<T>` mapped type. |
-| `src/runtime/kind.ts` | No change to `Kind<N>` interface. |
+| `src/runtime/kind.ts` | No change to `Kind<N>` type alias. |
 | `src/index.ts` | Add `export { locate, MemberMap } from './runtime/locate'`. |
 
 **`locate.ts` content:**
@@ -1010,7 +1016,7 @@ export function locate<T extends Kind>(
 
 **Notebook:** `notebooks/impl/08-runtime-api.ipynb`
 - Import `Kind`, `locate`, `MemberMap` from the runtime
-- Define a Kind interface
+- Define a Kind type alias
 - Use `locate<T>()` — verify TypeScript catches missing members, extra members, wrong nesting
 - Verify `{ path: "override" }` is accepted by the type
 - Verify `{}` is accepted for leaf members

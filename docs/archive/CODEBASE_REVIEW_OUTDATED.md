@@ -603,7 +603,7 @@ Error codes 70001-70005 (and 70099 for validation errors in `check-contracts.ser
 - **Test organization is excellent**: Clear separation of unit/integration/architecture/e2e. Mocks use fluent APIs. Tests verify behavior, not implementation.
 - **Use case pattern is consistent**: Every use case has a `.use-case.ts` interface, `.types.ts` DTOs, and `.service.ts` implementation. Clean and predictable.
 - **CLI commands are thin adapters**: No business logic in commands. They parse arguments, delegate to services, and format output.
-- **Standard library packages are minimal**: Clean exported interfaces with pre-configured contracts. Good DX.
+- ~~**Standard library packages are minimal**: Clean exported interfaces with pre-configured contracts. Good DX.~~ *(Removed — stdlib packages deleted from codebase)*
 
 ---
 

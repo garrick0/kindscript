@@ -8,7 +8,7 @@ Unified plan for remaining codebase cleanup. Merges the prior multiplicity analy
 
 | Prior Claim | Reality |
 |-------------|---------|
-| `ContractReference` is potentially dead code | **Wrong.** Actively used: `Contract.toReference()` called by all 5 `Diagnostic` factory methods; `Diagnostic.relatedContract` read by `cli-diagnostic.adapter.ts`. Keep it. |
+| `ContractReference` is potentially dead code | **Wrong.** Actively used: `Contract.toReference()` called by all `Diagnostic` factory methods; `Diagnostic.relatedContract` read by `cli-diagnostic.adapter.ts`. Keep it. |
 | `tests/architecture/validation/` contains validation tests | **Wrong.** Directory does not exist. Tests are in `tests/unit/`, `tests/integration/`, `tests/e2e/`. |
 | Fixture `clean-arch-valid` can be deleted as duplicate | **Reconsidered.** Each of the 5 clean-arch fixtures enters through a different pipeline. Keep all. |
 | Monolithic test files need splitting | **Done.** Split into focused files (Phase 2C complete). |
@@ -52,34 +52,11 @@ Uses only `createProgram()`, `getTypeChecker()`, `getSourceFile()` — all from 
 
 ---
 
-## Phase 4: Consolidate `InferredContracts` (Medium)
-
-Replace the `InferredContracts` string-tuple interface with a typed `InferredContract` value object + `contractTypeToKey()` utility.
-
-1. Create `InferredContract` value object in `src/domain/value-objects/inferred-contract.ts`
-2. Add `contractTypeToKey()` to `src/domain/types/contract-type.ts`
-3. Replace `InferredContracts` in `InferredDefinitions` with `InferredContract[]`
-4. Update `InferArchitectureService.buildContractData()` to return `InferredContract[]`
-5. Update tests: `inferred-definitions.test.ts`, `infer-architecture.service.test.ts`
-6. Delete `InferredContracts` interface
-
-**Files changed:** 7 files, 1 new, 1 interface deleted. Low risk — only used in infer pipeline.
-
----
-
-## Phase 5: Extract Shared Naming Conventions (Small)
-
-1. Create `src/domain/constants/naming-conventions.ts` with `PATTERN_TO_CONTEXT_NAME` and `toLayerTypeName()`
-2. Update `infer-architecture.service.ts` to import from it
-3. Add cross-reference comment to `architecture-packages.ts`
-
-**Files changed:** 3 files, 1 new. Very low risk — pure extraction.
-
----
-
 ## Execution Order
 
-Phases 1+2+3 are independent (can run in parallel). Phases 4 and 5 are independent of each other but should follow 1-3. Run tests after each phase.
+Phases 1+2+3 are independent (can run in parallel). Run tests after each phase.
+
+**Note:** Former Phases 4 (Consolidate InferredContracts) and 5 (Extract Naming Conventions) are now moot — the detect/infer architecture functionality has been removed.
 
 ---
 
@@ -89,7 +66,6 @@ Phases 1+2+3 are independent (can run in parallel). Phases 4 and 5 are independe
 |------|-----|
 | 5 clean-arch fixtures | Different pipeline entry points |
 | 3 dependency representations | Natural abstraction ladder (file→layer→policy) |
-| 2 code generation paths | Different deployment scenarios (with/without stdlib) |
 | `Contract` vs `ContractReference` | Entity (full validation) vs lightweight VO (diagnostics) |
 | `ASTPort` / `TypeScriptPort` composites | Useful convenience types (fix comments, keep types) |
 | 6 mock adapters | Clean 1:1 port mapping |

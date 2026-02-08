@@ -14,10 +14,9 @@ This document examines how KindScript should be built as a system that leverages
 
 **v4** incorporates ecosystem evidence from real production tools. Key changes:
 - Language service plugin instead of custom LSP server
-- Project references as opt-in adoption path (with honest costs)
 - No ts-morph dependency (raw API throughout)
 - Simplified watch architecture acknowledging plugin context
-- npm package distribution for standard library
+- Standard library packages removed (users define patterns inline)
 - Direct use of ts.Diagnostic (no custom ArchDiagnostic type)
 
 The guiding principle: **Build only what's genuinely new. Wrap TypeScript's existing capabilities. Skip what TypeScript handles natively.**
@@ -49,171 +48,6 @@ Key cross-cutting concerns:
 [Content from v3 Part 2 remains identical]
 
 KindScript uses TypeScript's parser for all .ts files (definitions, instances, target codebase). No separate front-end. Filesystem accessed through KindScriptHost during checking, not parsing.
-
----
-
-## Part 2.5 — Zero-Config Enforcement via Project References (NEW)
-
-### The Adoption Problem
-
-Traditional architectural tools require upfront investment:
-1. Learn the tool's definition language
-2. Model your existing architecture
-3. Configure rules
-4. Only then get value
-
-This creates a barrier. Many teams give up at step 2.
-
-### Project References as Phase 0.5
-
-For codebases where architectural boundaries align with directories (the common case for Clean Architecture, Hexagonal, modular monoliths), TypeScript's project references can enforce dependency rules natively—with **no kind definitions required**.
-
-```
-src/
-  ordering/
-    domain/
-      tsconfig.json         ← references: []
-      src/order.ts
-    infrastructure/
-      tsconfig.json         ← references: [{ path: "../domain" }]
-      src/database.ts
-```
-
-If `domain/src/order.ts` tries to import from `infrastructure/src/database.ts`, TypeScript itself reports an error. No KindScript enforcement needed.
-
-### ksc init --detect
-
-```bash
-$ ksc init --detect
-Analyzing directory structure...
-  src/ordering/domain/       → no dependencies detected
-  src/ordering/application/  → imports from domain
-  src/ordering/infrastructure/ → imports from domain
-
-Pattern detected: Clean Architecture (3-layer)
-
-Generate tsconfig.json files? (Y/n) y
-
-Generated:
-  src/ordering/domain/tsconfig.json
-  src/ordering/application/tsconfig.json
-  src/ordering/infrastructure/tsconfig.json
-
-TypeScript will now enforce these dependency boundaries.
-Run 'tsc --build' to verify.
-
-Next steps:
-  • Run 'tsc --build' to verify boundaries
-  • Review generated tsconfigs (may need adjustment)
-  • When ready for finer control, run 'ksc init' for full kind definitions
-```
-
-### The Three-Tier Adoption Path
-
-```
-Tier 0: No architectural enforcement
-  Developer uses standard TypeScript, no boundaries
-
-Tier 0.5: Zero-config boundaries via project references
-  Run 'ksc init --detect'
-  Get immediate enforcement with no definition authoring
-  ✓ Works for directory-based boundaries
-  ✓ Native TypeScript errors
-  ✗ No fine-grained rules
-  ✗ No contracts beyond dependencies
-
-Tier 1: Config-based contracts (kindscript.json)
-  Write simple config:
-    { "contracts": { "noDependency": [["domain", "infra"]] } }
-  ✓ Finer control than project references
-  ✗ Still limited to built-in contract types
-
-Tier 2+: Full kind definitions
-  Type-safe architectural models
-  Custom contracts
-  Inference and generation
-  Full KindScript experience
-```
-
-### When Project References Don't Apply
-
-Project references are **supplementary**, not foundational, because they don't handle:
-
-1. **Fine-grained rules**
-   ```typescript
-   // "This specific file can't import that module"
-   // Project references are directory-level only
-   ```
-
-2. **Non-directory boundaries**
-   ```typescript
-   // location: "src/**/*.domain.ts"  (glob pattern)
-   // location: "@myorg/domain-*"     (package pattern)
-   ```
-
-3. **Contracts beyond dependencies**
-   ```typescript
-   // purity: ["domain"]                    (no side effects)
-   // mustImplement: [["ports", "adapters"]] (completeness)
-   // colocated: ["feature", "test"]        (co-location)
-   ```
-
-4. **Projects that can't restructure**
-   - Already have a different tsconfig topology
-   - Build tools don't support `tsc --build` well
-   - Can't adopt `composite: true` (requires declaration emit)
-
-For these cases, KindScript's custom contracts remain necessary.
-
-### The Real Costs (Not Zero-Config)
-
-**"Zero-config" is misleading.** `ksc init --detect` generates configuration that may conflict with existing setup:
-
-**Cost 1: Destructive tsconfig generation**
-- If project has a root `tsconfig.json`, generating per-directory tsconfigs changes build topology
-- May break existing build scripts, CI pipelines, editor configurations
-- Not reversible without git revert
-
-**Cost 2: Declaration emit requirement**
-- Project references require `composite: true`
-- `composite: true` requires `declaration: true`
-- Projects not currently emitting .d.ts files will start doing so
-- Declaration emit adds build time (10-30% slower)
-- Changes build output (new .d.ts files appear)
-
-**Cost 3: Build tool compatibility**
-- Requires `tsc --build` (not all build tools support this well)
-- Webpack's ts-loader has limited project reference support
-- Vite's vite-plugin-checker needs additional config
-- Some CI systems cache `.tsbuildinfo` incorrectly
-
-**Cost 4: Ecosystem split**
-- **Moon**: Embraces project references as primary mechanism
-- **Nx**: Supports them but uses ESLint rules as primary enforcement
-- **Turborepo**: Explicitly advises against (says they add "another point of configuration as well as another caching layer")
-- **Bazel**: Incompatible build model
-
-### Verdict
-
-**ADOPT as opt-in Phase 0.5, not as foundation.**
-
-Project references are a valuable **quick-start path** for the right projects:
-- Directory-aligned boundaries
-- Willing to restructure tsconfigs
-- Build tooling supports `tsc --build`
-- Don't need fine-grained rules
-
-But KindScript's architecture must not depend on them. They're a convenience layer, not load-bearing.
-
-**In the architecture:**
-- Phase 0.5: `ksc init --detect` command (optional quick start)
-- All subsequent phases work whether or not project references are present
-- Custom contracts remain the primary mechanism
-
-**In documentation:**
-- Be honest about costs (not "zero-config")
-- Emphasize opt-in nature
-- Provide migration path from project refs → full kind definitions
 
 ---
 
@@ -268,8 +102,8 @@ Host:   queried lazily by the CHECKER (not the binder)
 TypeScript                          KindScript
 ──────────────────────────────────  ──────────────────────────────────
 Source text (.ts files)             Same .ts files — definitions,
-                                    instances, contracts, and target
-                                    codebase are all TypeScript
+                                    instances, and target codebase
+                                    are all TypeScript
 
 Scanner (text → tokens)             TypeScript's own scanner
 
@@ -284,8 +118,9 @@ CompilerHost                        KindScriptHost (extends CompilerHost
                                       which compose TS primitives)
 
 Binder (AST → Symbols)              KS Binder (walks TS AST, classifies
-                                    nodes as kind defs / instances /
-                                    contracts, creates ArchSymbols —
+                                    nodes as kind defs / instances,
+                                    extracts constraints from Kind type
+                                    params, creates ArchSymbols —
                                     does NOT resolve against host)
 
 Symbol (ts.Symbol)                  ArchSymbol (named architectural
@@ -306,9 +141,6 @@ Diagnostic (ts.Diagnostic)          ts.Diagnostic (SAME — no custom type)
 
 Emitter (AST → .js/.d.ts)          N/A (KindScript does not emit code)
 
-Inference (implicit types           Inference (codebase → inferred
-  from expressions)                   kind definitions) — separate component
-
 Program (ts.Program)                ks.Program (wraps ts.Program,
                                     adds architectural checking)
 
@@ -320,10 +152,9 @@ LSP Server                          N/A (plugin runs inside tsserver)
 CompilerOptions                     KindScriptConfig (which contracts
                                     to enforce, strictness, host config)
 
-lib.d.ts                            @kindscript/clean-architecture
-  (describes runtime environment)     @kindscript/hexagonal
-                                      @kindscript/onion
-                                      (npm packages with .d.ts + .js)
+lib.d.ts                            N/A (standard library packages
+  (describes runtime environment)     were removed — users define
+                                      patterns inline via architecture.ts)
 
 .tsbuildinfo                        .ksbuildinfo (cached host query
   (TS type data, file hashes)         results for architectural facts:
@@ -334,7 +165,6 @@ lib.d.ts                            @kindscript/clean-architecture
 **Key simplifications from v3:**
 - **No custom ArchDiagnostic type** — use ts.Diagnostic directly
 - **Plugin, not LSP server** — runs inside tsserver
-- **Standard library as npm packages** — not bundled with KindScript
 
 ---
 
@@ -359,11 +189,10 @@ interface ArchSymbol {
 }
 ```
 
-**The binder's three responsibilities:**
+**The binder's two responsibilities:**
 
-1. Walk the AST looking for types extending `Kind<N>` → create `ArchSymbol` with `symbolKind: Kind`
+1. Walk the AST looking for type aliases assigned to `Kind<N>` → create `ArchSymbol` with `symbolKind: Kind`, extract constraints from the 3rd type parameter
 2. Walk the AST looking for variable declarations typed as kind types → create `ArchSymbol` with `symbolKind: Instance`
-3. Walk the AST looking for `defineContracts(...)` calls → attach contract descriptors to kind symbols
 
 **Critically:** The binder does NOT query the host. It does NOT validate locations. It classifies and records.
 
@@ -380,7 +209,7 @@ Why not ts-morph?
 **Helper function example:**
 ```typescript
 // core/classify.ts
-function findTypeAliasesExtending(
+function findKindTypeAliases(
   sourceFile: ts.SourceFile,
   baseTypeName: string,
   checker: ts.TypeChecker
@@ -388,15 +217,12 @@ function findTypeAliasesExtending(
   const results: ts.TypeAliasDeclaration[] = [];
 
   function visit(node: ts.Node) {
-    if (ts.isTypeAliasDeclaration(node)) {
-      const type = checker.getTypeAtLocation(node);
-      const baseTypes = type.getBaseTypes?.() ?? [];
-
-      for (const base of baseTypes) {
-        const symbol = base.getSymbol();
-        if (symbol?.getName() === baseTypeName) {
+    if (ts.isTypeAliasDeclaration(node) && node.type) {
+      // Match: type X = Kind<"X"> or type X = Kind<"X", { ... }>
+      if (ts.isTypeReferenceNode(node.type)) {
+        const typeName = node.type.typeName;
+        if (ts.isIdentifier(typeName) && typeName.text === baseTypeName) {
           results.push(node);
-          break;
         }
       }
     }
@@ -615,33 +441,7 @@ testHost
 
 The interface is identical. Caching is transparent to the checker.
 
-### 4.5 Inference (Code → Spec)
-
-**Decision: BUILD** — genuinely new
-
-Walk filesystem, analyze import graph, propose kind definitions:
-
-```
-ksc infer --root src/contexts/ordering
-     │
-     ├──→ Walk filesystem structure
-     │     domain/ ← recognized
-     │     application/ ← recognized
-     │     infrastructure/ ← recognized
-     │
-     ├──→ Analyze import graph
-     │     domain → nothing (0 outgoing edges)
-     │     application → domain (12 edges)
-     │     infrastructure → domain (3 edges)
-     │
-     ├──→ Pattern match: Clean Architecture
-     │
-     └──→ Generate draft architecture.ts
-```
-
-**No ecosystem equivalent.** Tools like Knip detect unused exports. dependency-cruiser validates given rules. None infer architectural pattern definitions from structure. This is genuinely novel.
-
-### 4.6 The Program
+### 4.5 The Program
 
 TypeScript's `ts.Program` orchestrates compilation. KindScript's program wraps it:
 
@@ -906,9 +706,11 @@ Trigger (c): Definition file changed
 
 ---
 
-## Part 7 — Standard Library Distribution
+## Part 7 — Standard Library Distribution — REMOVED
 
-**Decision: BUILD content, WRAP distribution (npm + .d.ts)**
+> **Note (2026-02-07):** Standard library packages (`@kindscript/clean-architecture`, `@kindscript/hexagonal`, `@kindscript/onion`) were removed from the codebase. They added complexity for marginal value — users can define patterns inline in `architecture.ts`, which is the recommended approach. The original design vision is preserved below for historical context.
+
+**Original Decision: BUILD content, WRAP distribution (npm + .d.ts)**
 
 ### The Ecosystem Model
 
@@ -941,37 +743,42 @@ Trigger (c): Definition file changed
 
 **index.d.ts:**
 ```typescript
+export type DomainLayer = Kind<"DomainLayer", {
+  readonly entities: string;
+  readonly valueObjects?: string;
+  readonly ports: string;
+}>;
+
+// ... more leaf kind definitions
+
 /** A bounded context following Clean Architecture principles. */
-export interface CleanContext extends Kind<"CleanContext"> {
+export type CleanContext = Kind<"CleanContext", {
   /** Pure business logic — no external dependencies. */
   readonly domain: DomainLayer;
   /** Use cases orchestrating domain objects. */
   readonly application: ApplicationLayer;
   /** Adapters connecting to external systems. */
   readonly infrastructure: InfrastructureLayer;
-}
+}>;
 
-export interface DomainLayer extends Kind<"DomainLayer"> {
-  readonly entities: string;
-  readonly valueObjects?: string;
-  readonly ports: string;
-}
-
-// ... more definitions
+// ... more composite definitions
 ```
 
-**index.js:**
-```javascript
-import { defineContracts } from 'kindscript';
-
-export const cleanContextContracts = defineContracts({
+**Constraints as type-level declarations (on the Kind type itself):**
+```typescript
+// Constraints are declared as the 3rd type parameter on Kind — no runtime code needed
+export type CleanContext = Kind<"CleanContext", {
+  readonly domain: DomainLayer;
+  readonly application: ApplicationLayer;
+  readonly infrastructure: InfrastructureLayer;
+}, {
   noDependency: [
     ["domain", "infrastructure"],
     ["domain", "application"],
-  ],
-  purity: ["domain"],
-  mustImplement: [["domain.ports", "infrastructure.adapters"]],
-});
+  ];
+  purity: ["domain"];
+  mustImplement: [["domain.ports", "infrastructure.adapters"]];
+}>;
 ```
 
 ### User Consumption
@@ -1056,7 +863,8 @@ packages/kindscript/src/
       mustImplement.ts    # Port-adapter completeness
       noCycles.ts         # Cycle detection
       purity.ts           # Side-effect checking
-      colocated.ts        # Co-location checking
+      exists.ts           # Directory existence checking
+      mirrors.ts          # Cross-directory file correspondence
 
   host/
     host.ts               # KindScriptHost interface
@@ -1071,34 +879,20 @@ packages/kindscript/src/
     hover.ts              # Extended hover info
 
   cli/
-    cli.ts                # ksc check, ksc infer
-    init.ts               # Project reference generation (Phase 0.5)
+    cli.ts                # ksc check
     watch.ts              # Structural watcher (supplements tsserver)
-
-  infer/
-    detect.ts             # Pattern detection from structure
-    generate.ts           # Draft kind definitions
 
   program/
     program.ts            # ks.Program (wraps ts.Program)
     diagnostics.ts        # Deduplication logic
 
-packages/clean-architecture/
-  index.d.ts              # Kind definitions
-  index.js                # Contract runtime values
-  (published as @kindscript/clean-architecture)
-
-packages/hexagonal/
-  index.d.ts
-  index.js
-  (published as @kindscript/hexagonal)
 ```
 
 **What's eliminated vs v3:**
 - `compiler/types.ts` — shrinks significantly (no ArchDiagnostic, just ArchSymbol + Contract)
 - `server/server.ts` — LSP server (plugin runs in tsserver)
 - `services/service.ts` — Custom language service wrapper (plugin API instead)
-- Monolithic standard library (separate npm packages)
+- Standard library packages (removed — users define patterns inline)
 
 **What's kept:**
 - `host/` — Abstraction layer (but implementation delegates to TS primitives)
@@ -1106,7 +900,6 @@ packages/hexagonal/
 - Core contracts — These are genuinely new
 
 **What's added:**
-- `cli/init.ts` — Project reference generation (Phase 0.5)
 - `plugin/` — Language service plugin implementation
 
 ---
@@ -1115,45 +908,36 @@ packages/hexagonal/
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 0          Phase 0.5        Phase 1          Phase 2      │
+│  Phase 0          Phase 1          Phase 2                        │
 │                                                                   │
-│  Prove contracts  Project refs     CLI + config     Classifier   │
-│  ─────────────    ─────────────    ────────────     ──────────   │
-│  noDependency()   ksc init         kindscript.json  classify.ts  │
-│  + ts.Program     --detect         ksc check        ArchSymbol   │
-│  → ts.Diagnostic  generate         watch mode       resolve.ts   │
-│                   tsconfigs        (structural      (symbol to   │
-│  Validates core   Immediate value  watcher)         files)       │
-│  concept works    Zero definitions                  Full binder  │
+│  Prove contracts  CLI + config     Classifier                    │
+│  ─────────────    ────────────     ──────────                    │
+│  noDependency()   kindscript.json  classify.ts                   │
+│  + ts.Program     ksc check        ArchSymbol                    │
+│  → ts.Diagnostic  watch mode       resolve.ts                    │
+│                   (structural      (symbol to                    │
+│  Validates core   watcher)         files)                        │
+│  concept works                     Full binder                   │
 │                                                                   │
-│  ◄── 2 weeks ───►◄── 1 week ─────►◄── 2 weeks ───►◄── 3 weeks ►│
+│  ◄── 2 weeks ───►◄── 2 weeks ───►◄── 3 weeks ─────────────────►│
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 3          Phase 4          Phase 5                         │
+│  Phase 3          Phase 4                                         │
 │                                                                   │
-│  Full checker     Inference        Plugin                         │
-│  ─────────────    ────────────     ──────────                     │
-│  All contracts    ksc infer        plugin/                         │
-│  Lazy eval        Pattern detect   index.ts                       │
-│  Caching          Draft kind defs  Fast checks                    │
-│  .ksbuildinfo     Adoption accel   ts.Diagnostic                  │
-│                                    Code actions                   │
+│  Full checker     Plugin                                         │
+│  ─────────────    ──────────                                     │
+│  All contracts    plugin/                                         │
+│  Lazy eval        index.ts                                       │
+│  Caching          Fast checks                                    │
+│  .ksbuildinfo     ts.Diagnostic                                  │
+│                   Code actions                                   │
 │                                                                   │
-│  ◄── 3 weeks ───►◄── 2 weeks ────►◄── 2 weeks ───────────────►│
+│  ◄── 3 weeks ───►◄── 2 weeks ────────────────────────────────►│
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 7                                                         │
-│                                                                   │
-│  Standard library packages                                       │
-│  ──────────────────────────                                      │
-│  @kindscript/clean-architecture                                  │
-│  @kindscript/hexagonal                                           │
-│  @kindscript/onion                                               │
-│  Community ecosystem                                             │
-│                                                                   │
-│  ◄── Ongoing ─────────────────────────────────────────────────►│
+│  Phase 5: Standard library packages — REMOVED                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1172,21 +956,6 @@ const diagnostics = checkNoDependency(
 ```
 
 If this doesn't produce correct, useful results, nothing else matters.
-
-### Phase 0.5: Project Reference Generation (1 week)
-
-**NEW** — missed in v3.
-
-Build `ksc init --detect`:
-- Analyze directory structure
-- Analyze import graph
-- Detect patterns (clean, hexagonal, etc.)
-- Generate tsconfig.json files with project references
-- Provide instant value with no kind definitions
-
-**Deliverable:** Users can run `ksc init --detect` and get immediate boundary enforcement via TypeScript.
-
-**Caveat:** Document costs honestly (destructive, requires declaration emit, build tool compatibility).
 
 ### Phase 1: CLI + Config (2 weeks)
 
@@ -1218,7 +987,8 @@ Build all contracts:
 - `mustImplement` (port-adapter completeness)
 - `noCycles` (cycle detection)
 - `purity` (side-effect checking)
-- `colocated` (co-location rules)
+- `filesystem.exists` (directory existence checking)
+- `filesystem.mirrors` (cross-directory file correspondence)
 
 Add:
 - Lazy evaluation
@@ -1227,17 +997,7 @@ Add:
 
 **Deliverable:** Full contract evaluation with incremental caching.
 
-### Phase 4: Inference (2 weeks)
-
-Build `ksc infer`:
-- Walk filesystem structure
-- Analyze import graph
-- Pattern match (clean, hexagonal, etc.)
-- Generate draft kind definitions
-
-**Deliverable:** `ksc infer` produces draft architecture.ts from existing codebase.
-
-### Phase 5: Plugin (2 weeks)
+### Phase 4: Plugin (2 weeks)
 
 Build TS language service plugin:
 - Intercept `getSemanticDiagnostics`
@@ -1247,17 +1007,9 @@ Build TS language service plugin:
 
 **Deliverable:** Plugin shows architectural violations in editor alongside type errors.
 
-### Phase 6: Standard Library Packages (Ongoing)
+### Phase 5: Standard Library Packages — REMOVED
 
-Publish core patterns as npm packages:
-- `@kindscript/clean-architecture`
-- `@kindscript/hexagonal`
-- `@kindscript/onion`
-- `@kindscript/modular-monolith`
-
-Each package: .d.ts (types) + .js (contracts).
-
-**Deliverable:** Users can `npm install @kindscript/clean-architecture` and use it immediately.
+Standard library packages were removed as premature optimization. Users define patterns inline in `architecture.ts`.
 
 ---
 
@@ -1265,13 +1017,12 @@ Each package: .d.ts (types) + .js (contracts).
 
 Based on ecosystem evidence from real production tools:
 
-**BUILD (4 components — genuinely new):**
+**BUILD (3 components — genuinely new):**
 1. Classifier (AST → ArchSymbol) — Angular does similar for decorators
 2. Symbol-to-files resolution — No equivalent in TS ecosystem
 3. Contract evaluation — dependency-cruiser is adjacent, not equivalent
-4. Inference engine — No equivalent (tools validate, don't infer patterns)
 
-**WRAP (8 components — delegate to TS):**
+**WRAP (7 components — delegate to TS):**
 1. Module resolution / import graph — Thin query over ts.Program
 2. Diagnostic format — Use ts.Diagnostic directly (code range 70000-79999)
 3. Language service — Plugin API (not custom LSP)
@@ -1279,7 +1030,6 @@ Based on ecosystem evidence from real production tools:
 5. Incremental build — Use ts.Program + add .ksbuildinfo for architectural facts
 6. Filesystem access — ts.sys + small extensions
 7. Config parsing — ts.readConfigFile for base, custom for KS fields
-8. Standard library distribution — npm + .d.ts (proven at scale)
 
 **SKIP (4 components — TS handles natively):**
 1. Scanner/parser — TypeScript's own
@@ -1287,9 +1037,8 @@ Based on ecosystem evidence from real production tools:
 3. Structural type checking — TypeScript's checker
 4. LSP server — Plugin runs in tsserver
 
-**EVALUATE (2 components — optional/deferred):**
-1. Project references — Opt-in Phase 0.5 (ecosystem split, real costs)
-2. ts-morph — Not needed (classifier ~150 lines, raw API sufficient)
+**EVALUATE (1 component — optional/deferred):**
+1. ts-morph — Not needed (classifier ~150 lines, raw API sufficient)
 
 ---
 
@@ -1303,7 +1052,6 @@ The genuinely novel contributions are:
 1. Classifying TypeScript types as architectural entities (Kind<N>)
 2. Mapping architectural declarations to filesystem reality (symbol-to-files)
 3. Evaluating behavioral contracts over the codebase structure
-4. Inferring architectural patterns from existing code
 
 Everything else delegates to TypeScript's existing infrastructure:
 - Parsing → TypeScript
@@ -1312,8 +1060,7 @@ Everything else delegates to TypeScript's existing infrastructure:
 - IDE integration → TypeScript's plugin API
 - Diagnostic display → TypeScript's diagnostic format
 - Incremental compilation → TypeScript's .tsbuildinfo + KS's .ksbuildinfo
-- Standard library distribution → npm packages (like @types/*)
 
-The architecture is lean because it only builds what's genuinely new. The integration is tight because it uses TypeScript's extension points correctly. The adoption path is smooth because it offers immediate value (project references) before requiring investment (kind definitions).
+The architecture is lean because it only builds what's genuinely new. The integration is tight because it uses TypeScript's extension points correctly. The adoption path is smooth because it offers config-based contracts before requiring full kind definitions.
 
 Build this way and you get a tool that feels like a natural extension of TypeScript, not a separate system that happens to work with TypeScript files.

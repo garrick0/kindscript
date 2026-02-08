@@ -7,11 +7,10 @@
 >
 > **Key V4 Sections:**
 > - **Part 1**: TypeScript compiler architecture (what we're building on)
-> - **Part 4**: What KindScript adds (binder, checker, host, inference, generator)
+> - **Part 4**: What KindScript adds (binder, checker, host, generator)
 > - **Part 4.1**: The Binder/Classifier (→ M2 in this plan)
 > - **Part 4.3**: The Checker/Contract Evaluation (→ M1, M3 in this plan)
 > - **Part 4.4**: KindScriptHost and ports (→ M0, M1 in this plan)
-> - **Part 4.6**: Inference engine (→ M6 in this plan)
 > - **Part 4.5**: Generator/Scaffolding (→ M7 in this plan)
 > - **Part 5**: Language Service Plugin (→ M5 in this plan)
 > - **Part 9**: Build/Wrap/Skip decisions with ecosystem precedents
@@ -27,10 +26,10 @@
 │                        DOMAIN LAYER                              │
 │                                                                  │
 │  Entities:                                                       │
-│    ArchSymbol, Contract, Diagnostic, ResolvedFiles              │
+│    ArchSymbol, Contract, Diagnostic, Program                    │
 │                                                                  │
 │  Value Objects:                                                  │
-│    Location, ImportEdge, DependencyRule                         │
+│    Location, ImportEdge                                         │
 │                                                                  │
 │  No dependencies on anything. Pure business logic.              │
 └─────────────────────────────────────────────────────────────────┘
@@ -45,8 +44,8 @@
 │    (See V4 Part 4.4 for port design rationale)                 │
 │                                                                  │
 │  Use Cases:                                                      │
-│    ClassifyAST, ResolveFilesForSymbol, CheckContracts,         │
-│    InferArchitecture, GenerateScaffold                         │
+│    ClassifyAST, ClassifyProject, CheckContracts,               │
+│    GetPluginDiagnostics, GetPluginCodeFixes                    │
 │                                                                  │
 │  Orchestrates domain entities, depends on ports (not adapters)  │
 └─────────────────────────────────────────────────────────────────┘
@@ -895,164 +894,104 @@ export class ClassifyASTService implements ClassifierPort {
 }
 ```
 
-**2. Symbol-to-Files Resolution (Application Layer)**
+**2. Symbol-to-Files Resolution (Application Service)**
 
 ```typescript
-// application/use-cases/resolve-files/resolve-files.service.ts
-export class ResolveFilesService {
-  constructor(
-    private readonly fsPort: FileSystemPort,
-    private readonly tsPort: TypeScriptPort
-  ) {}
-
-  resolveForSymbol(
-    symbol: ArchSymbol,
-    program: Program
-  ): ResolvedFiles {
-    if (!symbol.declaredLocation) {
-      return new ResolvedFiles([]);
-    }
-
-    // Get all .ts files under location
-    const allFiles = this.fsPort.readDirectory(
-      symbol.declaredLocation,
-      true // recursive
-    );
-
-    // Filter to files in the TS program
-    const sourceFiles = allFiles
-      .map(path => this.tsPort.getSourceFile(program, path))
-      .filter((sf): sf is SourceFile => sf !== undefined);
-
-    // Subtract files claimed by child symbols
-    const childFiles = this.getChildFiles(symbol, program);
-
-    const ownFiles = sourceFiles.filter(
-      sf => !childFiles.has(sf.fileName)
-    );
-
-    return new ResolvedFiles(ownFiles);
-  }
-
-  private getChildFiles(
-    symbol: ArchSymbol,
-    program: Program
-  ): Set<string> {
-    const childFiles = new Set<string>();
-
-    for (const child of symbol.members.values()) {
-      const resolved = this.resolveForSymbol(child, program);
-      for (const file of resolved.files) {
-        childFiles.add(file.fileName);
+// application/services/resolve-symbol-files.ts
+// Pre-resolves all symbol locations to their file listings.
+// Returns a Map<string, string[]> (location -> files) passed to the checker.
+export function resolveSymbolFiles(
+  symbols: ArchSymbol[],
+  fsPort: FileSystemPort,
+): Map<string, string[]> {
+  const resolved = new Map<string, string[]>();
+  for (const symbol of symbols) {
+    for (const s of [symbol, ...symbol.descendants()]) {
+      if (s.declaredLocation && !resolved.has(s.declaredLocation)) {
+        if (fsPort.directoryExists(s.declaredLocation)) {
+          resolved.set(
+            s.declaredLocation,
+            fsPort.readDirectory(s.declaredLocation, true),
+          );
+        }
       }
     }
-
-    return childFiles;
   }
+  return resolved;
 }
 ```
 
-**3. Contract Descriptor Parser (Application Layer)**
+**3. Contract Extraction from Kind Type Parameters (Application Layer)**
+
+Constraints are now declared as the 3rd type parameter on `Kind<N, Members, Constraints>`,
+not as separate `defineContracts()` function calls. The classifier extracts them as part of
+`classify-ast.service.ts` (not a separate service).
 
 ```typescript
-// application/use-cases/parse-contracts/parse-contracts.service.ts
-export class ParseContractsService {
-  constructor(
-    private readonly tsPort: TypeScriptPort
-  ) {}
+// Within application/use-cases/classify-ast/classify-ast.service.ts
+// The classifier extracts constraints from the 3rd type parameter of Kind<N, M, C>
 
-  parseFromDefinition(
-    kindSymbol: ArchSymbol,
-    sourceFile: SourceFile
-  ): Contract[] {
-    // Find defineContracts() calls in the source file
-    const contractCalls = this.findContractCalls(sourceFile, kindSymbol.name);
+private extractConstraints(
+  kindType: Type,
+  kindSymbol: ArchSymbol,
+  checker: TypeChecker
+): Contract[] {
+  // Get the 3rd type argument from Kind<N, Members, Constraints>
+  const typeArgs = kindType.aliasTypeArguments ?? [];
+  if (typeArgs.length < 3) return []; // No constraints defined
 
-    const contracts: Contract[] = [];
+  const constraintsType = typeArgs[2];
+  const contracts: Contract[] = [];
 
-    for (const call of contractCalls) {
-      const descriptors = this.extractDescriptors(call);
+  // Walk properties of the constraints type literal
+  for (const prop of constraintsType.getProperties()) {
+    const name = prop.getName();
+    const propType = checker.getTypeOfSymbol(prop);
 
-      for (const desc of descriptors) {
-        const contract = this.createContract(desc, kindSymbol);
-        contracts.push(contract);
-      }
+    switch (name) {
+      case 'noDependency':
+        contracts.push(...this.parseArrayOfPairs(
+          propType, ContractType.NoDependency, kindSymbol
+        ));
+        break;
+
+      case 'mustImplement':
+        contracts.push(...this.parseArrayOfPairs(
+          propType, ContractType.MustImplement, kindSymbol
+        ));
+        break;
+
+      case 'purity':
+        contracts.push(this.parseSingleArray(
+          propType, ContractType.Purity, kindSymbol
+        ));
+        break;
+
+      case 'noCycles':
+        contracts.push(this.parseSingleArray(
+          propType, ContractType.NoCycles, kindSymbol
+        ));
+        break;
     }
-
-    return contracts;
   }
 
-  private findContractCalls(
-    sourceFile: SourceFile,
-    kindName: string
-  ): CallExpression[] {
-    const calls: CallExpression[] = [];
+  return contracts;
+}
 
-    this.tsPort.forEachNode(sourceFile, (node) => {
-      if (this.tsPort.isCallExpression(node)) {
-        const expr = node.getExpression();
+private createContract(
+  descriptor: ContractDescriptor,
+  kindSymbol: ArchSymbol
+): Contract {
+  // Resolve string args to ArchSymbol references
+  const resolvedArgs = descriptor.args.map(argPair =>
+    argPair.map(argName => kindSymbol.findMember(argName)!)
+  );
 
-        // Check if it's defineContracts<KindName>(...)
-        if (this.isDefineContractsCall(expr, kindName)) {
-          calls.push(node);
-        }
-      }
-    });
-
-    return calls;
-  }
-
-  private extractDescriptors(call: CallExpression): ContractDescriptor[] {
-    // Parse the object literal passed to defineContracts
-    const arg = call.getArguments()[0];
-
-    if (!this.tsPort.isObjectLiteral(arg)) {
-      return [];
-    }
-
-    const descriptors: ContractDescriptor[] = [];
-
-    for (const prop of arg.getProperties()) {
-      const name = prop.getName();
-      const value = prop.getInitializer();
-
-      switch (name) {
-        case 'noDependency':
-          descriptors.push({
-            type: ContractType.NoDependency,
-            args: this.parseArrayOfPairs(value)
-          });
-          break;
-
-        case 'mustImplement':
-          descriptors.push({
-            type: ContractType.MustImplement,
-            args: this.parseArrayOfPairs(value)
-          });
-          break;
-
-        // ... other contract types
-      }
-    }
-
-    return descriptors;
-  }
-
-  private createContract(
-    descriptor: ContractDescriptor,
-    kindSymbol: ArchSymbol
-  ): Contract {
-    // Resolve string args to ArchSymbol references
-    const resolvedArgs = descriptor.args.map(argPair =>
-      argPair.map(argName => kindSymbol.findMember(argName)!)
-    );
-
-    return new Contract(
-      descriptor.type,
-      resolvedArgs.flat(),
-      kindSymbol
-    );
-  }
+  return new Contract(
+    descriptor.type,
+    resolvedArgs.flat(),
+    kindSymbol
+  );
 }
 ```
 
@@ -1066,24 +1005,14 @@ const cliAdapter = new CLIAdapter();
 const configAdapter = new ConfigAdapter();
 
 // NEW: Real classifier instead of mock
-const classifyService = new ClassifyASTService(tsAdapter);
-const resolveFilesService = new ResolveFilesService(fsAdapter, tsAdapter);
-const parseContractsService = new ParseContractsService(tsAdapter);
+// Classifier now also extracts constraints from Kind<N, M, C> type parameters
+const classifyService = new ClassifyASTService(astAdapter);
 
-const checkContractsService = new CheckContractsService(
-  tsAdapter,
-  fsAdapter,
-  resolveFilesService // Now injected
-);
+// CheckContractsService only needs TypeScriptPort — filesystem data is pre-resolved
+const checkContractsService = new CheckContractsService(tsAdapter);
 
-const checkCommand = new CheckCommand(
-  checkContractsService,
-  classifyService, // Real classifier
-  parseContractsService, // NEW
-  tsAdapter,
-  cliAdapter,
-  configAdapter
-);
+const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyService);
+const checkCommand = new CheckCommand(checkContractsService, classifyProject, diagnosticAdapter, fsAdapter);
 
 // ... rest unchanged
 ```
@@ -1093,49 +1022,33 @@ const checkCommand = new CheckCommand(
 **User can now define kinds in TypeScript:**
 
 ```typescript
-// architecture.ts
-import { Kind } from 'kindscript';
+// src/contexts/ordering/ordering.k.ts
+import type { Kind, InstanceConfig } from 'kindscript';
 
-export interface OrderingContext extends Kind<"OrderingContext"> {
+export type DomainLayer = Kind<"DomainLayer", {
+  entities: string;
+  ports: string;
+}>;
+
+export type ApplicationLayer = Kind<"ApplicationLayer">;
+
+export type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+// Constraints are the 3rd type parameter on Kind — no separate defineContracts() call needed
+export type OrderingContext = Kind<"OrderingContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
+}, {
+  noDependency: [["domain", "infrastructure"], ["domain", "application"]];
+}>;
 
-export interface DomainLayer extends Kind<"DomainLayer"> {
-  entities: string;
-  ports: string;
-}
-
-// ... more definitions
-
-export const ordering: OrderingContext = {
-  kind: "OrderingContext",
-  location: "src/contexts/ordering",
-  domain: {
-    kind: "DomainLayer",
-    location: "src/contexts/ordering/domain",
-    entities: "entities",
-    ports: "ports",
-  },
-  application: {
-    kind: "ApplicationLayer",
-    location: "src/contexts/ordering/application",
-    handlers: "handlers",
-  },
-  infrastructure: {
-    kind: "InfrastructureLayer",
-    location: "src/contexts/ordering/infrastructure",
-    adapters: "adapters",
-  }
-};
-
-export const contracts = defineContracts<OrderingContext>({
-  noDependency: [
-    ["domain", "infrastructure"],
-    ["domain", "application"],
-  ],
-});
+// Root is inferred from this .k.ts file's directory
+export const ordering = {
+  domain: {},
+  application: {},
+  infrastructure: {},
+} satisfies InstanceConfig<OrderingContext>;
 ```
 
 ```bash
@@ -1158,7 +1071,6 @@ $ ksc check
 
 **Limitations at this milestone:**
 - Still only one contract type
-- No inference yet
 - No generator yet
 - No plugin yet
 
@@ -1293,8 +1205,6 @@ export class NoCyclesContract extends Contract {
 export class CheckContractsService implements CheckContractsUseCase {
   constructor(
     private readonly tsPort: TypeScriptPort,
-    private readonly fsPort: FileSystemPort,
-    private readonly resolveFiles: ResolveFilesService
   ) {}
 
   execute(request: CheckContractsRequest): CheckContractsResponse {
@@ -1335,38 +1245,14 @@ export class CheckContractsService implements CheckContractsUseCase {
     };
   }
 
-  private checkMustImplement(
-    contract: MustImplementContract,
-    request: CheckContractsRequest
-  ): Diagnostic[] {
-    const [portSymbol, adapterSymbol] = contract.args;
-
-    const portFiles = this.resolveFiles.resolveForSymbol(
-      portSymbol,
-      request.program
-    );
-
-    const adapterFiles = this.resolveFiles.resolveForSymbol(
-      adapterSymbol,
-      request.program
-    );
-
-    return contract.validate(portFiles, adapterFiles);
-  }
-
-  private checkPurity(
-    contract: PurityContract,
-    request: CheckContractsRequest
-  ): Diagnostic[] {
-    const [layerSymbol] = contract.args;
-
-    const files = this.resolveFiles.resolveForSymbol(
-      layerSymbol,
-      request.program
-    );
-
-    return contract.validate(files, request.config.allowedImports);
-  }
+  // Contract methods use request.resolvedFiles (pre-resolved Map<string, string[]>)
+  // instead of live filesystem queries. Example:
+  //
+  // private checkMustImplement(contract, request): Diagnostic[] {
+  //   const portFiles = request.resolvedFiles.get(portSymbol.declaredLocation) ?? [];
+  //   const adapterFiles = request.resolvedFiles.get(adapterSymbol.declaredLocation) ?? [];
+  //   ...
+  // }
 
   private checkNoCycles(
     contract: NoCyclesContract,
@@ -1390,21 +1276,17 @@ export class CheckContractsService implements CheckContractsUseCase {
 **Full contract suite:**
 
 ```typescript
-// architecture.ts
-export const contracts = defineContracts<OrderingContext>({
-  noDependency: [
-    ["domain", "infrastructure"],
-    ["domain", "application"],
-  ],
-
-  mustImplement: [
-    ["domain.ports", "infrastructure.adapters"],
-  ],
-
-  purity: ["domain"],
-
-  noCycles: ["domain", "application", "infrastructure"],
-});
+// architecture.ts — constraints are the 3rd type parameter on Kind
+export type OrderingContext = Kind<"OrderingContext", {
+  domain: DomainLayer;
+  application: ApplicationLayer;
+  infrastructure: InfrastructureLayer;
+}, {
+  noDependency: [["domain", "infrastructure"], ["domain", "application"]];
+  mustImplement: [["domain.ports", "infrastructure.adapters"]];
+  purity: ["domain"];
+  noCycles: ["domain", "application", "infrastructure"];
+}>;
 ```
 
 ```bash
@@ -1427,280 +1309,10 @@ Found 3 architectural violations.
 **Customer Value:** ✅ **COMPLETE CHECKING** - Full architectural enforcement
 
 **Limitations at this milestone:**
-- Still no inference
 - Still no generator
 - Still no plugin
 
 **Time to next milestone:** Can validate with customers. Get feedback on contract types.
-
----
-
-## Milestone 4: Project References (Phase 0.5)
-**Duration:** 1 week
-**Goal:** Zero-config quick start
-
-> **📖 V4 Architecture Context:**
-> - Implements V4 Part 2.5 (Zero-Config Enforcement via Project References)
-> - Uses TypeScript's native project references (V4 Part 9: "Wrap" decision)
-> - Pattern detection uses same import graph analysis as classifier
-> - This is opt-in quick start, not foundational (per V4's honest cost assessment)
-
-### What We Build
-
-**1. Detection Service (Application Layer)**
-
-```typescript
-// application/use-cases/detect-architecture/detect-architecture.service.ts
-export class DetectArchitectureService {
-  constructor(
-    private readonly fsPort: FileSystemPort,
-    private readonly tsPort: TypeScriptPort
-  ) {}
-
-  detect(rootPath: string): DetectedArchitecture {
-    // Analyze directory structure
-    const structure = this.analyzeStructure(rootPath);
-
-    // Analyze import graph
-    const imports = this.analyzeImports(rootPath);
-
-    // Pattern match
-    const pattern = this.matchPattern(structure, imports);
-
-    return {
-      pattern,
-      layers: structure.layers,
-      dependencies: imports.edges,
-    };
-  }
-
-  private analyzeStructure(rootPath: string): ArchitectureStructure {
-    const entries = this.fsPort.readDirectory(rootPath, false);
-
-    const layers: Layer[] = [];
-
-    // Look for common layer names
-    const layerNames = [
-      'domain', 'core', 'entities',
-      'application', 'use-cases', 'usecases',
-      'infrastructure', 'adapters', 'infra',
-      'presentation', 'ui', 'web'
-    ];
-
-    for (const entry of entries) {
-      if (layerNames.includes(entry.toLowerCase())) {
-        layers.push(new Layer(entry, path.join(rootPath, entry)));
-      }
-    }
-
-    return new ArchitectureStructure(layers);
-  }
-
-  private analyzeImports(rootPath: string): ImportGraph {
-    // Build import graph for entire codebase
-    // Aggregate by directory
-  }
-
-  private matchPattern(
-    structure: ArchitectureStructure,
-    imports: ImportGraph
-  ): ArchitecturePattern {
-    // Pattern recognition heuristics
-
-    // Check for Clean Architecture (3 layers, onion dependencies)
-    if (this.isCleanArchitecture(structure, imports)) {
-      return ArchitecturePattern.CleanArchitecture;
-    }
-
-    // Check for Hexagonal (ports/adapters)
-    if (this.isHexagonal(structure, imports)) {
-      return ArchitecturePattern.Hexagonal;
-    }
-
-    // Check for Layered (n-tier)
-    if (this.isLayered(structure, imports)) {
-      return ArchitecturePattern.Layered;
-    }
-
-    return ArchitecturePattern.Unknown;
-  }
-}
-```
-
-**2. Project Reference Generator (Application Layer)**
-
-```typescript
-// application/use-cases/generate-project-refs/generate-project-refs.service.ts
-export class GenerateProjectRefsService {
-  constructor(
-    private readonly fsPort: FileSystemPort
-  ) {}
-
-  generate(detected: DetectedArchitecture): GeneratedTSConfigs {
-    const configs: TSConfig[] = [];
-
-    for (const layer of detected.layers) {
-      const references = this.computeReferences(layer, detected);
-
-      const tsconfig = {
-        extends: "../../tsconfig.base.json",
-        compilerOptions: {
-          composite: true,
-          declaration: true,
-          outDir: "./dist",
-          rootDir: "./src",
-        },
-        references: references.map(ref => ({
-          path: `../${ref.name}`
-        })),
-        include: ["src/**/*"],
-      };
-
-      configs.push({
-        path: path.join(layer.path, 'tsconfig.json'),
-        content: tsconfig
-      });
-    }
-
-    return new GeneratedTSConfigs(configs);
-  }
-
-  private computeReferences(
-    layer: Layer,
-    detected: DetectedArchitecture
-  ): Layer[] {
-    // Based on detected dependencies, compute which layers
-    // this layer is allowed to depend on
-
-    const edges = detected.dependencies.filter(
-      edge => edge.from === layer.name
-    );
-
-    return edges.map(edge =>
-      detected.layers.find(l => l.name === edge.to)!
-    );
-  }
-}
-```
-
-**3. Init Command (Infrastructure Layer)**
-
-```typescript
-// infrastructure/cli/commands/init.command.ts
-export class InitCommand {
-  constructor(
-    private readonly detectArchitecture: DetectArchitectureService,
-    private readonly generateProjectRefs: GenerateProjectRefsService,
-    private readonly fsPort: FileSystemPort
-  ) {}
-
-  async execute(args: string[]): Promise<void> {
-    const detectMode = args.includes('--detect');
-
-    if (detectMode) {
-      await this.executeDetect();
-    } else {
-      await this.executeInteractive();
-    }
-  }
-
-  private async executeDetect(): Promise<void> {
-    console.log('Analyzing directory structure...');
-
-    const detected = this.detectArchitecture.detect(process.cwd());
-
-    console.log(`\nDetected pattern: ${detected.pattern}`);
-    console.log('\nLayers found:');
-    for (const layer of detected.layers) {
-      console.log(`  ${layer.name} (${layer.path})`);
-    }
-
-    console.log('\nDependencies detected:');
-    for (const edge of detected.dependencies) {
-      console.log(`  ${edge.from} → ${edge.to}`);
-    }
-
-    const answer = await this.prompt(
-      '\nGenerate tsconfig.json files for project references? (Y/n)'
-    );
-
-    if (answer.toLowerCase() !== 'n') {
-      const configs = this.generateProjectRefs.generate(detected);
-
-      for (const config of configs.configs) {
-        this.fsPort.writeFile(
-          config.path,
-          JSON.stringify(config.content, null, 2)
-        );
-        console.log(`Created ${config.path}`);
-      }
-
-      console.log('\n✓ Project references configured.');
-      console.log('\nNext steps:');
-      console.log('  1. Review generated tsconfig.json files');
-      console.log('  2. Run "tsc --build" to verify');
-      console.log('  3. When ready for full KindScript, run "ksc init" (without --detect)');
-    }
-  }
-
-  private async executeInteractive(): Promise<void> {
-    // Interactive mode: ask user questions, generate full kind definitions
-    // This is for Milestone 6 (after inference is built)
-  }
-}
-```
-
-### Deliverable
-
-```bash
-$ cd my-existing-project
-
-$ ksc init --detect
-Analyzing directory structure...
-
-Detected pattern: Clean Architecture
-
-Layers found:
-  domain (src/ordering/domain)
-  application (src/ordering/application)
-  infrastructure (src/ordering/infrastructure)
-
-Dependencies detected:
-  application → domain
-  infrastructure → domain
-
-Generate tsconfig.json files for project references? (Y/n) y
-
-Created src/ordering/domain/tsconfig.json
-Created src/ordering/application/tsconfig.json
-Created src/ordering/infrastructure/tsconfig.json
-
-✓ Project references configured.
-
-Next steps:
-  1. Review generated tsconfig.json files
-  2. Run "tsc --build" to verify
-  3. When ready for full KindScript, run "ksc init" (without --detect)
-
-$ tsc --build
-src/ordering/application/handlers/order-handler.ts:5:23 - error TS6307:
-File '/src/ordering/infrastructure/database.ts' is not under 'rootDir'.
-'rootDir' is expected to contain all source files.
-
-Found 1 error.
-```
-
-### Success Criteria
-
-✅ Detects common architectural patterns
-✅ Generates project reference configs
-✅ Shows detected structure before generating
-✅ Documents costs/next steps clearly
-✅ Non-destructive (prompts before writing)
-
-**Customer Value:** ✅ **IMMEDIATE VALUE** - Can get boundary enforcement in minutes on existing project
-
-**Time to next milestone:** Can validate with customers. Get feedback on detection accuracy.
 
 ---
 
@@ -1853,28 +1465,20 @@ import { CheckContractsService } from '../../application/use-cases/check-contrac
 import { ClassifyASTService } from '../../application/use-cases/classify-ast/classify-ast.service';
 import { TypeScriptAdapter } from '../adapters/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../adapters/filesystem/filesystem.adapter';
-import { ResolveFilesService } from '../../application/use-cases/resolve-files/resolve-files.service';
 
 function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
   // Composition root for plugin
   const tsAdapter = new TypeScriptAdapter();
   const fsAdapter = new FileSystemAdapter();
 
-  const classifyService = new ClassifyASTService(tsAdapter);
-  const resolveFilesService = new ResolveFilesService(fsAdapter, tsAdapter);
+  const classifyService = new ClassifyASTService(astAdapter);
+  // CheckContractsService only needs TypeScriptPort — filesystem data is pre-resolved
+  const checkContractsService = new CheckContractsService(tsAdapter);
 
-  const checkContractsService = new CheckContractsService(
-    tsAdapter,
-    fsAdapter,
-    resolveFilesService
-  );
+  const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyService);
+  const diagnosticsService = new GetPluginDiagnosticsService(checkContractsService, classifyProject, fsAdapter);
 
-  const pluginAdapter = new PluginAdapter(
-    checkContractsService,
-    classifyService
-  );
-
-  return pluginAdapter.init(modules);
+  // ... plugin setup
 }
 
 export = init;
@@ -1933,418 +1537,6 @@ export = init;
 **Customer Value:** ✅ **IDE INTEGRATION** - Catch violations while coding, not in CI
 
 **Time to next milestone:** Can validate with customers. Get feedback on IDE experience.
-
----
-
-## Milestone 6: Inference Engine
-**Duration:** 2 weeks
-**Goal:** Generate kind definitions from existing code
-
-> **📖 V4 Architecture Context:**
-> - Implements V4 Part 4.6 (Inference - Code → Spec)
-> - Genuinely new (V4 Part 9: "Build" - no ecosystem equivalent)
-> - Inverse of generator: analyzes structure → proposes definitions
-> - Uses same detection logic as M4 but generates TypeScript instead of tsconfigs
-
-### What We Build
-
-**1. Inference Service (Application Layer)**
-
-```typescript
-// application/use-cases/infer-architecture/infer-architecture.service.ts
-export class InferArchitectureService {
-  constructor(
-    private readonly detectArchitecture: DetectArchitectureService,
-    private readonly fsPort: FileSystemPort,
-    private readonly tsPort: TypeScriptPort
-  ) {}
-
-  infer(rootPath: string): InferredKindDefinitions {
-    // Detect architecture
-    const detected = this.detectArchitecture.detect(rootPath);
-
-    // Generate kind definitions
-    const kindDef = this.generateKindDefinition(detected);
-
-    // Generate instance declaration
-    const instance = this.generateInstanceDeclaration(detected, kindDef);
-
-    // Generate contracts
-    const contracts = this.generateContracts(detected, kindDef);
-
-    return new InferredKindDefinitions(
-      kindDef,
-      instance,
-      contracts
-    );
-  }
-
-  private generateKindDefinition(
-    detected: DetectedArchitecture
-  ): string {
-    // Generate TypeScript interface for the kind
-
-    const lines: string[] = [];
-
-    lines.push(`import { Kind } from 'kindscript';\n`);
-
-    const contextName = this.toContextName(detected.pattern);
-
-    lines.push(`export interface ${contextName} extends Kind<"${contextName}"> {`);
-
-    for (const layer of detected.layers) {
-      const layerTypeName = this.toTypeName(layer.name);
-      lines.push(`  ${layer.name}: ${layerTypeName};`);
-    }
-
-    lines.push(`}\n`);
-
-    // Generate interfaces for each layer
-    for (const layer of detected.layers) {
-      lines.push(this.generateLayerInterface(layer, detected));
-    }
-
-    return lines.join('\n');
-  }
-
-  private generateLayerInterface(
-    layer: Layer,
-    detected: DetectedArchitecture
-  ): string {
-    const typeName = this.toTypeName(layer.name);
-    const lines: string[] = [];
-
-    lines.push(`export interface ${typeName} extends Kind<"${typeName}"> {`);
-
-    // Analyze subdirectories
-    const subdirs = this.fsPort.readDirectory(layer.path, false)
-      .filter(entry => this.fsPort.directoryExists(
-        path.join(layer.path, entry)
-      ));
-
-    for (const subdir of subdirs) {
-      lines.push(`  ${subdir}: string;`);
-    }
-
-    lines.push(`}\n`);
-
-    return lines.join('\n');
-  }
-
-  private generateInstanceDeclaration(
-    detected: DetectedArchitecture,
-    kindDef: string
-  ): string {
-    const contextName = this.toContextName(detected.pattern);
-    const instanceName = this.toInstanceName(detected.rootPath);
-
-    const lines: string[] = [];
-
-    lines.push(`export const ${instanceName}: ${contextName} = {`);
-    lines.push(`  kind: "${contextName}",`);
-    lines.push(`  location: "${detected.rootPath}",`);
-
-    for (const layer of detected.layers) {
-      lines.push(`  ${layer.name}: {`);
-      lines.push(`    kind: "${this.toTypeName(layer.name)}",`);
-      lines.push(`    location: "${layer.path}",`);
-
-      // Add subdirectories
-      const subdirs = this.fsPort.readDirectory(layer.path, false)
-        .filter(entry => this.fsPort.directoryExists(
-          path.join(layer.path, entry)
-        ));
-
-      for (const subdir of subdirs) {
-        lines.push(`    ${subdir}: "${subdir}",`);
-      }
-
-      lines.push(`  },`);
-    }
-
-    lines.push(`};\n`);
-
-    return lines.join('\n');
-  }
-
-  private generateContracts(
-    detected: DetectedArchitecture,
-    kindDef: string
-  ): string {
-    const contextName = this.toContextName(detected.pattern);
-    const lines: string[] = [];
-
-    lines.push(`export const contracts = defineContracts<${contextName}>({`);
-
-    // Infer noDependency contracts from dependency analysis
-    const noDeps = this.inferNoDependencyContracts(detected);
-    if (noDeps.length > 0) {
-      lines.push(`  noDependency: [`);
-      for (const [from, to] of noDeps) {
-        lines.push(`    ["${from}", "${to}"],`);
-      }
-      lines.push(`  ],`);
-    }
-
-    // Infer mustImplement contracts if ports/adapters detected
-    const mustImpl = this.inferMustImplementContracts(detected);
-    if (mustImpl.length > 0) {
-      lines.push(`  mustImplement: [`);
-      for (const [ports, adapters] of mustImpl) {
-        lines.push(`    ["${ports}", "${adapters}"],`);
-      }
-      lines.push(`  ],`);
-    }
-
-    // Infer purity contracts
-    const pureLayersDetected = this.inferPureLayers(detected);
-    if (pureLayersDetected.length > 0) {
-      lines.push(`  purity: [${pureLayersDetected.map(l => `"${l}"`).join(', ')}],`);
-    }
-
-    lines.push(`});\n`);
-
-    return lines.join('\n');
-  }
-
-  private inferNoDependencyContracts(
-    detected: DetectedArchitecture
-  ): [string, string][] {
-    // Analyze which layers DON'T have dependencies
-    // Propose noDependency contracts for those
-
-    const proposals: [string, string][] = [];
-
-    for (const from of detected.layers) {
-      for (const to of detected.layers) {
-        if (from === to) continue;
-
-        const hasEdge = detected.dependencies.some(
-          edge => edge.from === from.name && edge.to === to.name
-        );
-
-        if (!hasEdge && this.shouldProhibit(from, to, detected)) {
-          proposals.push([from.name, to.name]);
-        }
-      }
-    }
-
-    return proposals;
-  }
-
-  private shouldProhibit(
-    from: Layer,
-    to: Layer,
-    detected: DetectedArchitecture
-  ): boolean {
-    // Heuristics based on pattern
-
-    if (detected.pattern === ArchitecturePattern.CleanArchitecture) {
-      // Domain shouldn't depend on anything
-      if (from.name === 'domain') return true;
-
-      // Application shouldn't depend on infrastructure
-      if (from.name === 'application' && to.name === 'infrastructure') {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private inferMustImplementContracts(
-    detected: DetectedArchitecture
-  ): [string, string][] {
-    // Look for "ports" and "adapters" subdirectories
-
-    const proposals: [string, string][] = [];
-
-    for (const layer of detected.layers) {
-      const subdirs = this.fsPort.readDirectory(layer.path, false);
-
-      const hasPorts = subdirs.includes('ports');
-      const hasAdapters = subdirs.includes('adapters');
-
-      if (hasPorts && hasAdapters) {
-        proposals.push([
-          `${layer.name}.ports`,
-          `${layer.name}.adapters`
-        ]);
-      }
-    }
-
-    return proposals;
-  }
-
-  private inferPureLayers(detected: DetectedArchitecture): string[] {
-    // Check if domain layer has no impure imports
-
-    const pureLayers: string[] = [];
-
-    for (const layer of detected.layers) {
-      if (this.isPureLayer(layer)) {
-        pureLayers.push(layer.name);
-      }
-    }
-
-    return pureLayers;
-  }
-
-  private isPureLayer(layer: Layer): boolean {
-    // Check all files in layer for impure imports
-    const files = this.fsPort.readDirectory(layer.path, true);
-
-    const impureModules = [
-      'fs', 'path', 'http', 'https', 'net',
-      'child_process', 'cluster', 'crypto',
-      'process', 'os'
-    ];
-
-    for (const file of files) {
-      const content = this.fsPort.readFile(file);
-      if (!content) continue;
-
-      for (const mod of impureModules) {
-        if (content.includes(`from '${mod}'`) ||
-            content.includes(`require('${mod}')`)) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  }
-}
-```
-
-**2. Infer Command (Infrastructure Layer)**
-
-```typescript
-// infrastructure/cli/commands/infer.command.ts
-export class InferCommand {
-  constructor(
-    private readonly inferArchitecture: InferArchitectureService,
-    private readonly checkContracts: CheckContractsUseCase,
-    private readonly fsPort: FileSystemPort,
-    private readonly diagnosticPort: DiagnosticPort
-  ) {}
-
-  async execute(args: string[]): Promise<void> {
-    const rootPath = args[0] ?? process.cwd();
-
-    console.log('Analyzing codebase structure...');
-    console.log('Analyzing import graph...');
-    console.log('Inferring architectural patterns...\n');
-
-    const inferred = this.inferArchitecture.infer(rootPath);
-
-    console.log('Generated architecture definition:\n');
-    console.log('```typescript');
-    console.log(inferred.kindDefinition);
-    console.log(inferred.instanceDeclaration);
-    console.log(inferred.contracts);
-    console.log('```\n');
-
-    // Ask if user wants to save
-    const answer = await this.prompt(
-      'Save to architecture.ts? (Y/n)'
-    );
-
-    if (answer.toLowerCase() !== 'n') {
-      const output = [
-        inferred.kindDefinition,
-        inferred.instanceDeclaration,
-        inferred.contracts
-      ].join('\n');
-
-      this.fsPort.writeFile('architecture.ts', output);
-      console.log('\n✓ Saved to architecture.ts');
-
-      // Run check immediately
-      console.log('\nRunning initial check...\n');
-
-      // ... run check and show results
-    }
-  }
-}
-```
-
-### Deliverable
-
-```bash
-$ ksc infer
-Analyzing codebase structure...
-Analyzing import graph...
-Inferring architectural patterns...
-
-Generated architecture definition:
-
-```typescript
-import { Kind } from 'kindscript';
-
-export interface OrderingContext extends Kind<"OrderingContext"> {
-  domain: DomainLayer;
-  application: ApplicationLayer;
-  infrastructure: InfrastructureLayer;
-}
-
-export interface DomainLayer extends Kind<"DomainLayer"> {
-  entities: string;
-  ports: string;
-  services: string;
-}
-
-// ... more definitions
-
-export const ordering: OrderingContext = {
-  kind: "OrderingContext",
-  location: "src/contexts/ordering",
-  domain: {
-    kind: "DomainLayer",
-    location: "src/contexts/ordering/domain",
-    entities: "entities",
-    ports: "ports",
-    services: "services",
-  },
-  // ... more
-};
-
-export const contracts = defineContracts<OrderingContext>({
-  noDependency: [
-    ["domain", "infrastructure"],
-    ["domain", "application"],
-  ],
-  mustImplement: [
-    ["domain.ports", "infrastructure.adapters"],
-  ],
-  purity: ["domain"],
-});
-```
-
-Save to architecture.ts? (Y/n) y
-
-✓ Saved to architecture.ts
-
-Running initial check...
-
-src/ordering/infrastructure/database.ts:3:1 - error KS70001: Forbidden dependency detected
-  This violates the 'noDependency' contract inferred from your architecture.
-
-Found 1 violation. Fix and re-run 'ksc check'.
-```
-
-### Success Criteria
-
-✅ Analyzes existing codebase structure
-✅ Detects common patterns
-✅ Generates syntactically correct TypeScript
-✅ Infers reasonable contracts from analysis
-✅ Runs check immediately to validate
-✅ Shows violations in inferred contracts
-
-**Customer Value:** ✅ **ADOPTION ACCELERATOR** - Can get started on existing codebase in minutes
-
-**Time to next milestone:** Can validate with customers. Get feedback on inference accuracy.
 
 ---
 
@@ -2568,7 +1760,10 @@ Next steps:
 
 ---
 
-## Milestone 8: Standard Library Packages
+## Milestone 8: Standard Library Packages — REMOVED
+
+> **Note (2026-02-07):** Standard library packages were removed from the codebase. They added complexity for marginal value — users can define patterns inline in `architecture.ts`. The original milestone plan is preserved below for historical context.
+
 **Duration:** Ongoing
 **Goal:** Publish reusable patterns as npm packages
 
@@ -2595,23 +1790,7 @@ packages/clean-architecture/
 // packages/clean-architecture/index.d.ts
 import { Kind } from 'kindscript';
 
-/**
- * A bounded context following Clean Architecture principles.
- *
- * @see https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
- */
-export interface CleanContext extends Kind<"CleanContext"> {
-  /** Pure business logic with no external dependencies. */
-  domain: DomainLayer;
-
-  /** Use cases orchestrating domain objects. */
-  application: ApplicationLayer;
-
-  /** Adapters connecting to external systems. */
-  infrastructure: InfrastructureLayer;
-}
-
-export interface DomainLayer extends Kind<"DomainLayer"> {
+export type DomainLayer = Kind<"DomainLayer", {
   /** Core business entities. */
   entities: string;
 
@@ -2620,50 +1799,48 @@ export interface DomainLayer extends Kind<"DomainLayer"> {
 
   /** Domain services (optional). */
   services?: string;
-}
+}>;
 
-export interface ApplicationLayer extends Kind<"ApplicationLayer"> {
+export type ApplicationLayer = Kind<"ApplicationLayer", {
   /** Use case implementations (command/query handlers). */
   useCases: string;
 
   /** Application services (optional). */
   services?: string;
-}
+}>;
 
-export interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {
+export type InfrastructureLayer = Kind<"InfrastructureLayer", {
   /** Implementations of domain ports. */
   adapters: string;
 
   /** Data persistence logic. */
   persistence?: string;
-}
+}>;
 
 /**
- * Pre-configured contracts for Clean Architecture.
+ * A bounded context following Clean Architecture principles.
+ * Constraints are built into the Kind type — no runtime needed.
+ *
+ * @see https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html
  */
-export const cleanArchitectureContracts: ContractDescriptors<CleanContext>;
+export type CleanContext = Kind<"CleanContext", {
+  /** Pure business logic with no external dependencies. */
+  domain: DomainLayer;
+
+  /** Use cases orchestrating domain objects. */
+  application: ApplicationLayer;
+
+  /** Adapters connecting to external systems. */
+  infrastructure: InfrastructureLayer;
+}, {
+  noDependency: [["domain", "infrastructure"], ["domain", "application"], ["application", "infrastructure"]];
+  mustImplement: [["domain.ports", "infrastructure.adapters"]];
+  purity: ["domain"];
+  noCycles: ["domain", "application", "infrastructure"];
+}>;
 ```
 
-```javascript
-// packages/clean-architecture/index.js
-import { defineContracts } from 'kindscript';
-
-export const cleanArchitectureContracts = defineContracts({
-  noDependency: [
-    ["domain", "infrastructure"],
-    ["domain", "application"],
-    ["application", "infrastructure"],
-  ],
-
-  mustImplement: [
-    ["domain.ports", "infrastructure.adapters"],
-  ],
-
-  purity: ["domain"],
-
-  noCycles: ["domain", "application", "infrastructure"],
-});
-```
+No `.js` file is needed — the package exports types only (`export type`), so it is zero-runtime.
 
 ```json
 // packages/clean-architecture/package.json
@@ -2671,7 +1848,6 @@ export const cleanArchitectureContracts = defineContracts({
   "name": "@kindscript/clean-architecture",
   "version": "1.0.0",
   "description": "Clean Architecture pattern definitions for KindScript",
-  "main": "index.js",
   "types": "index.d.ts",
   "keywords": ["kindscript", "architecture", "clean-architecture"],
   "peerDependencies": {
@@ -2688,32 +1864,23 @@ $ npm install @kindscript/clean-architecture
 
 ```typescript
 // architecture.ts
-import { CleanContext, cleanArchitectureContracts } from '@kindscript/clean-architecture';
+import type { CleanContext } from '@kindscript/clean-architecture';
+import type { InstanceConfig } from 'kindscript';
 
-export const ordering: CleanContext = {
-  kind: "CleanContext",
-  location: "src/contexts/ordering",
+export const ordering = {
+  root: "src/contexts/ordering",
   domain: {
-    kind: "DomainLayer",
-    location: "src/contexts/ordering/domain",
-    entities: "entities",
-    ports: "ports",
+    entities: {},
+    ports: {},
   },
   application: {
-    kind: "ApplicationLayer",
-    location: "src/contexts/ordering/application",
-    useCases: "use-cases",
+    useCases: {},
   },
   infrastructure: {
-    kind: "InfrastructureLayer",
-    location: "src/contexts/ordering/infrastructure",
-    adapters: "adapters",
-    persistence: "persistence",
-  }
-};
-
-// Contracts are automatically imported
-export const contracts = cleanArchitectureContracts;
+    adapters: {},
+    persistence: {},
+  },
+} satisfies InstanceConfig<CleanContext>;
 ```
 
 ### Deliverable
@@ -2745,14 +1912,8 @@ export const contracts = cleanArchitectureContracts;
 │  M3: Full Contracts (3w)    ████████████                           │
 │      ↓ Complete checking                                           │
 │                                                                     │
-│  M4: Project Refs (1w)      ████                                   │
-│      ↓ Zero-config quick start                                     │
-│                                                                     │
 │  M5: Plugin (2w)            ████████                               │
 │      ↓ IDE integration                                             │
-│                                                                     │
-│  M6: Inference (2w)         ████████                               │
-│      ↓ Adoption accelerator                                        │
 │                                                                     │
 │  M7: Generator (2w)         ████████                               │
 │      ↓ Code generation                                             │
@@ -2760,8 +1921,8 @@ export const contracts = cleanArchitectureContracts;
 │  M8: Std Library (ongoing)  ████████████████████████████████       │
 │      ↓ Ecosystem                                                   │
 │                                                                     │
-│  Total: ~16 weeks (4 months) to full feature set                  │
-│  Customer validation gates at M1, M2, M3, M4, M5, M6              │
+│  Total: ~13 weeks (3 months) to full feature set                  │
+│  Customer validation gates at M1, M2, M3, M5                      │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2777,9 +1938,7 @@ export const contracts = cleanArchitectureContracts;
 - M1: First customer feedback on CLI UX
 - M2: Validation of definition syntax
 - M3: Validation of contract types
-- M4: Quick start adoption feedback
 - M5: IDE experience feedback
-- M6: Inference accuracy feedback
 
 ✅ **Architecture Validated Early**
 - M0 proves all interfaces work with mocks
@@ -2794,7 +1953,6 @@ export const contracts = cleanArchitectureContracts;
 ✅ **Risk Mitigation**
 - TypeScript integration risk: mitigated in M1
 - Performance risk: mitigated in M5 (plugin must be fast)
-- Inference accuracy risk: mitigated in M6 with customer validation
 
 ---
 
@@ -2952,43 +2110,23 @@ ksc check
 cd demo-project
 
 cat > architecture.ts << 'TS'
-import { Kind, defineContracts } from 'kindscript';
+import { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
 
-export interface OrderingContext extends Kind<"OrderingContext"> {
+export type DomainLayer = Kind<"DomainLayer">;
+export type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+export type OrderingContext = Kind<"OrderingContext", {
   domain: DomainLayer;
   infrastructure: InfrastructureLayer;
-}
+}, {
+  noDependency: [["domain", "infrastructure"]];
+}>;
 
-export interface DomainLayer extends Kind<"DomainLayer"> {
-  entities: string;
-  services: string;
-}
-
-export interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {
-  database: string;
-}
-
-export const ordering: OrderingContext = {
-  kind: "OrderingContext",
-  location: "src/ordering",
-  domain: {
-    kind: "DomainLayer",
-    location: "src/ordering/domain",
-    entities: "entities",
-    services: "services",
-  },
-  infrastructure: {
-    kind: "InfrastructureLayer",
-    location: "src/ordering/infrastructure",
-    database: "database",
-  }
-};
-
-export const contracts = defineContracts<OrderingContext>({
-  noDependency: [
-    ["domain", "infrastructure"]
-  ]
-});
+export const ordering = {
+  root: "src/ordering",
+  domain: {},
+  infrastructure: {},
+} satisfies InstanceConfig<OrderingContext>;
 TS
 ```
 
@@ -3003,7 +2141,7 @@ TS
 Open `architecture.ts` in VS Code:
 
 1. ✅ Autocomplete works on `ordering.domain.` → suggests `entities`, `services`
-2. ✅ Go-to-definition on `DomainLayer` jumps to interface
+2. ✅ Go-to-definition on `DomainLayer` jumps to type alias
 3. ✅ Hover on `ordering` shows full type
 4. ✅ Rename refactoring works
 
@@ -3121,119 +2259,6 @@ ksc check
 
 ---
 
-#### M4: Project References
-
-**Notebook: `notebooks/m4-quick-start.ipynb`**
-
-**Purpose:** Validate zero-config quick start.
-
-```python
-# Cell 1: Simulate existing project structure
-%%bash
-mkdir -p existing-project/src/{domain,application,infrastructure}
-
-cd existing-project/src/domain
-cat > service.ts << 'TS'
-export class DomainService {}
-TS
-
-cd ../application
-cat > handler.ts << 'TS'
-import { DomainService } from '../domain/service';
-export class Handler {
-  constructor(private service: DomainService) {}
-}
-TS
-
-cd ../infrastructure
-cat > database.ts << 'TS'
-import { DomainService } from '../domain/service';  // ← Should detect this
-export class Database {}
-TS
-```
-
-```python
-# Cell 2: Run ksc init --detect
-%%bash
-cd existing-project
-ksc init --detect
-```
-
-**Expected output:**
-```
-Analyzing directory structure...
-
-Detected pattern: Clean Architecture (3-layer)
-
-Layers found:
-  domain (src/domain)
-  application (src/application)
-  infrastructure (src/infrastructure)
-
-Dependencies detected:
-  application → domain
-  infrastructure → domain
-
-Generate tsconfig.json files for project references? (Y/n)
-```
-
-```python
-# Cell 3: Accept and generate
-%%bash
-cd existing-project
-echo "y" | ksc init --detect
-```
-
-**Expected output:**
-```
-Created src/domain/tsconfig.json
-Created src/application/tsconfig.json
-Created src/infrastructure/tsconfig.json
-
-✓ Project references configured.
-
-Next steps:
-  1. Review generated tsconfig.json files
-  2. Run "tsc --build" to verify
-  3. When ready for full KindScript, run "ksc init" (without --detect)
-```
-
-```python
-# Cell 4: Verify with tsc --build
-%%bash
-cd existing-project
-tsc --build
-```
-
-**Expected output:**
-```
-src/infrastructure/database.ts:1:23 - error TS6307: File '/src/domain/service.ts' 
-is not under 'rootDir'. 'rootDir' is expected to contain all source files.
-
-Found 1 error.
-```
-
-```markdown
-# Cell 5: Observations
-
-## What worked well:
-- Detection was accurate
-- Generated configs look correct
-- TypeScript enforcement works
-
-## What could be improved:
-- [ ] Should warn about required declaration emit
-- [ ] Should show existing tsconfig.json conflicts
-- [ ] Could offer dry-run mode
-
-## Questions for customers:
-- Is the generated tsconfig structure acceptable?
-- Would you want control over the generated configs?
-- Is "destructive" nature of generation a problem?
-```
-
----
-
 #### M5: Plugin
 
 **Notebook: `notebooks/m5-ide-integration.ipynb`**
@@ -3305,82 +2330,6 @@ Average: 48ms (well under 100ms budget)
 - Does this feel intrusive or helpful?
 - Would you want to disable plugin temporarily?
 - What quick fixes would be most useful?
-```
-
----
-
-#### M6: Inference
-
-**Notebook: `notebooks/m6-inferring-architecture.ipynb`**
-
-**Purpose:** Validate inference accuracy.
-
-```python
-# Cell 1: Setup realistic existing project
-%%bash
-# Create a realistic Clean Architecture structure
-# ... (multiple files, realistic dependencies)
-```
-
-```python
-# Cell 2: Run inference
-%%bash
-cd realistic-project
-ksc infer --root src/contexts/ordering
-```
-
-**Expected output:**
-```
-Analyzing codebase structure...
-Analyzing import graph...
-Inferring architectural patterns...
-
-Generated architecture definition:
-
-[... generated code ...]
-
-Detected 1 violation:
-  src/infrastructure/database.ts imports from application layer
-
-Save to architecture.ts? (Y/n)
-```
-
-```python
-# Cell 3: Evaluate inference accuracy
-```
-
-```markdown
-## Inference Accuracy Assessment
-
-| Aspect | Correct? | Notes |
-|--------|----------|-------|
-| Detected pattern | ✅ Clean Architecture | Accurate |
-| Layer boundaries | ✅ domain, application, infrastructure | Accurate |
-| Subdirectories | ⚠️ Missed "value-objects" | Could improve |
-| noDependency contracts | ✅ All correct | Accurate |
-| mustImplement contracts | ✅ Found ports/adapters | Accurate |
-| purity contracts | ❌ Didn't detect pure domain | False negative |
-
-Overall accuracy: 83% (5/6 correct)
-```
-
-```markdown
-## Observations
-
-## What worked well:
-- Pattern detection is accurate
-- Boundary detection is accurate
-- Immediate violation report is valuable
-
-## What could be improved:
-- [ ] Purity detection has false negatives
-- [ ] Could detect more subdirectory patterns
-- [ ] Generated code could use better naming
-
-## Questions for customers:
-- Is 83% accuracy acceptable for a starting point?
-- Would you manually fix or re-run inference?
-- What patterns should we detect better?
 ```
 
 ---
@@ -3521,9 +2470,7 @@ notebooks/
     m1-first-contract-check.ipynb
     m2-defining-architecture.ipynb
     m3-all-contract-types.ipynb
-    m4-quick-start.ipynb
     m5-ide-integration.ipynb
-    m6-inferring-architecture.ipynb
     m7-scaffolding.ipynb
 
   tutorials/                # After M8: User-facing tutorials

@@ -35,13 +35,16 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 
-# Claude Code local settings
-.claude/settings.local.json
+# Claude Code
+.claude/
 
 # Environment variables
 .env
 .env.*
 !.env.example
+
+# npm pack artifacts
+*.tgz
 
 # Working notes
 .working/

@@ -309,163 +309,9 @@ Changes to v3:
 
 ---
 
-## Opportunity 3: Project References as Architectural Boundaries
+## ~~Opportunity 3: Project References as Architectural Boundaries~~ (REMOVED)
 
-### The Proposal
-
-For the common case where architectural boundaries align with directories, use TypeScript's project references with `--composite` mode to enforce import boundaries. TypeScript itself reports errors when project A imports from project B without a reference.
-
-**Directory structure:**
-```
-src/
-  ordering/
-    domain/
-      tsconfig.json     ← references: [] (no dependencies)
-      src/
-        service.ts
-    infrastructure/
-      tsconfig.json     ← references: [{ path: "../domain" }]
-      src/
-        database.ts
-```
-
-If `domain/src/service.ts` tries to import from `infrastructure/src/database.ts`, TypeScript reports an error. No KindScript involvement.
-
-**The ksc init command:**
-```bash
-$ ksc init --detect
-Detected directory structure:
-  src/ordering/domain/       → no external dependencies
-  src/ordering/infrastructure/ → depends on domain
-
-Generated tsconfig.json files.
-TypeScript will now enforce these dependency boundaries natively.
-Run `tsc --build` to verify.
-```
-
-### Proposed Phasing
-
-- **Phase 0.5**: Project reference generation (TS does enforcement, KS generates config)
-- **Phase 2+**: Kind definitions (full KindScript with custom contracts)
-
-### Evaluation
-
-**✅ STRONGLY AGREE - This is a brilliant adoption strategy**
-
-#### Why This Is Right
-
-1. **Addresses the cold start problem.** The biggest barrier to adopting architectural tools is "you must write extensive definitions before you get any value." Project references eliminate this:
-   - Run `ksc init --detect` on existing codebase
-   - Get immediate enforcement of detected boundaries
-   - Zero definition authoring required
-
-2. **Leverages TS's native enforcement.** Project references aren't a hack — they're a first-class TS feature for managing multi-project repos. Using them for architectural boundaries is elegant because:
-   - Developers already understand project references
-   - Build tools already support them
-   - Error messages are native TS diagnostics
-   - No runtime overhead (it's compile-time only)
-
-3. **Provides a migration path.** The three-tier system is perfect:
-   ```
-   Tier 0: No KindScript
-   Tier 0.5: ksc init --detect → project references (zero config)
-   Tier 1: config-based contracts (kindscript.json)
-   Tier 2+: Full kind definitions + custom contracts
-   ```
-
-   Users can start at 0.5 and gradually move up as needed.
-
-4. **Correctly identifies the 80% case.** The proposal is right that Clean Architecture, Hexagonal, and most modular monolith patterns have architectural boundaries that map cleanly to directories. For these, project references handle the dependency rules automatically.
-
-5. **KindScript becomes the fallback, not the foundation.** This inverts the value proposition:
-   - Before: "KindScript enforces boundaries"
-   - After: "TypeScript enforces boundaries; KindScript handles the cases TS can't"
-
-   This is more honest and more powerful.
-
-#### What v3 Missed
-
-v3 mentioned project references once, in "Other Cross-Cutting Concerns":
-```
-- **Project references**: `--build` mode compiles multiple related projects in
-  dependency order.
-```
-
-But it didn't explore using them as a **substitute** for KindScript's dependency enforcement in the common case. This is a significant oversight.
-
-#### The 20% Case
-
-Project references don't handle:
-- Fine-grained rules ("this specific file can't import that module")
-- Non-directory-based boundaries
-- Contracts beyond dependencies (purity, completeness, co-location)
-- Projects that can't/won't adopt separate tsconfigs
-
-For these, KindScript's custom `noDependency` contracts remain necessary. But making them the fallback rather than the default is strategically smart.
-
-#### Implementation Impact
-
-**Add to v3:**
-
-**New Part 2.5: Zero-Config Enforcement via Project References**
-
-```
-For codebases where architectural boundaries align with directories,
-KindScript can generate TypeScript project references to enforce
-dependency rules without requiring kind definitions.
-
-┌─────────────────────────────────────────────────────────────┐
-│  ksc init --detect                                           │
-│       │                                                       │
-│       ├──→ Analyze directory structure                       │
-│       │     src/ordering/domain/                             │
-│       │     src/ordering/application/                        │
-│       │     src/ordering/infrastructure/                     │
-│       │                                                       │
-│       ├──→ Analyze import graph                              │
-│       │     domain → nothing                                 │
-│       │     application → domain                             │
-│       │     infrastructure → domain                          │
-│       │                                                       │
-│       ├──→ Generate tsconfig.json for each                   │
-│       │     domain: references: []                           │
-│       │     application: references: ["../domain"]           │
-│       │     infrastructure: references: ["../domain"]        │
-│       │                                                       │
-│       └──→ Report detected boundaries                        │
-│             "TypeScript will now enforce these via           │
-│              project references. Run 'tsc --build'."         │
-└─────────────────────────────────────────────────────────────┘
-
-When to use project references:
-✓ Boundaries are directories
-✓ Each boundary is willing to have its own tsconfig.json
-✓ Standard dependency rules (no complex cases)
-
-When to use KindScript contracts:
-✗ Fine-grained file-level rules
-✗ Non-directory boundaries (glob patterns, package-based)
-✗ Additional contracts beyond dependencies (purity, completeness)
-✗ Project can't adopt composite mode
-```
-
-**Update build order:**
-```
-Phase 0: Prove contracts work
-Phase 0.5: Project reference generation (NEW)
-  ksc init --detect
-  Generate tsconfig.json files
-  Validate with tsc --build
-Phase 1: CLI + config
-Phase 2: Kind definitions
-...
-```
-
-#### Verdict
-
-**✅ ADOPT - Add Phase 0.5 to build order and Part 2.5 to architecture doc**
-
-This is a major value add that v3 completely missed. It solves the adoption problem elegantly.
+> **Status: REMOVED** — The detect-architecture, infer-architecture, and generate-project-refs functionality has been removed from KindScript. This opportunity proposed using `ksc init --detect` to auto-generate TypeScript project references, but this feature is no longer part of the project. KindScript focuses exclusively on Kind definitions and contract-based enforcement.
 
 ---
 
@@ -661,7 +507,7 @@ Refinement: Make it clear that KS hooks into TS's watch infrastructure but adds 
 
 ### The Proposal
 
-Use ts-morph's higher-level API instead of raw TypeScript compiler API for the binder/classifier. Finding "types that extend Kind<N>" becomes simpler:
+Use ts-morph's higher-level API instead of raw TypeScript compiler API for the binder/classifier. Finding type aliases of Kind<N> becomes simpler:
 
 ```typescript
 import { Project } from 'ts-morph';
@@ -751,13 +597,12 @@ function findKindDefinitions(project: Project): KindDefinition[] {
 
 2. **v3's binder is not that complex.** The proposal implies that AST classification is ~40 lines of complex compiler API code. But v3 already proposed a focused binder:
 
-   From v3 Part 4.1:
+   From v3 Part 4.1 (updated for V2 type-level API):
    ```
-   The binder's three responsibilities:
+   The binder's two responsibilities:
 
-   1. Walk the TypeScript AST looking for types that extend Kind<N>
+   1. Walk the TypeScript AST looking for type aliases of Kind<N, Members, Constraints> and extract constraints from the 3rd type parameter
    2. Walk the AST looking for variable declarations typed as kind types
-   3. Walk the AST looking for defineContracts(...) calls
    ```
 
    These are straightforward AST walks. With good helper functions, the raw compiler API version is maybe 100-150 lines total. Is ts-morph's ergonomics worth the dependency cost for 100 lines?
@@ -812,7 +657,9 @@ Update v3:
 
 ---
 
-## Opportunity 6: Declaration Files as the Standard Library Format
+## Opportunity 6: Declaration Files as the Standard Library Format — REMOVED
+
+> **Note (2026-02-07):** Standard library packages were implemented but subsequently removed from the codebase. They added complexity (package resolution service, config plumbing, branching codegen logic, extra test fixtures) for marginal value — users can define patterns inline in `architecture.ts`. The original design analysis is preserved below for historical context.
 
 ### The Proposal
 
@@ -829,14 +676,14 @@ npm install @kindscript/hexagonal
 // node_modules/@kindscript/clean-architecture/index.d.ts
 
 /** A bounded context following Clean Architecture principles. */
-export interface CleanContext extends Kind<"CleanContext"> {
+export type CleanContext = Kind<"CleanContext", {
   /** Pure business logic — no external dependencies. */
   readonly domain: DomainLayer;
   /** Use cases orchestrating domain objects. */
   readonly application: ApplicationLayer;
   /** Adapters connecting to external systems. */
   readonly infrastructure: InfrastructureLayer;
-}
+}>;
 
 // ... with paired .js file containing contract runtime values
 ```
@@ -915,38 +762,36 @@ The answer is: they should be.
 
    npm handles transitive dependencies automatically.
 
-#### The Runtime Contract Problem
+#### The Runtime Contract Problem (Resolved by V2 Redesign)
 
-**Issue:** Contracts aren't just types — they're runtime functions that evaluate.
+**Original issue:** In the V1 API, contracts were runtime function calls (`defineContracts()`), which meant packages needed both `.d.ts` and `.js` files.
+
+**V2 resolution:** The V2 redesign moved constraints to the type level — they are now the 3rd type parameter on `Kind<N, Members, Constraints>`. Everything is `export type` only, with zero runtime code:
 
 ```typescript
-// This is a type (ships as .d.ts)
-export interface CleanContext extends Kind<"CleanContext"> {
+// Everything is type-level — ships as .d.ts only
+export type CleanContext = Kind<"CleanContext", {
   readonly domain: DomainLayer;
-}
-
-// But this is runtime code (needs .js)
-export const cleanContextContracts = defineContracts<CleanContext>({
-  noDependency: [["domain", "infrastructure"]],
-  purity: ["domain"],
-});
+  readonly application: ApplicationLayer;
+  readonly infrastructure: InfrastructureLayer;
+}, {
+  noDependency: [["domain", "infrastructure"]];
+  purity: ["domain"];
+}>;
 ```
 
-**Solution:** npm packages contain both `.d.ts` (for types) and `.js` (for runtime contracts).
+Since constraints are purely type-level, packages only need `.d.ts` files:
 
 ```
 @kindscript/clean-architecture/
   package.json
-  index.d.ts        ← Type definitions
-  index.js          ← Contract runtime values
+  index.d.ts        ← Type definitions (including constraints)
   lib/
     domain.d.ts
-    domain.js
     application.d.ts
-    application.js
 ```
 
-This is standard. Many npm packages ship both `.d.ts` and `.js`. The `.d.ts` describes the types, the `.js` provides the runtime values.
+This eliminates the type+runtime split problem entirely. No `.js` files are needed.
 
 #### How Users Consume This
 
@@ -961,20 +806,18 @@ This is standard. Many npm packages ship both `.d.ts` and `.js`. The `.d.ts` des
 
 **In their architecture.ts:**
 ```typescript
-import { CleanContext, cleanContextContracts } from '@kindscript/clean-architecture';
+import type { CleanContext } from '@kindscript/clean-architecture';
 
-export const ordering: CleanContext = {
+export const ordering = {
   kind: "CleanContext",
   location: "src/contexts/ordering",
   domain: { /* ... */ },
   application: { /* ... */ },
   infrastructure: { /* ... */ },
-};
-
-// Contracts are imported and applied
+} satisfies InstanceConfig<CleanContext>;
 ```
 
-TypeScript sees the types. KindScript's checker sees the contract runtime values. Both are happy.
+TypeScript sees the types. KindScript's classifier extracts constraints from the `Kind` type parameter. No runtime code is involved.
 
 #### What This Changes From v3
 
@@ -1037,14 +880,14 @@ Update v3:
 |-------------|---------|--------------|
 | **1. TS Plugin Instead of LSP** | ✅ **ADOPT** | Replace Part 7 architecture. Eliminates `server/server.ts`. Use ts.Diagnostic everywhere. |
 | **2. TS Module Resolution** | 🟡 **REFINE** | Keep host abstraction. Clarify implementation delegates to TS. Host provides architectural-level queries. |
-| **3. Project References** | ✅ **ADOPT** | Add Phase 0.5 and Part 2.5. Major adoption win. Makes KS the fallback, not the foundation. |
+| **3. Project References** | ~~✅ ADOPT~~ **REMOVED** | Detect/infer/generate-project-refs functionality has been removed from KindScript. |
 | **4. TS Watch Infrastructure** | 🔴 **REJECT** | Keep .ksbuildinfo and cachedHost. Hook into ts.createWatchProgram but maintain KS structural watcher. |
 | **5. ts-morph for Binder** | 🔴 **REJECT** | Not needed — scaffold functionality removed. Keep binder lightweight with clean helpers. |
-| **6. npm Package Distribution** | ✅ **ADOPT** | Change standard library from "ships with KS" to separate npm packages. Enables ecosystem. |
+| **6. npm Package Distribution** | ~~✅ ADOPT~~ **REMOVED** | Was adopted then removed — premature optimization at this stage. |
 
 ## Final Architecture: The Thin Coordination Layer
 
-Accepting opportunities 1, 3, and 6, with refinements to 2 and 5, and rejecting 4, the architecture becomes:
+Accepting opportunities 1 and 6, with refinements to 2 and 5, rejecting 4, and with 3 removed, the architecture becomes:
 
 ```
 packages/kindscript/src/
@@ -1068,25 +911,15 @@ packages/kindscript/src/
     codeFixes.ts          # Quick fixes
 
   cli/
-    cli.ts                # ksc check, ksc init
-    init.ts               # Project reference generation
+    cli.ts                # ksc check
     watch.ts              # Hooks ts.createWatchProgram
 
-  infer/
-    detect.ts             # Pattern detection
-    generate.ts           # Draft kind definitions
-
-packages/clean-architecture/
-  index.ts               # Ships as @kindscript/clean-architecture
-
-packages/hexagonal/
-  index.ts               # Ships as @kindscript/hexagonal
 ```
 
 **What's eliminated vs. v3:**
 - `server/server.ts` - LSP server (use TS plugin instead)
 - `services/service.ts` - Custom language service (extend via plugin)
-- Monolithic standard library (use npm packages)
+- Standard library packages (removed — users define patterns inline)
 
 **What's kept vs. v3:**
 - `host/` - Host abstraction (but clarified as delegation layer)
@@ -1095,7 +928,6 @@ packages/hexagonal/
 - `.ksbuildinfo` and `cachedHost` (necessary for architectural facts)
 
 **What's added:**
-- `cli/init.ts` - Project reference generation (Phase 0.5)
 - `plugin/` - TS language service plugin (replacement for LSP)
 - No ts-morph dependency (scaffold functionality removed)
 
@@ -1104,10 +936,6 @@ packages/hexagonal/
 ```
 Phase 0: Prove contracts work
   Contract functions + ts.Program → ts.Diagnostic[]
-
-Phase 0.5: Project reference generation (NEW)
-  ksc init --detect
-  Immediate value with zero config
 
 Phase 1: CLI + config
   kindscript.json
@@ -1124,21 +952,16 @@ Phase 4: Full checker
   Contract evaluation
   Diagnostic accumulation
 
-Phase 5: Inference
-  ksc infer
-
-Phase 6: Language service plugin (CHANGED)
+Phase 5: Language service plugin (CHANGED)
   TS plugin instead of LSP
   Fast diagnostics
 
-Phase 7: Incremental + watch
+Phase 6: Incremental + watch
   cachedHost
   .ksbuildinfo
   Hook ts.createWatchProgram
 
-Phase 8: Standard library packages (NEW)
-  Publish @kindscript/clean-architecture
-  Publish @kindscript/hexagonal
+Phase 7: Standard library packages — REMOVED
 ```
 
 ## Conclusion
@@ -1147,7 +970,6 @@ The proposal's core thesis is correct: **v3 built more than necessary.** But it 
 
 **Accept:**
 - TS plugin architecture (massive simplification)
-- Project references as zero-config tier (adoption breakthrough)
 - npm packages for patterns (obvious in hindsight)
 
 **Refine:**
@@ -1161,8 +983,38 @@ The result is leaner than v3 but not as thin as the proposal suggested. The genu
 1. AST classification (Kind definitions in the wild)
 2. Symbol-to-files resolution (architectural correlation)
 3. Contract evaluation (behavioral checking)
-4. Inference (spec from code)
 
 Everything else delegates to TypeScript or uses TypeScript's extension points.
 
 **The key insight:** KindScript isn't a parallel compiler. It's a TypeScript plugin that understands architecture.
+
+---
+
+## Decision: Remove `ContractConfig<T>` (Additive Instance-Level Constraints)
+
+**Date:** 2026-02-07
+
+### Context
+
+The V2 redesign introduced `ContractConfig<T>` as an "additive escape hatch" -- instances could declare additional constraints beyond what the Kind type specified via `satisfies ContractConfig<T>` expressions. This allowed instance authors to tighten enforcement without modifying the Kind definition.
+
+However, this breaks the "abstractions as types" metaphor that is KindScript's core design principle. In TypeScript, a type fully describes its contract -- values conform to types, they don't add new type rules. Allowing instances to add constraints is analogous to allowing a value to add new type constraints that weren't in its type declaration.
+
+Instances are values, not type authors. The Kind type should be the single source of truth for all architectural rules. If you need different constraints, you need a different Kind.
+
+Additionally, `ContractConfig<T>` created practical problems:
+- Ambiguity in multi-instance scenarios (does an additive contract apply to all instances of a Kind, or just one?)
+- A third classification phase in the AST classifier, adding complexity
+- Confusion about where to look for the authoritative set of constraints
+
+### Decision
+
+Remove `ContractConfig<T>` entirely. All constraints must be declared on the Kind type's third type parameter (`Kind<N, Members, Constraints>`). The Kind type is the single source of truth for architectural rules.
+
+### Consequences
+
+- **Simpler mental model:** To understand what rules apply, read the Kind definition. There is exactly one place to look.
+- **Different constraints require different Kinds:** If two bounded contexts need different rules, they should use different Kind types. This is by design -- different rules mean different architectures.
+- **Classifier simplified to 2 phases:** Phase 1 (Kind definitions + constraints), Phase 2 (instances). No Phase 3 for additive contracts.
+- **Public API reduced:** `ContractConfig` removed from exports. `define-contracts.ts` runtime file removed.
+- **Multi-instance bug surface reduced:** No ambiguity about which instance an additive contract targets.

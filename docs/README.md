@@ -11,19 +11,25 @@ docs/
 │
 ├── status/                Current state
 │   ├── DONE_VS_TODO.md            Implementation progress (v0.8.0-m8)
-│   ├── CODEBASE_REVIEW.md         Deep technical review & issues
+│   ├── CODEBASE_REVIEW_2026_02_07.md  Codebase review & implementation plan
 │   └── CLEANUP_PLAN.md            Remaining cleanup work
 │
 ├── design/                Active design explorations
-│   ├── KIND_DERIVED_LOCATIONS.md   locate<T>() and derived locations
-│   ├── KIND_INSTANCE_DESIGN.md     Location/instance model
-│   ├── MEMBER_KIND_TYPES.md        Member Kind type analysis
-│   └── FILESYSTEM_CONSTRAINTS.md   Filesystem constraint analysis
+│   ├── KIND_DERIVED_LOCATIONS.md           Derived locations design
+│   ├── KIND_INSTANCE_DESIGN.md             Location/instance model
+│   ├── MEMBER_KIND_TYPES.md                Member Kind type analysis
+│   ├── FILESYSTEM_CONSTRAINTS.md           Filesystem constraint analysis
+│   ├── KIND_DEFINITION_SYNTAX.md           Kind definition syntax alternatives
+│   ├── RUNTIME_MARKERS_OPTIONS.md          Runtime marker alternatives
+│   └── TS_COMPILER_INTEGRATION_ANALYSIS.md TS compiler integration analysis
 │
 └── archive/               Historical (do not use for implementation)
     ├── architecture/      V1-V3 compiler architecture specs
     ├── milestones/        Completed milestone plans (M0-M8)
-    └── test-consolidation/  Completed test consolidation work
+    ├── test-consolidation/  Completed test consolidation work
+    ├── CONTRACTS_AND_LOCATION_REDESIGN.md     V1 redesign (completed)
+    ├── CONTRACTS_AND_LOCATION_REDESIGN_V2.md  V2 redesign (completed)
+    └── CODEBASE_REVIEW_OUTDATED.md            Previous review (superseded)
 ```
 
 ---
@@ -59,7 +65,6 @@ docs/
 | What's in Milestone 1? | [BUILD_PLAN.md](architecture/BUILD_PLAN.md) Milestone 1 |
 | What's done vs remaining? | [DONE_VS_TODO.md](status/DONE_VS_TODO.md) |
 | What cleanup is needed? | [CLEANUP_PLAN.md](status/CLEANUP_PLAN.md) |
-| How does inference work? | [COMPILER_ARCHITECTURE.md](architecture/COMPILER_ARCHITECTURE.md) Part 4.6 |
 
 ---
 
@@ -67,7 +72,7 @@ docs/
 
 V1 → V2: Corrected "dual front-end" to single front-end (TypeScript parser for all .ts files).
 V2 → V3: Fixed 9 major issues (binder-checker boundary, symbol-to-files resolution, contract trust, etc.).
-V3 → V4: Simplified based on ecosystem evidence (plugin API, no ts-morph, npm stdlib packages).
+V3 → V4: Simplified based on ecosystem evidence (plugin API, no ts-morph).
 
 Old versions preserved in `archive/architecture/` for historical context. **Do not use them for implementation.**
 

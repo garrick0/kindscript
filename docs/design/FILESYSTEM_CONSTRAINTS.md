@@ -1,5 +1,9 @@
 # Filesystem Constraints: Current State and Design Options
 
+> **IMPLEMENTED (2026-02-07):** The filesystem constraint system has been implemented. The `colocated` contract was replaced with `filesystem: { exists?, mirrors? }` on the Kind type's third parameter. Implicit existence checking was removed in favor of opt-in `filesystem.exists`. See `docs/design/EXISTENCE_AND_FILESYSTEM_CONSTRAINTS.md` for the full analysis and implementation plan (Option C).
+>
+> **Previous update:** `ContractConfig<T>` and `defineContracts<T>()` have been removed from KindScript. All constraints are now declared on the Kind type's third parameter (`Kind<N, Members, Constraints>`). References to `ContractConfig` and `defineContracts` in the options below are outdated -- any filesystem constraints would be added to the `ConstraintConfig` type (the Kind's 3rd parameter) rather than to a separate `ContractConfig` or `defineContracts` call. The analysis of constraint categories and design tradeoffs remains relevant; only the declaration mechanism has changed.
+
 ## 1. What Exists Today
 
 KindScript's current relationship with the filesystem is simple: **a symbol is a directory path, and that's it.** There are exactly two moving parts.
@@ -176,12 +180,12 @@ export const contracts = defineContracts<CleanContext>({
 
 ### Option B: Filesystem constraints on the Kind definition (not in contracts)
 
-Move filesystem constraints into the Kind interface itself. A Kind defines not just *what members exist* but *what their filesystem shape must be*.
+Move filesystem constraints into the Kind type alias itself. A Kind defines not just *what members exist* but *what their filesystem shape must be*.
 
 **User-facing syntax:**
 
 ```typescript
-export interface DomainLayer extends Kind<"DomainLayer"> {
+export type DomainLayer = Kind<"DomainLayer", {
   // existing: child kinds as members
   // new: filesystem constraints as special properties
   readonly _files?: {
@@ -197,7 +201,7 @@ export interface DomainLayer extends Kind<"DomainLayer"> {
     requireFolders?: string[]; // ["entities", "value-objects"]
     noExtraFolders?: boolean;  // every subdir must be a declared child symbol
   };
-}
+}>;
 ```
 
 The classifier would read these `_files` and `_structure` properties from the Kind definition and attach them to the symbol. A new check pass would validate them.
@@ -293,23 +297,23 @@ Use TypeScript's type system to encode constraints directly on Kind member types
 ```typescript
 import { Kind, Files, Structure, EntryPoint } from "kindscript";
 
-export interface DomainLayer extends Kind<"DomainLayer"> {}
-export interface EntitiesFolder extends Kind<"EntitiesFolder"> {}
+export type DomainLayer = Kind<"DomainLayer">;
+export type EntitiesFolder = Kind<"EntitiesFolder">;
 
-export interface CleanContext extends Kind<"CleanContext"> {
+export type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer & EntryPoint<"index.ts"> & Files<"*.entity.ts" | "*.vo.ts">;
   application: ApplicationLayer & Structure<{ noExtraFolders: true }>;
   infrastructure: InfrastructureLayer;
-}
+}>;
 ```
 
-Where `EntryPoint<F>`, `Files<P>`, `Structure<S>` are phantom/branded types that the classifier reads from the AST's heritage clause or intersection members.
+Where `EntryPoint<F>`, `Files<P>`, `Structure<S>` are phantom/branded types that the classifier reads from the type alias definition or intersection members.
 
 **Pros:**
 - Constraints are part of the type — maximum TypeScript integration
 - IDE autocompletion and type checking for constraint shapes
 - Composable via intersection types
-- No new config block needed — the Kind interface IS the constraint spec
+- No new config block needed — the Kind type alias IS the constraint spec
 
 **Cons:**
 - Unusual TypeScript — intersection types as constraint carriers is surprising
@@ -327,8 +331,8 @@ Where `EntryPoint<F>`, `Files<P>`, `Structure<S>` are phantom/branded types that
 | **Consistency with existing patterns** | High — same `defineContracts` bag | Medium — new concept on Kinds | High — extends `defineContracts` cleanly | Low — new phantom type pattern |
 | **Stdlib package support** | OK — packages add more contract entries | Good — Kinds carry their constraints | Good — packages ship structure blocks | Good — types compose via intersection |
 | **User ergonomics** | Flat and verbose at scale | Clean per-Kind but awkward `_` syntax | Natural grouping, readable | Elegant but unfamiliar |
-| **Classifier complexity** | Medium — more contract shapes to parse | High — parse interface properties as constraints | Medium — parse one new object block | Very high — interpret type algebra |
-| **Override per instance** | Easy — different contract entries | Hard — Kind interface is fixed | Easy — per-member entries | Hard — types are fixed |
+| **Classifier complexity** | Medium — more contract shapes to parse | High — parse type alias properties as constraints | Medium — parse one new object block | Very high — interpret type algebra |
+| **Override per instance** | Easy — different contract entries | Hard — Kind type alias is fixed | Easy — per-member entries | Hard — types are fixed |
 | **Type safety of constraint defs** | Medium — arrays with mixed shapes | Low — `_files` is a runtime bag | Medium — string keys for member paths | High — full TypeScript type checking |
 | **Implementation effort** | Small per constraint, linear | Medium refactor of classifier + domain | Medium, one-time structure | Large, fundamental classifier changes |
 | **Backwards compatibility** | Full | Full (additive) | Full (`colocated` → `mirrors`) | Full (additive) |

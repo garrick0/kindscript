@@ -39,15 +39,15 @@ If the whole point of Kinds is that things have types, then instances should be 
 ### What a Kind definition looks like
 
 ```typescript
-interface CleanContext extends Kind<"CleanContext"> {
+type DomainLayer = Kind<"DomainLayer">;
+type ApplicationLayer = Kind<"ApplicationLayer">;
+type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
-
-interface DomainLayer extends Kind<"DomainLayer"> {}
-interface ApplicationLayer extends Kind<"ApplicationLayer"> {}
-interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+}>;
 ```
 
 This defines structure (what members, what types) but says nothing about where members live on disk.
@@ -134,15 +134,15 @@ The Kind definition doesn't mention locations. The convention is: if a Kind has 
 **Kind definitions (unchanged):**
 
 ```typescript
-interface CleanContext extends Kind<"CleanContext"> {
+type DomainLayer = Kind<"DomainLayer">;
+type ApplicationLayer = Kind<"ApplicationLayer">;
+type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
-
-interface DomainLayer extends Kind<"DomainLayer"> {}
-interface ApplicationLayer extends Kind<"ApplicationLayer"> {}
-interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+}>;
 ```
 
 **Instance — just the root location:**
@@ -196,11 +196,11 @@ When it sees `ordering: CleanContext`, it:
 - No flexibility in directory naming. If your domain layer is at `./core` instead of `./domain`, you can't use `CleanContext` as-is. You'd need a custom Kind:
 
   ```typescript
-  interface MyCleanContext extends Kind<"MyCleanContext"> {
+  type MyCleanContext = Kind<"MyCleanContext", {
     core: DomainLayer;          // lives at ./core
     application: ApplicationLayer;
     infrastructure: InfrastructureLayer;
-  }
+  }>;
   ```
 
   This is arguably correct — if your layout is different, your *Kind* is different. But it means you can't reuse stdlib contracts without redefining the Kind.
@@ -212,23 +212,23 @@ When it sees `ordering: CleanContext`, it:
 Kinds declare the relative location of each member explicitly:
 
 ```typescript
-interface CleanContext extends Kind<"CleanContext"> {
+type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;          // @location "./domain"
   application: ApplicationLayer; // @location "./app"
   infrastructure: InfrastructureLayer; // @location "./infra"
-}
+}>;
 ```
 
-TypeScript doesn't support annotations on interface members. So the constraint needs another encoding. Options:
+TypeScript doesn't support annotations on type alias members. So the constraint needs another encoding. Options:
 
 **Option A: Separate metadata object**
 
 ```typescript
-interface CleanContext extends Kind<"CleanContext"> {
+type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
+}>;
 
 const CleanContextLayout = defineLayout<CleanContext>({
   domain: "./domain",
@@ -243,18 +243,18 @@ Fall back to convention (member name = directory) unless explicitly overridden:
 
 ```typescript
 // Default: member name = directory name
-interface CleanContext extends Kind<"CleanContext"> {
+type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;           // → ./domain (convention)
   application: ApplicationLayer;  // → ./application (convention)
   infrastructure: InfrastructureLayer; // → ./infrastructure (convention)
-}
+}>;
 
 // Override when directory name differs from member name:
-interface MyContext extends Kind<"MyContext"> {
+type MyContext = Kind<"MyContext", {
   domain: DomainLayer;           // → ./domain (convention)
   app: ApplicationLayer;          // → ./app (convention, matches member name)
   infra: InfrastructureLayer;     // → ./infra (convention, matches member name)
-}
+}>;
 ```
 
 In this approach, you'd just name the member to match the directory. No separate override mechanism needed. Convention IS the mechanism.
@@ -262,8 +262,8 @@ In this approach, you'd just name the member to match the directory. No separate
 **Option C: Location encoded in the Kind type parameter**
 
 ```typescript
-interface DomainLayer extends Kind<"DomainLayer", { path: "domain" }> {}
-interface ApplicationLayer extends Kind<"ApplicationLayer", { path: "application" }> {}
+type DomainLayer = Kind<"DomainLayer", { path: "domain" }>;
+type ApplicationLayer = Kind<"ApplicationLayer", { path: "application" }>;
 ```
 
 Then any Kind that has a `DomainLayer` member knows it lives at `./domain`. But this couples the location to the Kind type itself — all `DomainLayer` instances everywhere would have to live at `./domain`, regardless of parent. That's too rigid.
@@ -331,13 +331,13 @@ Both `ordering` and `billing` have a `domain` member that's a `DomainLayer`. But
 **Members with sub-members:**
 
 ```typescript
-interface DomainLayer extends Kind<"DomainLayer"> {
+type EntitiesModule = Kind<"EntitiesModule">;
+type ValueObjectsModule = Kind<"ValueObjectsModule">;
+
+type DomainLayer = Kind<"DomainLayer", {
   entities: EntitiesModule;
   valueObjects: ValueObjectsModule;
-}
-
-interface EntitiesModule extends Kind<"EntitiesModule"> {}
-interface ValueObjectsModule extends Kind<"ValueObjectsModule"> {}
+}>;
 
 // Leaf instances
 const entities: EntitiesModule = { kind: "EntitiesModule" };
@@ -395,15 +395,15 @@ If member locations are derived and member instances carry no unique data (just 
 **Kind definitions (in package or user-defined):**
 
 ```typescript
-interface CleanContext extends Kind<"CleanContext"> {
+type DomainLayer = Kind<"DomainLayer">;
+type ApplicationLayer = Kind<"ApplicationLayer">;
+type InfrastructureLayer = Kind<"InfrastructureLayer">;
+
+type CleanContext = Kind<"CleanContext", {
   domain: DomainLayer;
   application: ApplicationLayer;
   infrastructure: InfrastructureLayer;
-}
-
-interface DomainLayer extends Kind<"DomainLayer"> {}
-interface ApplicationLayer extends Kind<"ApplicationLayer"> {}
-interface InfrastructureLayer extends Kind<"InfrastructureLayer"> {}
+}>;
 ```
 
 **Instance — absolute minimum:**
@@ -436,11 +436,11 @@ Two lines per instance. The Kind type parameter tells the compiler everything ab
 If your domain is at `./core` instead of `./domain`, you can't use `CleanContext`. You'd define:
 
 ```typescript
-interface MyCleanContext extends Kind<"MyCleanContext"> {
+type MyCleanContext = Kind<"MyCleanContext", {
   core: DomainLayer;
   app: ApplicationLayer;
   infra: InfrastructureLayer;
-}
+}>;
 
 export const myApp = createInstance<MyCleanContext>("src");
 // Derives: core @ src/core, app @ src/app, infra @ src/infra
@@ -569,7 +569,7 @@ If contracts are defined on the Kind (in the package), they apply to all instanc
 
 ```typescript
 // Package defines:
-interface CleanContext extends Kind<"CleanContext"> { ... }
+type CleanContext = Kind<"CleanContext", { ... }>;
 const contracts = defineContracts<CleanContext>({ ... });
 
 // User writes:
