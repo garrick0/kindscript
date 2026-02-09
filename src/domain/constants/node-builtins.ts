@@ -21,10 +21,3 @@ export const NODE_BUILTINS = new Set([
   ...SUBPATH_BUILTINS,
   ...SUBPATH_BUILTINS.map(m => `node:${m}`),
 ]);
-
-/**
- * Check if a module specifier is a Node.js built-in (impure) module.
- */
-export function isNodeBuiltin(specifier: string): boolean {
-  return NODE_BUILTINS.has(specifier);
-}

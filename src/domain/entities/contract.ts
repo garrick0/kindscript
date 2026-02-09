@@ -9,7 +9,7 @@ import { ContractReference } from '../value-objects/contract-reference';
  * must satisfy. For example, "domain must not depend on infrastructure"
  * or "every port must have a corresponding adapter".
  *
- * This is a pure domain entity with validation logic but no external dependencies.
+ * This is a pure domain entity with no external dependencies.
  */
 export class Contract {
   constructor(
@@ -25,56 +25,6 @@ export class Contract {
     /** Optional location where this contract was defined */
     public readonly location?: string
   ) {}
-
-  /**
-   * Validate that this contract has the correct number and type of arguments.
-   *
-   * @returns null if valid, error message if invalid
-   */
-  validate(): string | null {
-    switch (this.type) {
-      case ContractType.NoDependency:
-        if (this.args.length !== 2) {
-          return `noDependency requires exactly 2 arguments (from, to), got ${this.args.length}`;
-        }
-        break;
-
-      case ContractType.MustImplement:
-        if (this.args.length !== 2) {
-          return `mustImplement requires exactly 2 arguments (interface, implementation), got ${this.args.length}`;
-        }
-        break;
-
-      case ContractType.Purity:
-        if (this.args.length !== 1) {
-          return `purity requires exactly 1 argument (symbol), got ${this.args.length}`;
-        }
-        break;
-
-      case ContractType.NoCycles:
-        if (this.args.length < 1) {
-          return `noCycles requires at least 1 argument, got ${this.args.length}`;
-        }
-        break;
-
-      case ContractType.Exists:
-        if (this.args.length < 1) {
-          return `exists requires at least 1 argument, got ${this.args.length}`;
-        }
-        break;
-
-      case ContractType.Mirrors:
-        if (this.args.length !== 2) {
-          return `mirrors requires exactly 2 arguments (primary, related), got ${this.args.length}`;
-        }
-        break;
-
-      default:
-        return `Unknown contract type: ${this.type}`;
-    }
-
-    return null;
-  }
 
   /**
    * Check if this contract equals another contract.

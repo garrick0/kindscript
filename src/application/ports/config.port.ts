@@ -4,7 +4,7 @@ import { CompilerOptions } from '../../domain/types/compiler-options';
  * KindScript configuration file format.
  *
  * This represents the kindscript.json file that users create
- * to configure architectural contracts.
+ * to configure project-level settings (rootDir, compilerOptions).
  */
 export interface KindScriptConfig {
   /** Root directory for the project */
@@ -59,24 +59,4 @@ export interface ConfigPort {
    * @returns Configuration object, or undefined if not found
    */
   readTSConfig(path: string): TSConfig | undefined;
-
-  /**
-   * Find a configuration file by walking up the directory tree.
-   *
-   * @param startPath - Directory to start searching from
-   * @param fileName - Name of the config file to find
-   * @returns Path to the config file, or undefined if not found
-   */
-  findConfigFile(startPath: string, fileName: string): string | undefined;
-
-  /**
-   * Merge updates into an existing kindscript.json (or create one).
-   *
-   * @param projectPath - Path to the project directory
-   * @param updates - Fields to merge into the config
-   */
-  mergeKindScriptConfig(
-    projectPath: string,
-    updates: Record<string, unknown>
-  ): void;
 }

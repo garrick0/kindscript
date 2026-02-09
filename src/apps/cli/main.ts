@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+
+import { CheckCommand } from './commands/check.command';
+import { CLIDiagnosticAdapter } from './adapters/cli-diagnostic.adapter';
+import { CLIConsoleAdapter } from './adapters/cli-console.adapter';
+import { createEngine } from '../../infrastructure/engine-factory';
+
+/**
+ * KindScript CLI entry point.
+ *
+ * Composition root: creates the shared Engine, then wires CLI-specific adapters.
+ */
+function main(): void {
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (command === '--version' || command === '-v') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pkg = require('../../../package.json');
+    process.stdout.write(pkg.version + '\n');
+    process.exit(0);
+  }
+
+  if (!command || command === '--help' || command === '-h') {
+    printUsage();
+    process.exit(0);
+  }
+
+  if (command === 'check') {
+    const projectPath = args[1] || process.cwd();
+    const exitCode = runCheck(projectPath);
+    process.exit(exitCode);
+  }
+
+  // Composition root — intentionally uses process.stderr directly (not ConsolePort)
+  process.stderr.write(`Unknown command: ${command}\n\n`);
+  printUsage();
+  process.exit(1);
+}
+
+function runCheck(projectPath: string): number {
+  const engine = createEngine();
+  const diagnostic = new CLIDiagnosticAdapter();
+  const console = new CLIConsoleAdapter();
+
+  const cmd = new CheckCommand(engine.runPipeline, diagnostic, console);
+  return cmd.execute(projectPath);
+}
+
+// Composition root — intentionally uses process.stderr directly (not ConsolePort)
+function printUsage(): void {
+  process.stderr.write(
+    `KindScript - Architectural enforcement for TypeScript
+
+Usage: ksc <command> [options]
+
+Commands:
+  check [path]                          Check architectural contracts (default: current directory)
+
+Options:
+  -h, --help      Show this help message
+  -v, --version   Show version number
+
+Examples:
+  ksc check                    Check current project
+  ksc check ./my-project       Check specific project
+`
+  );
+}
+
+main();

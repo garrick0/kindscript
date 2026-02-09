@@ -7,8 +7,7 @@ module.exports = {
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/index.ts',
-    '!src/**/testing/**',              // Exclude mock test infrastructure
-    '!src/infrastructure/cli/main.ts'  // Exclude CLI entry point (tested via E2E)
+    '!src/apps/cli/main.ts'  // Exclude CLI entry point (tested via E2E)
   ],
   coverageThreshold: {
     // Domain + application layers are the core logic and must be well-covered
@@ -26,8 +25,5 @@ module.exports = {
     }
     // Infrastructure adapters are covered by integration/E2E tests
     // but don't need strict coverage thresholds since they're thin wrappers
-  },
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
   }
 };

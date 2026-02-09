@@ -1,6 +1,5 @@
 import { Program } from '../../domain/entities/program';
 import { ImportEdge } from '../../domain/value-objects/import-edge';
-import { Diagnostic } from '../../domain/entities/diagnostic';
 import { CompilerOptions } from '../../domain/types/compiler-options';
 
 /**
@@ -31,7 +30,6 @@ export interface CompilerPort {
   getSourceFile(program: Program, fileName: string): SourceFile | undefined;
   getSourceFiles(program: Program): SourceFile[];
   getTypeChecker(program: Program): TypeChecker;
-  getDiagnostics(program: Program): Diagnostic[];
 }
 
 /**

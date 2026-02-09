@@ -2,10 +2,19 @@
   "name": "kindscript",
   "version": "0.8.0-m8",
   "description": "Architectural enforcement for TypeScript",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/types/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    },
+    "./plugin": "./dist/apps/plugin/index.js",
+    "./dist/*": null,
+    "./src/*": null
+  },
   "bin": {
-    "ksc": "dist/infrastructure/cli/main.js"
+    "ksc": "dist/apps/cli/main.js"
   },
   "files": [
     "dist/"

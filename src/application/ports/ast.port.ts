@@ -1,4 +1,4 @@
-import { SourceFile } from './typescript.port';
+import { SourceFile, TypeChecker } from './typescript.port';
 
 /**
  * Structural view of a type literal tree, preserving shape without semantic knowledge.
@@ -25,11 +25,10 @@ export interface KindDefinitionView {
 
 /**
  * High-level view of a member value from an InstanceConfig object literal.
- * Represents a recursively-resolved member assignment with optional path override.
+ * Represents a recursively-resolved member assignment.
  */
 export interface MemberValueView {
   name: string;
-  pathOverride?: string;
   children?: MemberValueView[];
 }
 
@@ -44,12 +43,21 @@ export interface InstanceDeclarationView {
 }
 
 /**
+ * Wrapper for AST extraction results that may include errors
+ * for malformed input (e.g., missing type arguments, unresolved references).
+ */
+export interface ASTExtractionResult<T> {
+  data: T;
+  errors: string[];
+}
+
+/**
  * Port for extracting architectural information from TypeScript source files.
  *
  * Returns pre-extracted domain views — all AST mechanics are encapsulated
  * in the adapter implementation.
  */
 export interface ASTViewPort {
-  getKindDefinitions(sourceFile: SourceFile): KindDefinitionView[];
-  getInstanceDeclarations(sourceFile: SourceFile): InstanceDeclarationView[];
+  getKindDefinitions(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<KindDefinitionView[]>;
+  getInstanceDeclarations(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<InstanceDeclarationView[]>;
 }
