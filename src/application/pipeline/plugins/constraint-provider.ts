@@ -11,14 +11,14 @@ export interface GeneratorResult {
 }
 
 /**
- * Narrow interface that classification depends on for constraint handling.
+ * Narrow interface that the Binder depends on for constraint handling.
  *
- * This is the classification-side view of a contract plugin.
- * It contains only the fields needed for AST classification:
+ * This is the binder-side view of a contract plugin.
+ * It contains only the fields needed for contract generation:
  * constraint name matching, contract generation, and intrinsic propagation.
  *
- * ContractPlugin in the enforcement layer extends this interface,
- * adding check/validate capabilities that classification doesn't need.
+ * ContractPlugin in the checker layer extends this interface,
+ * adding check/validate capabilities that the binder doesn't need.
  */
 export interface ConstraintProvider {
   readonly constraintName: string;

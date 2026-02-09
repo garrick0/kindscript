@@ -1,8 +1,8 @@
 /**
  * KindScript — Architectural enforcement for TypeScript.
  *
- * This is the public API entry point. Users import Kind, InstanceConfig,
- * and ConstraintConfig from 'kindscript' to write type-safe architectural
+ * This is the public API entry point. Users import Kind, Instance,
+ * and Constraints from 'kindscript' to write type-safe architectural
  * definitions.
  *
  * All exports are type-only — zero runtime footprint.
@@ -18,7 +18,7 @@
  *
  * @typeParam Members - The members type to validate member name references against
  */
-export type ConstraintConfig<Members = Record<string, never>> = {
+export type Constraints<Members = Record<string, never>> = {
   /** Mark this kind as pure — no side-effect imports allowed */
   pure?: true;
 
@@ -70,7 +70,7 @@ export type Kind<
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   Members extends Record<string, Kind> = {},
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  _Constraints extends ConstraintConfig<Members> = {},
+  _Constraints extends Constraints<Members> = {},
 > = {
   /** Discriminant identifying this kind by name */
   readonly kind: N;
@@ -96,7 +96,7 @@ export type MemberMap<T extends Kind> = {
 };
 
 /**
- * Instance configuration type for declaring a Kind instance.
+ * Instance type for declaring a Kind instance.
  *
  * Used with `satisfies` in regular `.ts` source files. The root directory
  * is inferred from the file's location — no explicit root needed.
@@ -107,9 +107,9 @@ export type MemberMap<T extends Kind> = {
  *   domain: {},
  *   application: {},
  *   infrastructure: {},
- * } satisfies InstanceConfig<CleanArchitecture>;
+ * } satisfies Instance<CleanArchitecture>;
  * ```
  *
  * @typeParam T - The Kind type this instance conforms to
  */
-export type InstanceConfig<T extends Kind> = MemberMap<T>;
+export type Instance<T extends Kind> = MemberMap<T>;

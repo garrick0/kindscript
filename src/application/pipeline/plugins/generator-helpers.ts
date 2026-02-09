@@ -1,8 +1,8 @@
-import { TypeNodeView } from '../../ports/ast.port';
+import { TypeNodeView } from '../views';
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { Contract } from '../../../domain/entities/contract';
 import { ContractType } from '../../../domain/types/contract-type';
-import { GeneratorResult } from '../../classification/classify-ast/constraint-provider';
+import { GeneratorResult } from './constraint-provider';
 
 /**
  * Shared generator for tuplePairs constraints (noDependency, mustImplement, mirrors).

@@ -1,9 +1,11 @@
 import { Engine } from '../application/engine';
-import { CheckContractsService } from '../application/enforcement/check-contracts/check-contracts.service';
-import { createAllPlugins } from '../application/enforcement/check-contracts/plugin-registry';
-import { RunPipelineService } from '../application/enforcement/run-pipeline/run-pipeline.service';
-import { ClassifyASTService } from '../application/classification/classify-ast/classify-ast.service';
-import { ClassifyProjectService } from '../application/classification/classify-project/classify-project.service';
+import { ScanService } from '../application/pipeline/scan/scan.service';
+import { ParseService } from '../application/pipeline/parse/parse.service';
+import { BindService } from '../application/pipeline/bind/bind.service';
+import { CheckerService } from '../application/pipeline/check/checker.service';
+import { PipelineService } from '../application/pipeline/pipeline.service';
+import { ProgramFactory } from '../application/pipeline/program';
+import { createAllPlugins } from '../application/pipeline/plugins/plugin-registry';
 import { TypeScriptAdapter } from './typescript/typescript.adapter';
 import { FileSystemAdapter } from './filesystem/filesystem.adapter';
 import { ConfigAdapter } from './config/config.adapter';
@@ -22,10 +24,13 @@ export function createEngine(): Engine {
   const ast = new ASTAdapter();
 
   const plugins = createAllPlugins();
-  const classifyAST = new ClassifyASTService(ast, plugins);
-  const classifyProject = new ClassifyProjectService(config, fs, ts, classifyAST);
-  const checkContracts = new CheckContractsService(plugins, ts);
-  const runPipeline = new RunPipelineService(classifyProject, checkContracts, fs);
 
-  return { classifyProject, checkContracts, runPipeline, plugins, fs, ts };
+  const programFactory = new ProgramFactory(config, fs, ts);
+  const scanner = new ScanService(ast);
+  const parser = new ParseService(fs);
+  const binder = new BindService(plugins);
+  const checker = new CheckerService(plugins, ts);
+  const pipeline = new PipelineService(programFactory, fs, scanner, parser, binder, checker);
+
+  return { pipeline, plugins };
 }

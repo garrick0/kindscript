@@ -28,7 +28,7 @@ function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
       const lsAdapter = new LanguageServiceAdapter(info, modules.typescript);
 
       const diagnosticsService = new GetPluginDiagnosticsService(
-        engine.runPipeline
+        engine.pipeline
       );
       const codeFixesService = new GetPluginCodeFixesService(engine.plugins);
 

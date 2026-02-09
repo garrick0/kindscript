@@ -1,4 +1,4 @@
-import { Diagnostic } from '../../../domain/entities/diagnostic';
+import { Diagnostic } from '../../domain/entities/diagnostic';
 
 /**
  * Request DTO for the pipeline.
@@ -32,11 +32,8 @@ export interface PipelineError {
 export type PipelineResponse = PipelineSuccess | PipelineError;
 
 /**
- * Use case for running the full classify → resolve → check pipeline.
- *
- * Encapsulates the 3-step orchestration that was previously duplicated
- * between CLI and plugin. Both apps now delegate to this.
+ * Use case for running the full scan → parse → bind → check pipeline.
  */
-export interface RunPipelineUseCase {
+export interface PipelineUseCase {
   execute(request: PipelineRequest): PipelineResponse;
 }

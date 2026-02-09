@@ -1,16 +1,23 @@
-import { CheckContractsUseCase } from './check-contracts.use-case';
-import { CheckContractsRequest } from './check-contracts.request';
-import { CheckContractsResponse } from './check-contracts.response';
+import { CheckerUseCase } from './checker.use-case';
+import { CheckerRequest } from './checker.request';
+import { CheckerResponse } from './checker.response';
 import { TypeScriptPort } from '../../ports/typescript.port';
-import { ContractPlugin, CheckContext } from './contract-plugin';
+import { ContractPlugin, CheckContext } from '../plugins/contract-plugin';
 import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { DiagnosticCode } from '../../../domain/constants/diagnostic-codes';
 import { ContractType } from '../../../domain/types/contract-type';
 
 /**
- * Thin dispatcher that validates contracts and delegates to per-type plugins.
+ * KindScript Checker — evaluates contracts and produces diagnostics.
+ *
+ * This is the fourth pipeline stage. It takes bound contracts and
+ * resolved data, and produces diagnostics. Pure evaluation — no
+ * domain model construction or constraint generation.
+ *
+ * Analogous to TypeScript's Checker which resolves types from symbols
+ * and reports type errors.
  */
-export class CheckContractsService implements CheckContractsUseCase {
+export class CheckerService implements CheckerUseCase {
   private readonly pluginMap: Map<ContractType, ContractPlugin>;
 
   constructor(
@@ -20,7 +27,7 @@ export class CheckContractsService implements CheckContractsUseCase {
     this.pluginMap = new Map(plugins.map(p => [p.type, p]));
   }
 
-  execute(request: CheckContractsRequest): CheckContractsResponse {
+  execute(request: CheckerRequest): CheckerResponse {
     const diagnostics: Diagnostic[] = [];
     let filesAnalyzed = 0;
 

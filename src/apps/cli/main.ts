@@ -43,7 +43,7 @@ function runCheck(projectPath: string): number {
   const diagnostic = new CLIDiagnosticAdapter();
   const console = new CLIConsoleAdapter();
 
-  const cmd = new CheckCommand(engine.runPipeline, diagnostic, console);
+  const cmd = new CheckCommand(engine.pipeline, diagnostic, console);
   return cmd.execute(projectPath);
 }
 

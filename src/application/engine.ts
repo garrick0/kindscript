@@ -1,9 +1,5 @@
-import { CheckContractsUseCase } from './enforcement/check-contracts/check-contracts.use-case';
-import { ContractPlugin } from './enforcement/check-contracts/contract-plugin';
-import { ClassifyProjectUseCase } from './classification/classify-project/classify-project.use-case';
-import { RunPipelineUseCase } from './enforcement/run-pipeline/run-pipeline.use-case';
-import { FileSystemPort } from './ports/filesystem.port';
-import { TypeScriptPort } from './ports/typescript.port';
+import { PipelineUseCase } from './pipeline/pipeline.types';
+import { ContractPlugin } from './pipeline/plugins/contract-plugin';
 
 /**
  * Engine bundles the shared core services that both CLI and plugin need.
@@ -12,10 +8,6 @@ import { TypeScriptPort } from './ports/typescript.port';
  * then wires its own app-specific adapters on top.
  */
 export interface Engine {
-  readonly classifyProject: ClassifyProjectUseCase;
-  readonly checkContracts: CheckContractsUseCase;
-  readonly runPipeline: RunPipelineUseCase;
+  readonly pipeline: PipelineUseCase;
   readonly plugins: ContractPlugin[];
-  readonly fs: FileSystemPort;
-  readonly ts: TypeScriptPort;
 }

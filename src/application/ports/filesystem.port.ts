@@ -12,6 +12,11 @@ export interface FileSystemPort {
   directoryExists(path: string): boolean;
 
   /**
+   * Check if a file exists at the given path.
+   */
+  fileExists(path: string): boolean;
+
+  /**
    * Read the contents of a file.
    *
    * @returns file contents as string, or undefined if file doesn't exist

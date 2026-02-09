@@ -4,7 +4,7 @@ import { Contract } from '../../../domain/entities/contract';
 import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { Program } from '../../../domain/entities/program';
 import { ContractType } from '../../../domain/types/contract-type';
-import { ConstraintProvider } from '../../classification/classify-ast/constraint-provider';
+import { ConstraintProvider } from './constraint-provider';
 
 export interface CheckContext {
   tsPort: TypeScriptPort;

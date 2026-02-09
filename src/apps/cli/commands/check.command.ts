@@ -1,22 +1,22 @@
-import { RunPipelineUseCase } from '../../../application/enforcement/run-pipeline/run-pipeline.use-case';
+import { PipelineUseCase } from '../../../application/pipeline/pipeline.types';
 import { DiagnosticPort } from '../ports/diagnostic.port';
 import { ConsolePort } from '../ports/console.port';
 
 /**
  * CLI command: ksc check
  *
- * Thin presentation layer: delegates to RunPipelineService,
+ * Thin presentation layer: delegates to PipelineService,
  * formats output via DiagnosticPort and ConsolePort, returns exit code.
  */
 export class CheckCommand {
   constructor(
-    private readonly runPipeline: RunPipelineUseCase,
+    private readonly pipeline: PipelineUseCase,
     private readonly diagnosticPort: DiagnosticPort,
     private readonly console: ConsolePort,
   ) {}
 
   execute(projectPath: string): number {
-    const result = this.runPipeline.execute({ projectRoot: projectPath });
+    const result = this.pipeline.execute({ projectRoot: projectPath });
 
     if (!result.ok) {
       this.diagnosticPort.reportDiagnostics([]);

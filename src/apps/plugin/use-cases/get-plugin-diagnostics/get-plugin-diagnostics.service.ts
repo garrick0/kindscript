@@ -1,19 +1,19 @@
 import { GetPluginDiagnosticsUseCase } from './get-plugin-diagnostics.use-case';
 import { GetPluginDiagnosticsRequest, GetPluginDiagnosticsResponse } from './get-plugin-diagnostics.types';
-import { RunPipelineUseCase } from '../../../../application/enforcement/run-pipeline/run-pipeline.use-case';
+import { PipelineUseCase } from '../../../../application/pipeline/pipeline.types';
 import { Diagnostic } from '../../../../domain/entities/diagnostic';
 
 /**
  * Implementation of GetPluginDiagnosticsUseCase.
  *
  * Checks architectural contracts for a single file by delegating to
- * RunPipelineService (which handles classification, resolution, and checking)
+ * PipelineService (which handles scanning, parsing, binding, and checking)
  * and then filtering the resulting diagnostics to only those relevant
  * to the requested file.
  */
 export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase {
   constructor(
-    private readonly runPipeline: RunPipelineUseCase,
+    private readonly pipeline: PipelineUseCase,
   ) {}
 
   execute(request: GetPluginDiagnosticsRequest): GetPluginDiagnosticsResponse {
@@ -35,7 +35,7 @@ export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase 
   }
 
   private getDiagnostics(request: GetPluginDiagnosticsRequest): Diagnostic[] {
-    const result = this.runPipeline.execute({ projectRoot: request.projectRoot });
+    const result = this.pipeline.execute({ projectRoot: request.projectRoot });
     if (!result.ok) return [];
 
     return result.diagnostics.filter(d => this.isRelevantToFile(d, request.fileName));
@@ -44,7 +44,7 @@ export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase 
   /**
    * Check if a diagnostic is relevant to a specific file.
    * Structural diagnostics (file === '') with a scope are shown for all files
-   * (the definition file containing the Kind/InstanceConfig is a regular .ts file).
+   * (the definition file containing the Kind/Instance is a regular .ts file).
    */
   private isRelevantToFile(diagnostic: Diagnostic, fileName: string): boolean {
     if (!diagnostic.file && diagnostic.scope) {

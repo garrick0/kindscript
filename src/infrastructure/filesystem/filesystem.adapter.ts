@@ -14,6 +14,14 @@ export class FileSystemAdapter implements FileSystemPort {
     }
   }
 
+  fileExists(path: string): boolean {
+    try {
+      return fs.statSync(path).isFile();
+    } catch {
+      return false;
+    }
+  }
+
   readFile(path: string): string | undefined {
     try {
       return fs.readFileSync(path, 'utf-8');

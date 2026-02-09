@@ -1,6 +1,6 @@
 import { GetPluginCodeFixesUseCase } from './get-plugin-code-fixes.use-case';
 import { GetPluginCodeFixesRequest, GetPluginCodeFixesResponse, PluginCodeFix } from './get-plugin-code-fixes.types';
-import { ContractPlugin } from '../../../../application/enforcement/check-contracts/contract-plugin';
+import { ContractPlugin } from '../../../../application/pipeline/plugins/contract-plugin';
 
 /** KindScript error code range */
 const KS_CODE_MIN = 70001;

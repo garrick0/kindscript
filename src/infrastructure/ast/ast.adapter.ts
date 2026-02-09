@@ -6,7 +6,7 @@ import { SourceFile, TypeChecker } from '../../application/ports/typescript.port
  * Real implementation of ASTViewPort using the TypeScript compiler API.
  *
  * Piggybacks on TypeScript's type checker for discovery: uses
- * `checker.getSymbolAtLocation()` to resolve `Kind` and `InstanceConfig`
+ * `checker.getSymbolAtLocation()` to resolve `Kind` and `Instance`
  * references through aliases and re-exports. Falls back to string matching
  * when the checker is unavailable (e.g., in unit tests with mock checkers).
  *
@@ -108,7 +108,7 @@ export class ASTAdapter implements ASTViewPort {
         const satisfies = decl.initializer;
         const type = satisfies.type;
         if (!ts.isTypeReferenceNode(type)) continue;
-        if (!this.isSymbolNamed(type.typeName, 'InstanceConfig', tsChecker)) continue;
+        if (!this.isSymbolNamed(type.typeName, 'Instance', tsChecker)) continue;
 
         // Extract kind type name from type argument
         let kindTypeName: string | undefined;
@@ -120,7 +120,7 @@ export class ASTAdapter implements ASTViewPort {
         }
         if (!kindTypeName) {
           const varName = ts.isIdentifier(decl.name) ? decl.name.text : '<unnamed>';
-          errors.push(`'${varName} satisfies InstanceConfig' is missing a type argument.`);
+          errors.push(`'${varName} satisfies Instance' is missing a type argument.`);
           continue;
         }
 
@@ -210,7 +210,7 @@ export class ASTAdapter implements ASTViewPort {
         // Shorthand: { domain } — resolve via varMap
         valueExpr = varMap.get(name);
         if (!valueExpr) {
-          errors.push(`InstanceConfig member '${name}': variable '${name}' not resolved (shorthand).`);
+          errors.push(`Instance member '${name}': variable '${name}' not resolved (shorthand).`);
         }
       } else {
         continue;
@@ -222,7 +222,7 @@ export class ASTAdapter implements ASTViewPort {
         if (resolved) {
           valueExpr = resolved;
         } else {
-          errors.push(`InstanceConfig member '${name}': variable '${valueExpr.text}' not resolved.`);
+          errors.push(`Instance member '${name}': variable '${valueExpr.text}' not resolved.`);
         }
       }
 

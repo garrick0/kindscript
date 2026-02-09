@@ -1,11 +1,9 @@
 import { Diagnostic } from '../../../domain/entities/diagnostic';
 
 /**
- * Response DTO for the CheckContracts use case.
- *
- * Contains the results of contract checking.
+ * Response DTO for the Checker stage.
  */
-export interface CheckContractsResponse {
+export interface CheckerResponse {
   /** Diagnostics for contract violations */
   diagnostics: Diagnostic[];
 
