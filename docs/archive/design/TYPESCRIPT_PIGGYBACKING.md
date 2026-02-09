@@ -20,11 +20,11 @@ The bridge between these worlds is `resolveSymbolFiles()` — it takes symbols w
 
 ### Layer 1: Definition Discovery and Extraction
 
-**What:** Find Kind definitions (`type X = Kind<...>`) and instance declarations (`satisfies InstanceConfig<T>`), extract their structure.
+**What:** Find Kind definitions (`type X = Kind<...>`) and instance declarations (`satisfies Instance<T>`), extract their structure.
 
-**Current implementation:** `ASTAdapter` walks raw AST nodes, matches `"Kind"` and `"InstanceConfig"` by string comparison, manually extracts type arguments.
+**Current implementation:** `ASTAdapter` walks raw AST nodes, matches `"Kind"` and `"Instance"` by string comparison, manually extracts type arguments.
 
-**TypeScript already knows:** Which symbols resolve to `Kind` from `'kindscript'`. What their type arguments are. Which `satisfies` expressions reference `InstanceConfig`. All resolved through aliases, re-exports, and computed types.
+**TypeScript already knows:** Which symbols resolve to `Kind` from `'kindscript'`. What their type arguments are. Which `satisfies` expressions reference `Instance`. All resolved through aliases, re-exports, and computed types.
 
 **Piggybacking:** Replace entirely with type checker queries. This is the core change from DEFINITION_FILE_STRATEGY.md. No filesystem involvement.
 
@@ -118,7 +118,7 @@ With `.k.ts` files gone, where does the instance root come from?
 ### Today
 
 ```
-/project/src/context.k.ts contains: const app = { ... } satisfies InstanceConfig<Ctx>
+/project/src/context.k.ts contains: const app = { ... } satisfies Instance<Ctx>
 → root = dirnamePath("/project/src/context.k.ts") = "/project/src"
 ```
 
@@ -127,11 +127,11 @@ The `.k.ts` file's location determines the root. Simple, deterministic.
 ### With instances in source files
 
 ```
-/project/src/domain/user.ts contains: export const _kind = { ... } satisfies InstanceConfig<Ctx>
+/project/src/domain/user.ts contains: export const _kind = { ... } satisfies Instance<Ctx>
 → root = dirnamePath("/project/src/domain/user.ts") = "/project/src/domain"
 ```
 
-Same mechanism, different file. The root is the directory containing whatever file has the `satisfies InstanceConfig<T>` expression.
+Same mechanism, different file. The root is the directory containing whatever file has the `satisfies Instance<T>` expression.
 
 **This raises a question:** if the instance declaration is in `/project/src/domain/user.ts`, the root becomes `/project/src/domain/` — but the user probably intended the root to be `/project/src/`. The instance declaration's file location constrains where it can live.
 
@@ -139,7 +139,7 @@ Three options:
 
 #### Option 1: Instance must be in the root directory
 
-The `satisfies InstanceConfig<T>` expression must appear in a file that lives in the intended root directory. This is how it works today — the `.k.ts` file is placed at the root level.
+The `satisfies Instance<T>` expression must appear in a file that lives in the intended root directory. This is how it works today — the `.k.ts` file is placed at the root level.
 
 ```
 /project/src/architecture.ts    # instance here → root = /project/src/
@@ -151,7 +151,7 @@ The `satisfies InstanceConfig<T>` expression must appear in a file that lives in
 
 #### Option 2: Kind definition file implies root
 
-When the type checker finds a `satisfies InstanceConfig<T>`, it resolves `T` to a Kind definition. The Kind definition lives in some file. The root could be derived from the Kind definition file's location rather than the instance declaration's location.
+When the type checker finds a `satisfies Instance<T>`, it resolves `T` to a Kind definition. The Kind definition lives in some file. The root could be derived from the Kind definition file's location rather than the instance declaration's location.
 
 ```
 /project/src/architecture.ts    # Kind definition → root = /project/src/
@@ -181,7 +181,7 @@ The root for each instance is the matched directory, not a file location. The `k
 
 Both mechanisms coexist:
 
-**For few-instance Kinds** (1-5 instances, like `CleanArchitecture`): explicit `satisfies InstanceConfig<T>` in a file at the root level (Option 1). The file is a regular `.ts` file — no special extension.
+**For few-instance Kinds** (1-5 instances, like `CleanArchitecture`): explicit `satisfies Instance<T>` in a file at the root level (Option 1). The file is a regular `.ts` file — no special extension.
 
 **For many-instance Kinds** (10+ instances, like `AtomVersion`): `kindScope(Kind, pattern)` in a Kind definition file (Option 3). No per-instance declarations. The compiler discovers instances from the filesystem.
 
@@ -196,7 +196,7 @@ TypeScript creates program + type checker (already happens)
     ↓
 KindScript queries type checker:                           ← REPLACES .k.ts filter + AST walking
   "Which type aliases resolve to Kind from 'kindscript'?"
-  "Which satisfies expressions resolve to InstanceConfig?"
+  "Which satisfies expressions resolve to Instance?"
     ↓
 Extract resolved type arguments from type checker           ← REPLACES manual type arg extraction
     ↓
@@ -228,7 +228,7 @@ Seven phases. Each phase produces a passing test suite before moving to the next
 
 ### Phase 1: Remove path overrides
 
-Path overrides (`{ path: "custom" }` in InstanceConfig) violate the principle that instances never specify paths. Remove them entirely.
+Path overrides (`{ path: "custom" }` in Instance) violate the principle that instances never specify paths. Remove them entirely.
 
 **Source changes:**
 
@@ -300,11 +300,11 @@ New `getKindDefinitions()` logic:
 6. Return `KindDefinitionView[]`
 
 New `getInstanceDeclarations()` logic:
-1. Get the `InstanceConfig` symbol from the `'kindscript'` module
+1. Get the `Instance` symbol from the `'kindscript'` module
 2. Walk top-level variable declarations with `satisfies` expressions
 3. For each, use the checker to resolve the satisfies type
-4. Check if it references `InstanceConfig` from step 1
-5. Extract the `Kind` type argument from `InstanceConfig<T>` via the checker
+4. Check if it references `Instance` from step 1
+5. Extract the `Kind` type argument from `Instance<T>` via the checker
 6. Extract member values from the object literal (this part stays as AST walking — runtime values need the AST, not the type checker)
 7. Return `InstanceDeclarationView[]`
 
@@ -330,8 +330,8 @@ Replace extension-based discovery with type-checker-based discovery.
 
 | File | Change |
 |------|--------|
-| `src/application/classification/classify-project/classify-project.service.ts` | **Line 64:** Replace `allSourceFiles.filter(sf => sf.fileName.endsWith('.k.ts'))` with: pass all source files to `ClassifyASTService`. Files without Kind/InstanceConfig references will return empty arrays from the adapter (fast no-op). **Line 67:** Change error message from `'No .k.ts definition files found in the project.'` to `'No Kind definitions found in the project.'` **Line 62:** Remove comment `// 5. Discover .k.ts definition files from the program's source files`. Replace with `// 5. Pass all source files for Kind/InstanceConfig discovery`. |
-| `src/apps/plugin/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service.ts` | **Line 50:** Replace `fileName.endsWith('.k.ts')` with a check based on whether the file contains Kind/InstanceConfig declarations (can check against the classification result's symbol/contract data, or simply show structural diagnostics for any file that produced symbols). |
+| `src/application/classification/classify-project/classify-project.service.ts` | **Line 64:** Replace `allSourceFiles.filter(sf => sf.fileName.endsWith('.k.ts'))` with: pass all source files to `ClassifyASTService`. Files without Kind/Instance references will return empty arrays from the adapter (fast no-op). **Line 67:** Change error message from `'No .k.ts definition files found in the project.'` to `'No Kind definitions found in the project.'` **Line 62:** Remove comment `// 5. Discover .k.ts definition files from the program's source files`. Replace with `// 5. Pass all source files for Kind/Instance discovery`. |
+| `src/apps/plugin/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service.ts` | **Line 50:** Replace `fileName.endsWith('.k.ts')` with a check based on whether the file contains Kind/Instance declarations (can check against the classification result's symbol/contract data, or simply show structural diagnostics for any file that produced symbols). |
 
 **Test changes:**
 

@@ -75,13 +75,13 @@ Remove the `ContractConfig` export and update the module doc comment:
 
 ```typescript
 // BEFORE
-export type { Kind, ConstraintConfig } from './runtime/kind';
+export type { Kind, Constraints } from './runtime/kind';
 export type { ContractConfig } from './runtime/define-contracts';
-export type { MemberMap, InstanceConfig } from './runtime/locate';
+export type { MemberMap, Instance } from './runtime/locate';
 
 // AFTER
-export type { Kind, ConstraintConfig } from './runtime/kind';
-export type { MemberMap, InstanceConfig } from './runtime/locate';
+export type { Kind, Constraints } from './runtime/kind';
+export type { MemberMap, Instance } from './runtime/locate';
 ```
 
 Update the doc comment to remove `ContractConfig` from the list of exports.
@@ -165,7 +165,7 @@ type ContractConfig<_T extends Kind = Kind> = {
 - If there is an "Additive Contracts (Escape Hatch)" section, remove it entirely
 
 **`notebooks/04-bounded-contexts.ipynb`:**
-- Remove `ContractConfig` from import lines (e.g., `cell-detect` has `import type { Kind, ConstraintConfig, InstanceConfig, ContractConfig }`)
+- Remove `ContractConfig` from import lines (e.g., `cell-detect` has `import type { Kind, Constraints, Instance, ContractConfig }`)
 - Remove the "additive per-instance rules" discussion in `cell-issues-heading` (the paragraph: "For additive per-instance rules, use `satisfies ContractConfig<T>` in addition to type-level constraints.")
 
 ### Step 9: Update documentation

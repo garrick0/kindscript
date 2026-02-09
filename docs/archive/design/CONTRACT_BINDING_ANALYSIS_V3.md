@@ -52,7 +52,7 @@ The pipeline has four stages. Each stage consumes different data from different 
 │    → kind name, member names + types, constraint declarations       │
 │                                                                     │
 │  Value-level AST data ← ASTPort                                    │
-│    { ... } satisfies InstanceConfig<T> expressions                  │
+│    { ... } satisfies Instance<T> expressions                  │
 │    → member assignments, path overrides, identifier resolution      │
 │                                                                     │
 │  File path context                                                  │
@@ -136,7 +136,7 @@ The adapter currently extracts this via:
 - `getTypeAliasReferenceName()` → `"Kind"`
 - `getTypeAliasTypeArgLiterals()` → `["CleanArch"]`
 - `getTypeAliasMemberProperties()` → `[{ name: "domain", typeName: "DomainLayer" }, ...]`
-- `getTypeAliasConstraintConfig()` → `ConstraintConfigAST { noDependency: [...], ... }`
+- `getTypeAliasConstraints()` → `ConstraintsAST { noDependency: [...], ... }`
 
 Four separate port calls to extract four aspects of the same type alias node.
 
@@ -146,14 +146,14 @@ Four separate port calls to extract four aspects of the same type alias node.
 const app = {
   domain: {},                          // ← JavaScript runtime value
   infrastructure: { path: "infra" },   //   parsed from ObjectLiteralExpression
-} satisfies InstanceConfig<CleanArch>;
+} satisfies Instance<CleanArch>;
 ```
 
 This is a JavaScript variable declaration with an object literal and a `satisfies` type assertion. The object literal is **runtime code** — it would exist in the compiled JavaScript output. The AST adapter reads it using value-specific node methods (`isObjectLiteral`, `getObjectProperties`, `getStringValue`, `isIdentifier`).
 
 The adapter currently extracts this through many fine-grained port calls:
 - `isVariableStatement()` → `isSatisfiesExpression()` → identify the pattern
-- `getSatisfiesTypeReferenceName()` → `"InstanceConfig"`
+- `getSatisfiesTypeReferenceName()` → `"Instance"`
 - `getSatisfiesTypeArgumentNames()` → `["CleanArch"]`
 - `getSatisfiesExpression()` → the object literal node
 - `getObjectProperties()` → `[{ name: "domain", value: ... }, ...]`
@@ -261,7 +261,7 @@ The classifier accesses the AST through ~20 fine-grained `ASTPort` methods. Here
 | Referenced type name | `getTypeAliasReferenceName` | `"Kind"` or other |
 | Kind name literal | `getTypeAliasTypeArgLiterals` | `["CleanArch"]` |
 | Member properties | `getTypeAliasMemberProperties` | `[{ name, typeName }]` |
-| Constraint config | `getTypeAliasConstraintConfig` | `ConstraintConfigAST` |
+| Constraint config | `getTypeAliasConstraints` | `ConstraintsAST` |
 
 Six port calls to extract one Kind definition.
 
@@ -275,7 +275,7 @@ Six port calls to extract one Kind definition.
 | Variable type name | `getVariableTypeName` | string |
 | Initializer | `getInitializer` | `ASTNode` |
 | Is satisfies? | `isSatisfiesExpression` | boolean |
-| Satisfies type name | `getSatisfiesTypeReferenceName` | `"InstanceConfig"` |
+| Satisfies type name | `getSatisfiesTypeReferenceName` | `"Instance"` |
 | Satisfies type args | `getSatisfiesTypeArgumentNames` | `["CleanArch"]` |
 | Inner expression | `getSatisfiesExpression` | `ASTNode` |
 | Is object literal? | `isObjectLiteral` | boolean |
@@ -313,13 +313,13 @@ The checker's relationship with data is already clean: the TypeScript program is
 
 ## 5. The Problem Restated
 
-The V1/V2 analyses identified that the constraint port method (`getTypeAliasConstraintConfig`) returns a semantically-typed intermediate (`ConstraintConfigAST`) where the adapter knows constraint semantics. This is correct — but it's actually the **least problematic** part of the port boundary.
+The V1/V2 analyses identified that the constraint port method (`getTypeAliasConstraints`) returns a semantically-typed intermediate (`ConstraintsAST`) where the adapter knows constraint semantics. This is correct — but it's actually the **least problematic** part of the port boundary.
 
 The bigger issue: **the classifier is tightly coupled to AST structure through dozens of fine-grained port calls.**
 
 The classifier knows:
 - That Kind definitions are type alias declarations referencing `"Kind"`
-- That instance configs are variable declarations with satisfies expressions referencing `"InstanceConfig"`
+- That instance configs are variable declarations with satisfies expressions referencing `"Instance"`
 - That member values can be object literals, identifiers, or nested objects
 - That path overrides are string properties named `"path"` inside member objects
 - That identifiers need resolution through a variable map
@@ -407,7 +407,7 @@ interface KindDefinitionView {
 }
 ```
 
-**InstanceDeclarationView** — everything from a `{ ... } satisfies InstanceConfig<T>` expression:
+**InstanceDeclarationView** — everything from a `{ ... } satisfies Instance<T>` expression:
 
 ```typescript
 /**
@@ -417,7 +417,7 @@ interface KindDefinitionView {
 interface InstanceDeclarationView {
   /** Variable name (e.g., "app") */
   variableName: string;
-  /** Kind type name from InstanceConfig<T> (e.g., "CleanArch") */
+  /** Kind type name from Instance<T> (e.g., "CleanArch") */
   kindTypeName: string;
   /** Member values from the object literal */
   members: MemberValueView[];
@@ -482,7 +482,7 @@ execute(request: ClassifyASTRequest): ClassifyASTResponse {
           const name = this.astPort.getDeclarationName(stmt);
           const literals = this.astPort.getTypeAliasTypeArgLiterals(stmt);
           const properties = this.astPort.getTypeAliasMemberProperties(stmt);
-          const constraints = this.astPort.getTypeAliasConstraintConfig(stmt);
+          const constraints = this.astPort.getTypeAliasConstraints(stmt);
           // ... store KindDefinition
         }
       }
@@ -506,7 +506,7 @@ execute(request: ClassifyASTRequest): ClassifyASTResponse {
           const init = this.astPort.getInitializer(decl);
           if (init && this.astPort.isSatisfiesExpression(init)) {
             const typeName = this.astPort.getSatisfiesTypeReferenceName(init);
-            if (typeName === 'InstanceConfig') {
+            if (typeName === 'Instance') {
               // ... 10+ more port calls for member extraction
             }
           }
@@ -713,7 +713,7 @@ private buildTypeNodeView(typeNode: ts.TypeNode): TypeNodeView | undefined {
 }
 ```
 
-This method uses the adapter's existing private helpers (`getTypeElements`, `getStringLiteralFromType`, `extractTuplePairs`). The only change is that it builds a `TypeNodeView` tree instead of a `ConstraintConfigAST` object. The structural inference means it doesn't switch on property names — it determines the shape from AST node types.
+This method uses the adapter's existing private helpers (`getTypeElements`, `getStringLiteralFromType`, `extractTuplePairs`). The only change is that it builds a `TypeNodeView` tree instead of a `ConstraintsAST` object. The structural inference means it doesn't switch on property names — it determines the shape from AST node types.
 
 ### Where non-AST data fits
 
@@ -743,21 +743,21 @@ Keep the fine-grained ASTPort. The classifier walks AST nodes through ~20 port m
 **Weaknesses:**
 - Classifier coupled to AST structure (type aliases, satisfies expressions, object literals)
 - ~20 port calls per definition file
-- Constraint extraction uses semantically-typed intermediate (`ConstraintConfigAST`)
+- Constraint extraction uses semantically-typed intermediate (`ConstraintsAST`)
 - Adding constraints requires modifying adapter + port + classifier
 
 ---
 
 ### Option B: TypeNodeView for Constraints Only
 
-Replace `ConstraintConfigAST` with `TypeNodeView`. Leave everything else unchanged.
+Replace `ConstraintsAST` with `TypeNodeView`. Leave everything else unchanged.
 
 This is the V2 recommendation (but using a tree instead of flat entries).
 
 **Port change:**
 ```typescript
 // Before:
-getTypeAliasConstraintConfig(node: ASTNode): ConstraintConfigAST | undefined;
+getTypeAliasConstraints(node: ASTNode): ConstraintsAST | undefined;
 
 // After:
 getTypeAliasConstraintView(node: ASTNode): TypeNodeView | undefined;
@@ -807,7 +807,7 @@ interface ASTDeclarationPort {
 Implement Option B first (TypeNodeView for constraints only). Later, if the fine-grained port becomes a pain point, uplift to Option C (full rich views).
 
 This works because the changes are additive:
-1. Replace `ConstraintConfigAST` with `TypeNodeView` and add `CONSTRAINT_BINDINGS` (Option B)
+1. Replace `ConstraintsAST` with `TypeNodeView` and add `CONSTRAINT_BINDINGS` (Option B)
 2. Later, extract `KindDefinitionView` incorporating the existing `TypeNodeView` (Option C)
 3. Later, extract `InstanceDeclarationView` (completing Option C)
 
@@ -859,12 +859,12 @@ Concretely, the first step is:
 
 1. **Define `TypeNodeView`** discriminated union in `ast.port.ts`
 2. **Add `buildTypeNodeView()`** private method to `ASTAdapter` (structural inference from `ts.TypeNode`)
-3. **Change `getTypeAliasConstraintConfig`** to return `TypeNodeView | undefined` instead of `ConstraintConfigAST | undefined`
-4. **Remove `ConstraintConfigAST`** from the port definition
+3. **Change `getTypeAliasConstraints`** to return `TypeNodeView | undefined` instead of `ConstraintsAST | undefined`
+4. **Remove `ConstraintsAST`** from the port definition
 5. **Add `CONSTRAINT_BINDINGS`** map to classify-ast service
 6. **Replace `generateContractsFromConfig`** with `walkConstraintView` that walks the tree and looks up bindings
-7. **Update `KindDefinition`** internal type: `constraints?: TypeNodeView` instead of `constraints?: ConstraintConfigAST`
-8. **Update `MockASTAdapter`** to store and return `TypeNodeView` instead of `ConstraintConfigAST`
+7. **Update `KindDefinition`** internal type: `constraints?: TypeNodeView` instead of `constraints?: ConstraintsAST`
+8. **Update `MockASTAdapter`** to store and return `TypeNodeView` instead of `ConstraintsAST`
 9. **Update tests** to use `TypeNodeView` in mock setup
 
 No changes to: domain entities, filesystem port, TypeScript port, CLI, plugin, or integration tests. The checker was already refactored to use pre-resolved data (see Stage 2.5 above) — this change is orthogonal.
@@ -877,15 +877,15 @@ No changes to: domain entities, filesystem port, TypeScript port, CLI, plugin, o
 
 ### Overview
 
-Replace `ConstraintConfigAST` (semantically-typed intermediate where the adapter knows constraint names) with `TypeNodeView` (structurally-inferred discriminated union where the adapter is constraint-agnostic). Then replace the classifier's `generateContractsFromConfig` (hardcoded switch logic) with a data-driven `walkConstraintView` + `CONSTRAINT_BINDINGS` map.
+Replace `ConstraintsAST` (semantically-typed intermediate where the adapter knows constraint names) with `TypeNodeView` (structurally-inferred discriminated union where the adapter is constraint-agnostic). Then replace the classifier's `generateContractsFromConfig` (hardcoded switch logic) with a data-driven `walkConstraintView` + `CONSTRAINT_BINDINGS` map.
 
 ### File changes
 
-**1. `src/application/ports/ast.port.ts`** — Define `TypeNodeView`, remove `ConstraintConfigAST`
+**1. `src/application/ports/ast.port.ts`** — Define `TypeNodeView`, remove `ConstraintsAST`
 
 ```typescript
 // Remove:
-export interface ConstraintConfigAST { ... }
+export interface ConstraintsAST { ... }
 
 // Add:
 export type TypeNodeView =
@@ -895,12 +895,12 @@ export type TypeNodeView =
   | { kind: 'object'; properties: Array<{ name: string; value: TypeNodeView }> };
 
 // Change return type:
-getTypeAliasConstraintConfig(node: ASTNode): TypeNodeView | undefined;
+getTypeAliasConstraints(node: ASTNode): TypeNodeView | undefined;
 ```
 
 **2. `src/infrastructure/adapters/ast/ast.adapter.ts`** — Build `TypeNodeView` structurally
 
-Replace the `getTypeAliasConstraintConfig` method: instead of switching on property names (`pure`, `noDependency`, etc.) and building a flat `ConstraintConfigAST`, build a `TypeNodeView` tree by structural inference:
+Replace the `getTypeAliasConstraints` method: instead of switching on property names (`pure`, `noDependency`, etc.) and building a flat `ConstraintsAST`, build a `TypeNodeView` tree by structural inference:
 - `TrueKeyword` → `{ kind: 'boolean' }`
 - `TypeLiteralNode` → `{ kind: 'object', properties: [...] }` (recurse)
 - Tuple of string-pairs → `{ kind: 'tuplePairs', values: [...] }`
@@ -910,7 +910,7 @@ Uses existing private helpers (`getTypeElements`, `getStringLiteralFromType`, `e
 
 **3. `src/application/use-cases/classify-ast/classify-ast.service.ts`** — Data-driven constraint binding
 
-- Change `KindDefinition.constraints` from `ConstraintConfigAST` to `TypeNodeView`
+- Change `KindDefinition.constraints` from `ConstraintsAST` to `TypeNodeView`
 - Remove `generateContractsFromConfig` (~120 lines of hardcoded switch logic)
 - Add `CONSTRAINT_BINDINGS` map: `Record<string, { type: ContractType; shape: string; intrinsic?: boolean }>`
 - Add `walkConstraintView` method: recursively walks `TypeNodeView` tree, builds dotted names (e.g., `"filesystem.exists"`), looks up binding, creates contracts
@@ -919,13 +919,13 @@ Uses existing private helpers (`getTypeElements`, `getStringLiteralFromType`, `e
 
 **4. `src/infrastructure/adapters/testing/mock-ast.adapter.ts`** — Mock uses `TypeNodeView`
 
-- Change `MockTypeAliasNode.constraintConfig` from `ConstraintConfigAST` to `TypeNodeView`
+- Change `MockTypeAliasNode.constraintConfig` from `ConstraintsAST` to `TypeNodeView`
 - Change `withTypeAlias` parameter type accordingly
-- `getTypeAliasConstraintConfig` return stays the same (returns stored value)
+- `getTypeAliasConstraints` return stays the same (returns stored value)
 
-**5. Tests** — Update mock setup to pass `TypeNodeView` instead of `ConstraintConfigAST`
+**5. Tests** — Update mock setup to pass `TypeNodeView` instead of `ConstraintsAST`
 
-Test call sites currently pass `ConstraintConfigAST` objects like `{ pure: true }` or `{ noDependency: [['a', 'b']] }`. These need to become `TypeNodeView` trees:
+Test call sites currently pass `ConstraintsAST` objects like `{ pure: true }` or `{ noDependency: [['a', 'b']] }`. These need to become `TypeNodeView` trees:
 - `{ pure: true }` → `{ kind: 'object', properties: [{ name: 'pure', value: { kind: 'boolean' } }] }`
 - `{ noDependency: [['a', 'b']] }` → `{ kind: 'object', properties: [{ name: 'noDependency', value: { kind: 'tuplePairs', values: [['a', 'b']] } }] }`
 - `{ noCycles: ['a', 'b'] }` → `{ kind: 'object', properties: [{ name: 'noCycles', value: { kind: 'stringList', values: ['a', 'b'] } }] }`

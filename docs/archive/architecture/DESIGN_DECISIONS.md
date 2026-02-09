@@ -814,7 +814,7 @@ export const ordering = {
   domain: { /* ... */ },
   application: { /* ... */ },
   infrastructure: { /* ... */ },
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;
 ```
 
 TypeScript sees the types. KindScript's classifier extracts constraints from the `Kind` type parameter. No runtime code is involved.

@@ -44,7 +44,7 @@ This is the "contract binding" process. It currently spans two layers and uses a
 └────────────────────────────┬────────────────────────────────────────┘
                              │
                      Stage 1 │  AST Adapter (infrastructure)
-                             │  getTypeAliasConstraintConfig(node)
+                             │  getTypeAliasConstraints(node)
                              │
                              │  Walks ts.Node tree. Switches on property
                              │  names: "noDependency" → extractTuplePairs(),
@@ -52,12 +52,12 @@ This is the "contract binding" process. It currently spans two layers and uses a
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ ConstraintConfigAST  (intermediate representation, defined in port) │
+│ ConstraintsAST  (intermediate representation, defined in port) │
 │                                                                     │
 │   { noDependency: [["infrastructure", "domain"]],                   │
 │     filesystem: { exists: ["domain"] } }                            │
 │                                                                     │
-│   (Plain JS object — typed mirror of the runtime ConstraintConfig)  │
+│   (Plain JS object — typed mirror of the runtime Constraints)  │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
                      Stage 2 │  ClassifyASTService (application)
@@ -85,9 +85,9 @@ Every constraint type is hardcoded in **four places**:
 
 | Location | What It Knows | File |
 |----------|--------------|------|
-| Runtime type | Property name + type shape | `kind.ts` — `ConstraintConfig<Members>` |
-| AST adapter | Property name → parse method | `ast.adapter.ts` — if/else chain in `getTypeAliasConstraintConfig` |
-| Port interface | Property name + parsed shape | `ast.port.ts` — `ConstraintConfigAST` |
+| Runtime type | Property name + type shape | `kind.ts` — `Constraints<Members>` |
+| AST adapter | Property name → parse method | `ast.adapter.ts` — if/else chain in `getTypeAliasConstraints` |
+| Port interface | Property name + parsed shape | `ast.port.ts` — `ConstraintsAST` |
 | Classifier | Property name → Contract creation | `classify-ast.service.ts` — `generateContractsFromConfig` |
 
 Adding a new constraint requires modifying all four.
@@ -118,7 +118,7 @@ This means:
 Our AST adapter **is not generic**. When it encounters the 3rd type argument of `Kind<N, M, C>`, it switches on property names:
 
 ```typescript
-// ast.adapter.ts — getTypeAliasConstraintConfig
+// ast.adapter.ts — getTypeAliasConstraints
 if (propName === 'pure') {
   // → check for TrueKeyword
 } else if (propName === 'noDependency' || propName === 'mustImplement') {
@@ -177,10 +177,10 @@ The semantic mapping ("`noDependency` is a tuple pair that means forbidden depen
 
 ### Option A: Status Quo
 
-Keep `ConstraintConfigAST` as a typed intermediate.
+Keep `ConstraintsAST` as a typed intermediate.
 
 ```
-AST adapter (knows names + shapes) → ConstraintConfigAST → Classifier (knows names + semantics)
+AST adapter (knows names + shapes) → ConstraintsAST → Classifier (knows names + semantics)
 ```
 
 **Pros:**
@@ -191,7 +191,7 @@ AST adapter (knows names + shapes) → ConstraintConfigAST → Classifier (knows
 **Cons:**
 - 4 places to modify per new constraint
 - Adapter hardcodes semantic knowledge (which property = which shape)
-- Port interface (`ConstraintConfigAST`) is constraint-type-specific
+- Port interface (`ConstraintsAST`) is constraint-type-specific
 - Mock adapter must also mirror the typed intermediate
 
 ---
@@ -232,7 +232,7 @@ Type literal property value:
 
 ```typescript
 // Before (constraint-type-specific):
-getTypeAliasConstraintConfig(node: ASTNode): ConstraintConfigAST | undefined;
+getTypeAliasConstraints(node: ASTNode): ConstraintsAST | undefined;
 
 // After (generic):
 getTypeAliasConstraintEntries(node: ASTNode): ParsedConstraintEntry[];
@@ -273,12 +273,12 @@ for (const entry of constraintEntries) {
 | Component | Before | After |
 |-----------|--------|-------|
 | AST adapter | Switches on property names | Infers shape from AST structure |
-| Port interface | `ConstraintConfigAST` (typed mirror) | `ParsedConstraintEntry[]` (generic) |
-| Mock adapter | Stores `ConstraintConfigAST` | Stores `ParsedConstraintEntry[]` |
+| Port interface | `ConstraintsAST` (typed mirror) | `ParsedConstraintEntry[]` (generic) |
+| Mock adapter | Stores `ConstraintsAST` | Stores `ParsedConstraintEntry[]` |
 | Classifier | Switches on config properties | Loops over entries, looks up `CONSTRAINT_MAP` |
 
 **Adding a new constraint:**
-1. Add to `ConstraintConfig` runtime type (always required)
+1. Add to `Constraints` runtime type (always required)
 2. Add to `ContractType` enum (always required)
 3. Add one line to `CONSTRAINT_MAP` in the classifier
 4. **No adapter changes** (if the shape is boolean, stringList, or tuplePair)

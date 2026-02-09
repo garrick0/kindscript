@@ -294,7 +294,7 @@ The narrative is "incremental adoption" — you start with a real codebase that 
 Written by the notebook in Part 1:
 
 ```typescript
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 type AtomLayer = Kind<"AtomLayer">;
 type MoleculeLayer = Kind<"MoleculeLayer">;
@@ -339,7 +339,7 @@ export const designSystem = {
   core:      {},
   common:    {},
   mocks:     {},
-} satisfies InstanceConfig<DesignSystem>;
+} satisfies Instance<DesignSystem>;
 ```
 
 ### Page-level — `src/components/Pages/DashboardPage/v1.0.0/dashboard.k.ts`
@@ -347,7 +347,7 @@ export const designSystem = {
 Written by the notebook in Part 2 (note: placed inside `v1.0.0/` so root is inferred as the version directory):
 
 ```typescript
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 type UILayer = Kind<"UILayer">;
 type DomainLayer = Kind<"DomainLayer">;
@@ -376,7 +376,7 @@ export const page = {
   data: {},
   types: {},
   validation: {},
-} satisfies InstanceConfig<PageArchitecture>;
+} satisfies Instance<PageArchitecture>;
 ```
 
 ---

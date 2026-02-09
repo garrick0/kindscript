@@ -20,7 +20,7 @@ atoms/
   atom1/
     v0.0.1/
       atom1.tsx
-      instance.k.ts      # just: export const v = { source: {} } satisfies InstanceConfig<AtomVersion>
+      instance.k.ts      # just: export const v = { source: {} } satisfies Instance<AtomVersion>
     v0.0.2/
       atom1.tsx
       instance.k.ts      # identical boilerplate
@@ -37,9 +37,9 @@ atoms/
 Four instances = four nearly-identical files, each containing roughly:
 
 ```typescript
-import type { InstanceConfig } from 'kindscript';
+import type { Instance } from 'kindscript';
 import type { AtomVersion } from '../../atomVersion.k.ts';
-export const v = { source: {} } satisfies InstanceConfig<AtomVersion>;
+export const v = { source: {} } satisfies Instance<AtomVersion>;
 ```
 
 This doesn't scale. A design system with 40 atoms, 2 versions each = 80 boilerplate files.
@@ -48,7 +48,7 @@ This doesn't scale. A design system with 40 atoms, 2 versions each = 80 boilerpl
 
 **Instances should never specify their own paths.** The Kind defines what the structure should be (constraints). The compiler discovers what actually exists (reality). Validation compares them. If the instance says "look here," it's doing the compiler's job.
 
-This means the current `{ path: "..." }` override in InstanceConfig is a design smell. It exists today as a practical escape hatch (member name `atoms` but directory is `components/atoms`), but it mixes the roles of declaration and discovery.
+This means the current `{ path: "..." }` override in Instance is a design smell. It exists today as a practical escape hatch (member name `atoms` but directory is `components/atoms`), but it mixes the roles of declaration and discovery.
 
 Any solution to the instance placement problem must respect this principle.
 
@@ -61,7 +61,7 @@ Each instance gets its own `.k.ts` file in its directory. Location derived from 
 ```
 atoms/
   atomVersion.k.ts                    # Kind definition
-  atom1/v0.0.1/instance.k.ts         # { source: {} } satisfies InstanceConfig<AtomVersion>
+  atom1/v0.0.1/instance.k.ts         # { source: {} } satisfies Instance<AtomVersion>
   atom1/v0.0.2/instance.k.ts
   atom2/v0.0.1/instance.k.ts
   atom3/v0.0.1/instance.k.ts
@@ -95,10 +95,10 @@ The component file contains both source code and Kind metadata:
 
 ```typescript
 // atom1/v0.0.1/atom1.k.tsx
-import type { InstanceConfig } from 'kindscript';
+import type { Instance } from 'kindscript';
 import type { AtomVersion } from '../../atomVersion.k.ts';
 
-export const _kind = { source: {} } satisfies InstanceConfig<AtomVersion>;
+export const _kind = { source: {} } satisfies Instance<AtomVersion>;
 
 // Actual component code
 export const Button = () => <button>Click me</button>;
@@ -160,17 +160,17 @@ type AtomVersion = Kind<"AtomVersion", { source: AtomSource }, {}>;
 export const atom1v001 = {
   location: "atom1/v0.0.1",
   source: {},
-} satisfies InstanceConfig<AtomVersion>;
+} satisfies Instance<AtomVersion>;
 
 export const atom1v002 = {
   location: "atom1/v0.0.2",
   source: {},
-} satisfies InstanceConfig<AtomVersion>;
+} satisfies Instance<AtomVersion>;
 
 export const atom2v001 = {
   location: "atom2/v0.0.1",
   source: {},
-} satisfies InstanceConfig<AtomVersion>;
+} satisfies Instance<AtomVersion>;
 ```
 
 ```
@@ -270,7 +270,7 @@ type Atom = Kind<"Atom", {
 // atoms/atom1/atom1.k.ts
 export const atom1 = {
   versions: {},    // compiler discovers v0.0.1/, v0.0.2/ automatically
-} satisfies InstanceConfig<Atom>;
+} satisfies Instance<Atom>;
 ```
 
 The compiler resolves `versions` by scanning `atom1/` for subdirectories, and treats each as an AtomVersion.
@@ -411,7 +411,7 @@ project/
 
 ### What about path overrides?
 
-If instances never specify paths, the `{ path: "..." }` override should be removed from `InstanceConfig`. Instead:
+If instances never specify paths, the `{ path: "..." }` override should be removed from `Instance`. Instead:
 - Member names should match directory names (the default)
 - If they don't match, use a `directoryName` constraint on the member's Kind (analogous to `filePattern` but for the directory name)
 - Or accept that the member name IS the directory name — that's the convention, and KindScript enforces conventions

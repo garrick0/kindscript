@@ -100,7 +100,7 @@ TypeScript's compiler (source: [TypeScript Wiki](https://github.com/microsoft/Ty
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
                                Stage 1 │  "Parser" — AST Adapter (infrastructure)
-                                       │  getTypeAliasConstraintConfig(node)
+                                       │  getTypeAliasConstraints(node)
                                        │
                                        │  Walks ts.Node tree for the 3rd type arg.
                                        │  Switches on property NAMES:
@@ -113,7 +113,7 @@ TypeScript's compiler (source: [TypeScript Wiki](https://github.com/microsoft/Ty
                                        │
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  ConstraintConfigAST  (typed intermediate, defined in ast.port.ts)           │
+│  ConstraintsAST  (typed intermediate, defined in ast.port.ts)           │
 │                                                                              │
 │  {                                                                           │
 │    noDependency?: [string, string][];                                        │
@@ -126,13 +126,13 @@ TypeScript's compiler (source: [TypeScript Wiki](https://github.com/microsoft/Ty
 │    };                                                                         │
 │  }                                                                           │
 │                                                                              │
-│  (A typed mirror of the runtime ConstraintConfig<Members> type)              │
+│  (A typed mirror of the runtime Constraints<Members> type)              │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
                                Stage 2 │  "Binder" — ClassifyASTService (application)
                                        │  generateContractsFromConfig()
                                        │
-                                       │  Iterates properties of ConstraintConfigAST.
+                                       │  Iterates properties of ConstraintsAST.
                                        │  For each property:
                                        │    - Resolves member name strings → ArchSymbol
                                        │      via instanceSymbol.findByPath(name)
@@ -156,12 +156,12 @@ In TypeScript: `AST Node → (Binder) → Symbol → (Checker walks AST Node dir
 - The Symbol is a generic container (`flags` + `name` + `declarations`)
 - The Checker resolves types lazily from AST nodes, not from pre-parsed intermediates
 
-In KindScript: `AST Node → (Adapter) → ConstraintConfigAST → (Classifier) → Contract`
-- **`ConstraintConfigAST` is a typed intermediate** between the "parser" and "binder"
+In KindScript: `AST Node → (Adapter) → ConstraintsAST → (Classifier) → Contract`
+- **`ConstraintsAST` is a typed intermediate** between the "parser" and "binder"
 - It mirrors the runtime type structure — every property is named and typed
 - Both the adapter AND the classifier must know every constraint type
 
-In TypeScript's terms, our `ConstraintConfigAST` is like having a `ClassDeclarationSemantics` interface between the parser and binder — a typed intermediate that the parser builds and the binder reads. TypeScript doesn't do this. The binder reads AST nodes directly.
+In TypeScript's terms, our `ConstraintsAST` is like having a `ClassDeclarationSemantics` interface between the parser and binder — a typed intermediate that the parser builds and the binder reads. TypeScript doesn't do this. The binder reads AST nodes directly.
 
 ---
 
@@ -169,7 +169,7 @@ In TypeScript's terms, our `ConstraintConfigAST` is like having a `ClassDeclarat
 
 ### Divergence 1: The "Parser" Has Semantic Knowledge
 
-The AST adapter's `getTypeAliasConstraintConfig` method (lines 129-192 of `ast.adapter.ts`) switches on property names:
+The AST adapter's `getTypeAliasConstraints` method (lines 129-192 of `ast.adapter.ts`) switches on property names:
 
 ```typescript
 if (propName === 'pure') { ... }
@@ -184,11 +184,11 @@ In TypeScript's parser, there is no equivalent. The parser creates a `TypeLitera
 
 ### Divergence 2: The Port Interface Mirrors the Runtime Type
 
-`ConstraintConfigAST` (in `ast.port.ts`) is a near-exact mirror of `ConstraintConfig<Members>` (in `kind.ts`):
+`ConstraintsAST` (in `ast.port.ts`) is a near-exact mirror of `Constraints<Members>` (in `kind.ts`):
 
 ```typescript
 // Runtime type (kind.ts)                    // Port intermediate (ast.port.ts)
-ConstraintConfig<Members> = {                ConstraintConfigAST = {
+Constraints<Members> = {                ConstraintsAST = {
   pure?: true;                                 pure?: boolean;
   noDependency?: [...tuples...];               noDependency?: [string, string][];
   mustImplement?: [...tuples...];              mustImplement?: [string, string][];
@@ -208,11 +208,11 @@ In TypeScript, the interface between parser and binder is the `Node` type hierar
 
 Adding a constraint currently requires modifying:
 
-1. `kind.ts` — add property to `ConstraintConfig` (always required — this is the user-facing type)
-2. `ast.port.ts` — add property to `ConstraintConfigAST` (port interface changes)
-3. `ast.adapter.ts` — add parsing branch in `getTypeAliasConstraintConfig` (infrastructure changes)
+1. `kind.ts` — add property to `Constraints` (always required — this is the user-facing type)
+2. `ast.port.ts` — add property to `ConstraintsAST` (port interface changes)
+3. `ast.adapter.ts` — add parsing branch in `getTypeAliasConstraints` (infrastructure changes)
 4. `classify-ast.service.ts` — add creation logic in `generateContractsFromConfig` (application changes)
-5. `mock-ast.adapter.ts` — must understand the new `ConstraintConfigAST` shape (test infrastructure)
+5. `mock-ast.adapter.ts` — must understand the new `ConstraintsAST` shape (test infrastructure)
 
 Plus the domain layer (`ContractType` enum, `Contract.validate()`, `Diagnostic` factory, `DiagnosticCode`) and the checker (`CheckContractsService`).
 
@@ -278,7 +278,7 @@ Java's compiler ([javac compilation overview](https://openjdk.org/groups/compile
 
 This is analogous to TypeScript's lazy type resolution. The pattern is: **create a lightweight placeholder during binding, resolve details on demand during checking.**
 
-Our `ConstraintConfigAST` is the opposite of lazy — it eagerly parses all constraint details during AST extraction, before the classifier even knows which constraints are relevant.
+Our `ConstraintsAST` is the opposite of lazy — it eagerly parses all constraint details during AST extraction, before the classifier even knows which constraints are relevant.
 
 ### ESLint: Event-Based, Declarative Outside / Procedural Inside
 
@@ -311,25 +311,25 @@ Both dimensions are effectively closed. A `switch` on `ContractType` with exhaus
 
 ### Option A: Status Quo — Typed Intermediate
 
-Keep `ConstraintConfigAST` as a semantically-typed mirror of the runtime type.
+Keep `ConstraintsAST` as a semantically-typed mirror of the runtime type.
 
 ```
-Adapter (semantic parse) → ConstraintConfigAST → Classifier (name resolution)
+Adapter (semantic parse) → ConstraintsAST → Classifier (name resolution)
 ```
 
 **How it works today:**
 
-The adapter walks the 3rd type argument of `Kind<N, M, C>`. For each property, it checks the property name to determine how to parse the value. It builds a `ConstraintConfigAST` object matching the property names and shapes of `ConstraintConfig<Members>`. The classifier reads this object property-by-property.
+The adapter walks the 3rd type argument of `Kind<N, M, C>`. For each property, it checks the property name to determine how to parse the value. It builds a `ConstraintsAST` object matching the property names and shapes of `Constraints<Members>`. The classifier reads this object property-by-property.
 
 **Strengths:**
 - Already works, fully tested (278 tests passing)
 - Type-safe at compile time — TypeScript catches shape mismatches between adapter and classifier
 - Easy to understand — the intermediate looks exactly like the user-facing type
-- Debugging is straightforward — inspect the `ConstraintConfigAST` object
+- Debugging is straightforward — inspect the `ConstraintsAST` object
 
 **Weaknesses:**
 - Adapter has semantic knowledge it shouldn't need (violates parser/binder boundary)
-- Port interface (`ConstraintConfigAST`) changes with every new constraint
+- Port interface (`ConstraintsAST`) changes with every new constraint
 - Knowledge is duplicated: adapter knows "noDependency = tuple pairs", classifier also knows this
 - 4+ files must change per new constraint
 - Mock adapter must also understand the typed intermediate
@@ -447,7 +447,7 @@ for (const entry of constraintEntries) {
 
 ```typescript
 // Before:
-getTypeAliasConstraintConfig(node: ASTNode): ConstraintConfigAST | undefined;
+getTypeAliasConstraints(node: ASTNode): ConstraintsAST | undefined;
 
 // After:
 getTypeAliasConstraintEntries(node: ASTNode): ParsedConstraintEntry[];
@@ -458,12 +458,12 @@ getTypeAliasConstraintEntries(node: ASTNode): ParsedConstraintEntry[];
 | Component | Before | After |
 |-----------|--------|-------|
 | AST adapter | `if/else` on property names | Structural shape inference |
-| Port interface | `ConstraintConfigAST` (6 named properties) | `ParsedConstraintEntry[]` (generic) |
-| Mock adapter | Stores `ConstraintConfigAST` | Stores `ParsedConstraintEntry[]` |
+| Port interface | `ConstraintsAST` (6 named properties) | `ParsedConstraintEntry[]` (generic) |
+| Mock adapter | Stores `ConstraintsAST` | Stores `ParsedConstraintEntry[]` |
 | Classifier | Reads named properties, creates contracts per type | Loops entries, looks up `CONSTRAINT_BINDINGS` |
 
 **Adding a new constraint (existing shape):**
-1. `kind.ts` — add property to `ConstraintConfig` (always required)
+1. `kind.ts` — add property to `Constraints` (always required)
 2. `contract-type.ts` — add enum variant (always required)
 3. `classify-ast.service.ts` — add one line to `CONSTRAINT_BINDINGS`
 4. **No adapter changes.** No port interface changes. No mock adapter changes.
@@ -659,7 +659,7 @@ function bindConstraintEntries(
 }
 ```
 
-**Adding a new constraint:** Add one entry to `CONSTRAINT_DEFINITIONS` (+ the always-required `ContractType` enum variant and `ConstraintConfig` property). That's it for the binding side.
+**Adding a new constraint:** Add one entry to `CONSTRAINT_DEFINITIONS` (+ the always-required `ContractType` enum variant and `Constraints` property). That's it for the binding side.
 
 **Strengths:**
 - Single source of truth for constraint metadata (type, shape, display name)

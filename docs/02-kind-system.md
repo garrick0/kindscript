@@ -9,7 +9,7 @@
 KindScript's type system has two primitives:
 
 1. **Kind definitions** — type-level declarations of architectural patterns (`type X = Kind<...>`)
-2. **Instance declarations** — value-level declarations mapping patterns to a specific codebase (`satisfies InstanceConfig<T>`)
+2. **Instance declarations** — value-level declarations mapping patterns to a specific codebase (`satisfies Instance<T>`)
 
 Kinds are normative (what the architecture MUST look like). Instances are descriptive (where the code ACTUALLY lives). The compiler compares them and reports violations.
 
@@ -55,7 +55,7 @@ type StrictCleanContext = Kind<"StrictCleanContext", {
 |-----------|----------|---------|
 | `N` (name) | Yes | String literal discriminant — must match the type alias name |
 | `Members` | No | Object type mapping member names to their Kind types |
-| `Constraints` | No | `ConstraintConfig<Members>` — architectural rules to enforce |
+| `Constraints` | No | `Constraints<Members>` — architectural rules to enforce |
 
 ### Why `type` Instead of `interface`
 
@@ -70,10 +70,10 @@ KindScript uses `type X = Kind<...>` (type alias), not `interface X extends Kind
 
 ## Instance Declarations
 
-An instance maps a Kind to a specific location in a codebase using `satisfies InstanceConfig<T>`:
+An instance maps a Kind to a specific location in a codebase using `satisfies Instance<T>`:
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type DomainLayer = Kind<"DomainLayer">;
 type InfrastructureLayer = Kind<"InfrastructureLayer">;
@@ -89,7 +89,7 @@ type OrderingContext = Kind<"OrderingContext", {
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 ### What `satisfies` Gives Us
@@ -108,12 +108,12 @@ Instances never specify paths. The Kind defines structure (what members exist). 
 
 ## Location Derivation
 
-KindScript automatically derives filesystem locations from two pieces of information:
+KindScript automatically derives filesystem locations from the instance declaration. The scope depends on whether the Kind has members:
 
-1. **Root** — the directory containing the file with the instance declaration
-2. **Member paths** — root + member name, applied recursively
+- **Composite Kind** (has members) — location is the **directory** containing the declaring file. Members map to subdirectories.
+- **Leaf Kind** (no members) — location is the **declaring file itself**. The file IS the architectural entity.
 
-### Example
+### Composite Instance (Directory Scope)
 
 Given this file at `src/context.ts`:
 
@@ -121,13 +121,32 @@ Given this file at `src/context.ts`:
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 KindScript derives:
-- **Root:** `src/` (directory of `context.ts`)
+- **Root:** `src/` (directory of `context.ts` — composite Kind, has members)
 - **domain:** `src/domain/` (root + member name)
 - **infrastructure:** `src/infrastructure/` (root + member name)
+
+### Leaf Instance (File Scope)
+
+Given this file at `src/components/atoms/Button/v1.0.0/Button.tsx`:
+
+```typescript
+type AtomSource = Kind<"AtomSource", {}, { pure: true }>;
+
+export const _ = {} satisfies Instance<AtomSource>;
+```
+
+KindScript derives:
+- **Location:** `Button.tsx` itself (leaf Kind, no members — the file IS the entity)
+
+Constraints on `AtomSource` (like `pure`) apply only to `Button.tsx`. Other files in the same directory (`Button.stories.tsx`, `Button.test.tsx`) are unaffected.
+
+### Why Members Determine Scope
+
+Members structurally require directories — `{ domain: {}, infra: {} }` needs `domain/` and `infra/` subdirectories to exist. So directory scope is justified by necessity. Without members, there's nothing that requires directory expansion, and the natural reading of a declaration in a file is "this file is the thing."
 
 ### Nested Members
 
@@ -172,13 +191,13 @@ src/
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 
 // src/billing/billing.ts
 export const billing = {
   domain: {},
   adapters: {},
-} satisfies InstanceConfig<BillingContext>;
+} satisfies Instance<BillingContext>;
 ```
 
 Each instance is checked independently. Contracts on `OrderingContext` only apply to files under `src/ordering/`. Contracts on `BillingContext` only apply to files under `src/billing/`.
@@ -193,7 +212,7 @@ KindScript does not use file extensions, config files, or naming conventions to 
 
 1. The `ASTAdapter` walks each source file in the TypeScript program
 2. For type aliases, it uses `checker.getSymbolAtLocation()` to check if the type reference resolves to `Kind` from the `'kindscript'` package
-3. For `satisfies` expressions, it checks if the type reference resolves to `InstanceConfig` from `'kindscript'`
+3. For `satisfies` expressions, it checks if the type reference resolves to `Instance` from `'kindscript'`
 4. This works through aliases, re-exports, and any valid TypeScript import path
 
 ### What This Means
@@ -208,11 +227,18 @@ KindScript does not use file extensions, config files, or naming conventions to 
 
 ## MemberMap
 
-The `MemberMap` type is an alias used in the `Kind` generic for the members parameter:
+The `MemberMap<T>` type transforms a Kind type into its instance shape — the object type used with `satisfies Instance<T>`:
 
 ```typescript
-type MemberMap = Record<string, Kind<string>>;
+type MemberMap<T extends Kind> = {
+  [K in keyof T as K extends 'kind' | 'location' ? never : K]:
+    T[K] extends Kind
+      ? MemberMap<T[K]> | Record<string, never>
+      : never;
+};
 ```
+
+It strips the `kind` and `location` properties (which are derived automatically), keeps member names, and recursively applies to child Kinds. Each member value is either a nested `MemberMap` (for Kinds with sub-members) or an empty object `{}` (for leaf Kinds).
 
 Member names must be valid TypeScript identifiers. They double as directory names for location derivation. This is by design — the member name `domain` implies the relative path `./domain`.
 
@@ -225,8 +251,8 @@ KindScript exports four types from `src/types/index.ts`:
 | Type | Purpose |
 |------|---------|
 | `Kind<N, Members?, Constraints?>` | Define an architectural pattern |
-| `InstanceConfig<T>` | Declare where a Kind is instantiated (used with `satisfies`) |
-| `ConstraintConfig<Members>` | Type for the constraints parameter (usually inlined) |
+| `Instance<T>` | Declare where a Kind is instantiated (used with `satisfies`) |
+| `Constraints<Members>` | Type for the constraints parameter (usually inlined) |
 | `MemberMap` | Alias for the members object type |
 
 All exports are `export type` — zero runtime footprint.

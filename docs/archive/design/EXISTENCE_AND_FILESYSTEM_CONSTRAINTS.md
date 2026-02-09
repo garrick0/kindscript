@@ -12,7 +12,7 @@
 
 KindScript currently has an implicit existence check that runs automatically for every derived member location. It cannot be disabled. This is a design problem for several reasons:
 
-1. **It's hidden behavior.** Users don't declare it; they can't opt out of it. It's the only check that runs without a corresponding constraint in `ConstraintConfig`.
+1. **It's hidden behavior.** Users don't declare it; they can't opt out of it. It's the only check that runs without a corresponding constraint in `Constraints`.
 2. **It conflates two concerns.** The location derivation system (mapping member names to directories) is a mechanism. Whether those directories must exist is a policy. These are separate decisions, but the current code fuses them.
 3. **It assumes filesystem structure always matters.** But constraints like `noDependency` and `noCycles` are really about *import relationships*, not about whether directories exist. If `infrastructure/` doesn't exist, `noDependency(domain, infrastructure)` trivially passes — there's nothing to import from. That's arguably correct, not an error.
 4. **`colocated` is a related but broken constraint** that also checks filesystem structure, but at a different granularity and with a different (flawed) matching strategy. The two overlap conceptually but are implemented as completely separate mechanisms.
@@ -23,7 +23,7 @@ KindScript currently has an implicit existence check that runs automatically for
 
 ### Location Derivation
 
-When KindScript encounters `{ ... } satisfies InstanceConfig<T>`, it:
+When KindScript encounters `{ ... } satisfies Instance<T>`, it:
 
 1. **Infers root** from the `.k.ts` file's directory: `src/context.k.ts` → root is `src/`
 2. **Derives member paths** by appending member names: `domain: {}` → `src/domain/`
@@ -167,10 +167,10 @@ If `colocated` were properly implemented, it would partially subsume existence c
 
 ### Option A: Make `exists` a first-class constraint
 
-Add `exists` to `ConstraintConfig` as an explicit, opt-in constraint. Remove the implicit check entirely.
+Add `exists` to `Constraints` as an explicit, opt-in constraint. Remove the implicit check entirely.
 
 ```typescript
-type ConstraintConfig<Members> = {
+type Constraints<Members> = {
   // ... existing constraints ...
 
   /** Require that these members have existing directories on disk */
@@ -202,7 +202,7 @@ type CleanContext = Kind<"CleanContext", {
 **Implementation:**
 - Add `ContractType.Exists` enum value
 - Add `DiagnosticCode.MemberNotFound` (or reuse `LocationNotFound`)
-- Add `exists` to `ConstraintConfigAST`
+- Add `exists` to `ConstraintsAST`
 - Add `checkExists` method to `CheckContractsService`
 - Remove the implicit `checkExistence` loop from `execute()`
 - Parse `exists` arrays in `generateContractsFromConfig`
@@ -247,7 +247,7 @@ type CleanContext = Kind<"CleanContext", {
 Recognize that both existence and colocation are filesystem structure checks and design a single, well-thought-out constraint.
 
 ```typescript
-type ConstraintConfig<Members> = {
+type Constraints<Members> = {
   // ... existing constraints ...
 
   /** Filesystem structure requirements */
@@ -298,7 +298,7 @@ type CleanContext = Kind<"CleanContext", {
 - Larger API surface in a single constraint
 - More complex to implement
 - Breaking change to `colocated` (could keep as deprecated alias)
-- Nested object in `ConstraintConfig` is a different shape from the flat constraint keys
+- Nested object in `Constraints` is a different shape from the flat constraint keys
 
 ---
 
@@ -310,7 +310,7 @@ Treat these as two separate problems:
 2. **Fix `colocated`** to support suffix transforms and structure preservation, as a separate effort
 
 ```typescript
-type ConstraintConfig<Members> = {
+type Constraints<Members> = {
   // New
   exists?: ReadonlyArray<keyof Members & string>;
 
@@ -389,7 +389,7 @@ The argument: if no constraint cares about a missing directory, it doesn't matte
 ### New API
 
 ```typescript
-type ConstraintConfig<Members = Record<string, never>> = {
+type Constraints<Members = Record<string, never>> = {
   pure?: true;
   noDependency?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
   mustImplement?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
@@ -422,19 +422,19 @@ type ConstraintConfig<Members = Record<string, never>> = {
 
 | File | Change |
 |---|---|
-| `src/runtime/kind.ts` | Replace `colocated` with `filesystem?: { exists?: ..., mirrors?: ... }` in `ConstraintConfig` |
+| `src/runtime/kind.ts` | Replace `colocated` with `filesystem?: { exists?: ..., mirrors?: ... }` in `Constraints` |
 
 #### Step 3: Application Layer (Ports)
 
 | File | Change |
 |---|---|
-| `src/application/ports/ast.port.ts` | Replace `colocated` with `filesystem?: { exists?: string[], mirrors?: [string, string][] }` in `ConstraintConfigAST` |
+| `src/application/ports/ast.port.ts` | Replace `colocated` with `filesystem?: { exists?: string[], mirrors?: [string, string][] }` in `ConstraintsAST` |
 
 #### Step 4: Application Layer (AST Parsing)
 
 | File | Change |
 |---|---|
-| `src/infrastructure/adapters/ast/ast.adapter.ts` | Update `getTypeAliasConstraintConfig`: parse `filesystem` as a nested type literal containing `exists` (string array) and `mirrors` (tuple pairs) |
+| `src/infrastructure/adapters/ast/ast.adapter.ts` | Update `getTypeAliasConstraints`: parse `filesystem` as a nested type literal containing `exists` (string array) and `mirrors` (tuple pairs) |
 | `src/application/use-cases/classify-ast/classify-ast.service.ts` | Update `generateContractsFromConfig`: parse `config.filesystem.exists` as collective contracts, `config.filesystem.mirrors` as tuple-pair contracts. Remove `colocated` parsing. |
 
 #### Step 5: Application Layer (Contract Checking)
@@ -451,7 +451,7 @@ type ConstraintConfig<Members = Record<string, never>> = {
 
 | File | Change |
 |---|---|
-| `src/infrastructure/adapters/testing/mock-ast.adapter.ts` | No structural change needed — `constraintConfig` already passes through `ConstraintConfigAST` |
+| `src/infrastructure/adapters/testing/mock-ast.adapter.ts` | No structural change needed — `constraintConfig` already passes through `ConstraintsAST` |
 
 #### Step 7: Test Helpers
 
@@ -470,9 +470,9 @@ type ConstraintConfig<Members = Record<string, never>> = {
 
 #### Step 9: Fixtures
 
-All 17 fixture `.k.ts` files declare `ConstraintConfig` locally. Each must be updated:
-- Remove `colocated` from `ConstraintConfig` type
-- Add `filesystem?: { exists?: ..., mirrors?: ... }` to `ConstraintConfig` type
+All 17 fixture `.k.ts` files declare `Constraints` locally. Each must be updated:
+- Remove `colocated` from `Constraints` type
+- Add `filesystem?: { exists?: ..., mirrors?: ... }` to `Constraints` type
 - `colocated-clean` and `colocated-violation` fixtures: rename constraint usage from `colocated:` to `filesystem: { mirrors: ... }`
 - `locate-existence` fixture: add `filesystem: { exists: ["domain", "infrastructure"] }` to the Kind definition (so existence is now explicitly tested)
 

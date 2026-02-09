@@ -24,7 +24,7 @@ type AtomVersion = Kind<"AtomVersion", {
 
 export const buttonV1 = {
   source: {},  // KindScript knows AtomSource = *.tsx from the type
-} satisfies InstanceConfig<AtomVersion>;
+} satisfies Instance<AtomVersion>;
 ```
 
 KindScript resolves `source` by scanning the parent's scope (the `v1.0.0/` directory) for files matching `*.tsx`. Those files become the AtomSource scope.
@@ -37,10 +37,10 @@ This is consistent with how `pure: true` works today: purity is intrinsic to wha
 
 ## Uplift needed
 
-### 1. Add `filePattern` to `ConstraintConfig`
+### 1. Add `filePattern` to `Constraints`
 
 ```typescript
-export type ConstraintConfig<Members = Record<string, never>> = {
+export type Constraints<Members = Record<string, never>> = {
   pure?: true;
   noDependency?: ReadonlyArray<...>;
   // ...existing constraints...
@@ -61,7 +61,7 @@ With `filePattern`, the classifier needs a second resolution mode:
 3. If yes: scan the parent directory for files matching the glob. Those files are the member's scope.
 4. If no: resolve as a subdirectory (existing behavior).
 
-### 3. InstanceConfig accepts `{}` for file-pattern members
+### 3. Instance accepts `{}` for file-pattern members
 
 When a member's Kind has `filePattern`, the instance doesn't need to provide a path — the pattern is already on the type. The instance just provides `{}` (or optionally an `exclude` override if needed).
 

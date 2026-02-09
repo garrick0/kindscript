@@ -10,10 +10,10 @@
 
 ## Overview
 
-KindScript has **5 explicit constraint types** and **1 implicit check**. They are declared via `ConstraintConfig<Members>` — the third type parameter of `Kind<N, Members, Constraints>`.
+KindScript has **5 explicit constraint types** and **1 implicit check**. They are declared via `Constraints<Members>` — the third type parameter of `Kind<N, Members, Constraints>`.
 
 ```typescript
-type ConstraintConfig<Members> = {
+type Constraints<Members> = {
   pure?: true;
   noDependency?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
   mustImplement?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
@@ -407,7 +407,7 @@ Actually this uses `DiagnosticCode.LocationNotFound` (70010), which is fine. No 
 
 ### 1. No constraint composition or custom constraints
 
-Users cannot define custom constraint types. The 5 constraints are hard-coded in the enum, the switch statement, and the `ConstraintConfig` type. Adding a new constraint requires modifying 5+ files across 3 layers.
+Users cannot define custom constraint types. The 5 constraints are hard-coded in the enum, the switch statement, and the `Constraints` type. Adding a new constraint requires modifying 5+ files across 3 layers.
 
 **Options:**
 - (a) Add a plugin/extension system for custom constraints

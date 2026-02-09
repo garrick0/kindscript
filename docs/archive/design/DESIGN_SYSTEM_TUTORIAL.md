@@ -42,7 +42,7 @@ Nothing enforces these rules. Let's change that.
 Write `src/context.k.ts` in the project root:
 
 ```typescript
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 type AtomLayer = Kind<"AtomLayer">;
 type MoleculeLayer = Kind<"MoleculeLayer">;
@@ -87,7 +87,7 @@ export const designSystem = {
   core:      {},
   common:    {},
   mocks:     {},
-} satisfies InstanceConfig<DesignSystem>;
+} satisfies Instance<DesignSystem>;
 ```
 
 Run:
@@ -116,7 +116,7 @@ Two changes:
 Updated `src/context.k.ts`:
 
 ```typescript
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 type AtomLayer = Kind<"AtomLayer">;
 type MoleculeLayer = Kind<"MoleculeLayer">;
@@ -158,7 +158,7 @@ export const designSystem = {
   auth:      { path: "core/auth" },
   common:    {},
   mocks:     {},
-} satisfies InstanceConfig<DesignSystem>;
+} satisfies Instance<DesignSystem>;
 ```
 
 ```bash
@@ -211,7 +211,7 @@ Write a **second `.k.ts` file** inside the page:
 `src/components/Pages/DashboardPage/v1.0.0/dashboard.k.ts`:
 
 ```typescript
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 type UILayer = Kind<"UILayer">;
 type DomainLayer = Kind<"DomainLayer">;
@@ -240,7 +240,7 @@ export const page = {
   data: {},
   types: {},
   validation: {},
-} satisfies InstanceConfig<PageArchitecture>;
+} satisfies Instance<PageArchitecture>;
 ```
 
 ```bash

@@ -9,7 +9,7 @@
 The canonical example — a three-layer architecture with strict dependency direction:
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // Layer kinds
 type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
@@ -38,7 +38,7 @@ export const ordering = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 **Filesystem:**
@@ -69,24 +69,24 @@ Multiple instances of the same Kind enforce the same rules in different parts of
 
 ```typescript
 // src/ordering/ordering.ts
-import type { InstanceConfig } from 'kindscript';
+import type { Instance } from 'kindscript';
 import type { CleanContext } from '../shared/kinds';
 
 export const ordering = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;
 
 // src/billing/billing.ts
-import type { InstanceConfig } from 'kindscript';
+import type { Instance } from 'kindscript';
 import type { CleanContext } from '../shared/kinds';
 
 export const billing = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;
 ```
 
 **Filesystem:**
@@ -115,22 +115,18 @@ Each instance is checked independently. A violation in `src/ordering/domain/` do
 A React design system following the Atomic Design hierarchy — atoms, molecules, organisms, pages:
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
-type AtomLayer = Kind<"AtomLayer">;
-type MoleculeLayer = Kind<"MoleculeLayer">;
-type OrganismLayer = Kind<"OrganismLayer">;
-type PageLayer = Kind<"PageLayer">;
-type CoreLayer = Kind<"CoreLayer">;
-type MockLayer = Kind<"MockLayer">;
+type Atoms = Kind<"Atoms">;
+type Molecules = Kind<"Molecules">;
+type Organisms = Kind<"Organisms">;
+type Pages = Kind<"Pages">;
 
 type DesignSystem = Kind<"DesignSystem", {
-  atoms: AtomLayer;
-  molecules: MoleculeLayer;
-  organisms: OrganismLayer;
-  pages: PageLayer;
-  core: CoreLayer;
-  mocks: MockLayer;
+  atoms: Atoms;
+  molecules: Molecules;
+  organisms: Organisms;
+  pages: Pages;
 }, {
   noDependency: [
     // Atoms: leaf nodes — depend on nothing above
@@ -139,25 +135,15 @@ type DesignSystem = Kind<"DesignSystem", {
     ["molecules", "organisms"], ["molecules", "pages"],
     // Organisms: can use atoms + molecules, not pages
     ["organisms", "pages"],
-    // Core: independent of UI layers
-    ["core", "atoms"], ["core", "molecules"], ["core", "organisms"], ["core", "pages"],
-    // Production code never depends on mocks
-    ["atoms", "mocks"], ["molecules", "mocks"], ["organisms", "mocks"],
-    ["pages", "mocks"], ["core", "mocks"],
   ];
-  filesystem: {
-    exists: ["atoms", "molecules", "organisms", "pages", "core"];
-  };
 }>;
 
-export const designSystem = {
+export const ui = {
   atoms: {},
   molecules: {},
   organisms: {},
   pages: {},
-  core: {},
-  mocks: {},
-} satisfies InstanceConfig<DesignSystem>;
+} satisfies Instance<DesignSystem>;
 ```
 
 **Filesystem:**
@@ -177,19 +163,13 @@ src/
   pages/
     DashboardPage.tsx
     SettingsPage.tsx
-  core/
-    auth/
-    providers/
-  mocks/
-    handlers.ts
 ```
 
 **What KindScript catches:**
 - An atom importing from an organism → KS70001 (`atoms -> organisms`)
 - A molecule importing from a page → KS70001 (`molecules -> pages`)
-- Production code importing from mocks → KS70001 (`pages -> mocks`)
 
-This is real — Atomic Design dependency rules typically live in documentation and PR review. KindScript moves them to the compiler.
+Atomic Design dependency rules typically live in documentation and PR review. KindScript moves them to the compiler. You can extend this further with additional members (e.g., `core`, `mocks`) and constraints like `filesystem.exists` as your design system grows.
 
 ---
 
@@ -251,7 +231,7 @@ type TestedProject = Kind<"TestedProject", {
 export const project = {
   components: {},
   tests: {},
-} satisfies InstanceConfig<TestedProject>;
+} satisfies Instance<TestedProject>;
 ```
 
 **Filesystem:**

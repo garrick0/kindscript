@@ -7,7 +7,7 @@
 
 **Related decisions:**
 - `docs/design/KIND_DEFINITION_SYNTAX.md` — **Decided and implemented.** Kind definitions now use `type X = Kind<"X", { ... }>` (type aliases) instead of `interface X extends Kind<"X"> { ... }`. All code, fixtures, and tests have been migrated.
-- `docs/design/RUNTIME_MARKERS_OPTIONS.md` — **Proposed (not yet implemented).** Replace `locate()` and `defineContracts()` function calls with `satisfies InstanceConfig<T>` and `satisfies ContractConfig<T>` expressions. This would eliminate all runtime code from the `kindscript` package — every import becomes `import type`.
+- `docs/design/RUNTIME_MARKERS_OPTIONS.md` — **Proposed (not yet implemented).** Replace `locate()` and `defineContracts()` function calls with `satisfies Instance<T>` and `satisfies ContractConfig<T>` expressions. This would eliminate all runtime code from the `kindscript` package — every import becomes `import type`.
 
 Both of these are relevant context. The Kind syntax migration is complete, and the `satisfies` migration is planned. This document builds on both to explore a deeper question: should contracts be encoded directly in the Kind type itself, and should the compiler take more responsibility for deriving locations?
 
@@ -55,7 +55,7 @@ The compiler pipeline:
    - **Phase 3:** Find Contract descriptors — `defineContracts<T>(config)` call expressions. Linked to the Kind via the type parameter `<T>`.
 2. **CheckContracts** validates each contract against the real codebase using the TypeScript compiler.
 
-**Note:** The RUNTIME_MARKERS_OPTIONS proposal would change Phases 2 and 3 from call expression matching to `SatisfiesExpression` matching (`satisfies InstanceConfig<T>` and `satisfies ContractConfig<T>`). The proposals in this document affect Phase 1 (reading constraints from the Kind type's third parameter) and Phase 2 (simplifying instance declarations).
+**Note:** The RUNTIME_MARKERS_OPTIONS proposal would change Phases 2 and 3 from call expression matching to `SatisfiesExpression` matching (`satisfies Instance<T>` and `satisfies ContractConfig<T>`). The proposals in this document affect Phase 1 (reading constraints from the Kind type's third parameter) and Phase 2 (simplifying instance declarations).
 
 ---
 
@@ -180,14 +180,14 @@ Intrinsic constraints (purity) would go on the leaf kind — see Option C below 
 type Kind<
   N extends string = string,
   Members extends Record<string, Kind> = Record<string, never>,
-  Constraints extends ConstraintConfig<Members> = Record<string, never>,
+  Constraints extends Constraints<Members> = Record<string, never>,
 > = {
   readonly kind: N;
   readonly location: string;
 } & Members;
 
 // Type-safe constraint config — member names are validated at the type level
-type ConstraintConfig<Members> = {
+type Constraints<Members> = {
   noDependency?: [MemberName<Members>, MemberName<Members>][];
   mustImplement?: [MemberName<Members>, MemberName<Members>][];
   noCycles?: MemberName<Members>[];
@@ -251,7 +251,7 @@ type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 **Recommendation: Third parameter for both intrinsic and relational constraints.** The constraint config type can handle both:
 
 ```typescript
-type ConstraintConfig<Members = Record<string, never>> = {
+type Constraints<Members = Record<string, never>> = {
   // Intrinsic constraints (for leaf kinds, or applied to the composite itself)
   pure?: true;
 
@@ -359,7 +359,7 @@ type CleanArch = Kind<"CleanArch", {
 
 ## Part 2: Location Redesign
 
-> **Context:** The RUNTIME_MARKERS_OPTIONS proposal (see `docs/design/RUNTIME_MARKERS_OPTIONS.md`) already plans to replace `locate()` function calls with `satisfies InstanceConfig<T>` expressions. This section explores a deeper question: regardless of the surface syntax (`locate()` vs `satisfies`), can we simplify *what the user must specify* about locations?
+> **Context:** The RUNTIME_MARKERS_OPTIONS proposal (see `docs/design/RUNTIME_MARKERS_OPTIONS.md`) already plans to replace `locate()` function calls with `satisfies Instance<T>` expressions. This section explores a deeper question: regardless of the surface syntax (`locate()` vs `satisfies`), can we simplify *what the user must specify* about locations?
 
 ### What locate() does today
 
@@ -379,7 +379,7 @@ export const shop = {
   domain: {},           // → derives path: src/domain
   application: {},      // → derives path: src/application
   infrastructure: {},   // → derives path: src/infrastructure
-} satisfies InstanceConfig<ShopContext>;
+} satisfies Instance<ShopContext>;
 ```
 
 Either way, the classifier:
@@ -466,10 +466,10 @@ function locate<T extends Kind>(root: string): void;
 
 ```typescript
 // Before:
-type InstanceConfig<T extends Kind> = { root: string } & MemberMap<T>;
+type Instance<T extends Kind> = { root: string } & MemberMap<T>;
 
 // After:
-type InstanceConfig<T extends Kind> = { root: string } & Partial<PathOverrides<T>>;
+type Instance<T extends Kind> = { root: string } & Partial<PathOverrides<T>>;
 
 type PathOverrides<T extends Kind> = {
   [K in keyof T as K extends 'kind' | 'location' ? never : K]?:
@@ -582,13 +582,13 @@ const shop = locate<CleanArch>("src", {
 });
 
 // Satisfies form (per RUNTIME_MARKERS_OPTIONS) — simple case:
-const shop = { root: "src" } satisfies InstanceConfig<CleanArch>;
+const shop = { root: "src" } satisfies Instance<CleanArch>;
 
 // Satisfies form — with path override:
 const shop = {
   root: "src",
   domain: { path: "value-objects" },
-} satisfies InstanceConfig<CleanArch>;
+} satisfies Instance<CleanArch>;
 ```
 
 The member map becomes optional — if a member isn't specified, its path defaults to its name.
@@ -605,7 +605,7 @@ function locate<T extends Kind>(
 **Library type (satisfies form):**
 
 ```typescript
-type InstanceConfig<T extends Kind> = { root: string } & Partial<MemberMap<T>>;
+type Instance<T extends Kind> = { root: string } & Partial<MemberMap<T>>;
 ```
 
 **Classifier change:** If the second argument is missing (function form) or a member isn't present in the object (satisfies form), use the member name from the Kind definition as the path segment. This is already how `{}` entries work today — the classifier derives paths from the Kind definition tree, not from the member map. The change is to make the member map itself optional, not to change the derivation logic.
@@ -627,7 +627,7 @@ type InstanceConfig<T extends Kind> = { root: string } & Partial<MemberMap<T>>;
 | | User writes | Root required | Path overrides | Compiler complexity |
 |---|---|---|---|---|
 | **A (current)** | `locate<T>("src", { domain: {}, ... })` | Yes | In member map | Current |
-| **A' (satisfies, per RUNTIME_MARKERS_OPTIONS)** | `{ root: "src", domain: {}, ... } satisfies InstanceConfig<T>` | Yes | In object | Current |
+| **A' (satisfies, per RUNTIME_MARKERS_OPTIONS)** | `{ root: "src", domain: {}, ... } satisfies Instance<T>` | Yes | In object | Current |
 | **B (root-only)** | `locate<T>("src")` or `{ root: "src" } satisfies ...` | Yes | On Kind type | Medium |
 | **C (auto-discover)** | Nothing | No | N/A | High |
 | **D (type-level paths)** | `locate<T>("src")` or `{ root: "src" } satisfies ...` | Yes | Intersection types | High |
@@ -689,18 +689,18 @@ With the `satisfies` syntax from RUNTIME_MARKERS_OPTIONS:
 
 ```typescript
 // Common case: all paths derived from member names
-export const shop = { root: "src" } satisfies InstanceConfig<CleanArchitecture>;
+export const shop = { root: "src" } satisfies Instance<CleanArchitecture>;
 // → src/domain, src/application, src/infrastructure
 
 // Multi-instance: different roots, same pattern
-export const ordering = { root: "src/ordering" } satisfies InstanceConfig<CleanArchitecture>;
-export const billing = { root: "src/billing" } satisfies InstanceConfig<CleanArchitecture>;
+export const ordering = { root: "src/ordering" } satisfies Instance<CleanArchitecture>;
+export const billing = { root: "src/billing" } satisfies Instance<CleanArchitecture>;
 
 // Rare: with a path override
 export const legacy = {
   root: "src",
   domain: { path: "core" },  // src/core instead of src/domain
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 Or with the current `locate()` syntax (if RUNTIME_MARKERS_OPTIONS is not adopted):
@@ -727,7 +727,7 @@ type CleanArchitecture = Kind<"CleanArchitecture", {
 }>;
 
 // This specific instance adds an extra constraint not on the type
-export const shop = { root: "src" } satisfies InstanceConfig<CleanArchitecture>;
+export const shop = { root: "src" } satisfies Instance<CleanArchitecture>;
 
 // Instance-specific constraint (satisfies form)
 export const extraContracts = {
@@ -773,7 +773,7 @@ The compiler becomes more active — it reads the full specification from the ty
 
 **ClassifyAST Phase 1** — Enhanced. Currently, `classifyKindDefinition()` calls `getTypeAliasReferenceName()` (signal), `getTypeAliasTypeArgLiterals()` (kind name from first type arg), and `getTypeAliasMemberProperties()` (members from second type arg). The enhancement adds a fourth step: extract the constraint configuration from `typeArguments[2]` (the third type arg). This requires a new AST port method — e.g., `getTypeAliasConstraintProperties(node)` — that reads property signatures from the third type argument's type literal. The pattern is identical to how `getTypeAliasMemberProperties()` already reads the second type argument.
 
-**ClassifyAST Phase 2** — Simplified. Instance declarations (whether via `locate()` or `satisfies InstanceConfig<T>`) only need the root string. The member map becomes optional. Member paths are derived from the Kind definition's member names (this is already how `{}` entries work today — the derivation logic in `deriveMembers()` uses the Kind definition tree, not the member map's structure).
+**ClassifyAST Phase 2** — Simplified. Instance declarations (whether via `locate()` or `satisfies Instance<T>`) only need the root string. The member map becomes optional. Member paths are derived from the Kind definition's member names (this is already how `{}` entries work today — the derivation logic in `deriveMembers()` uses the Kind definition tree, not the member map's structure).
 
 **ClassifyAST Phase 3** — Reduced scope. Contract declarations (`defineContracts()` or `satisfies ContractConfig<T>`) become optional. The primary source of contracts is now the Kind type itself. The classifier merges type-level and declaration-level contracts.
 
@@ -865,7 +865,7 @@ type CleanArch = Kind<"CleanArch", {
 }>;
 ```
 
-Because `ConstraintConfig<Members>` constrains member name strings to `keyof Members & string`, TypeScript catches the typo at compile time — before even running the KindScript checker.
+Because `Constraints<Members>` constrains member name strings to `keyof Members & string`, TypeScript catches the typo at compile time — before even running the KindScript checker.
 
 **This is a major improvement.** It means:
 - Renaming a member in the Members parameter immediately surfaces all stale references in the Constraints parameter
@@ -875,7 +875,7 @@ Because `ConstraintConfig<Members>` constrains member name strings to `keyof Mem
 ### Implementation
 
 ```typescript
-type ConstraintConfig<Members = Record<string, never>> = {
+type Constraints<Members = Record<string, never>> = {
   pure?: true;
   noDependency?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
   mustImplement?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
@@ -896,7 +896,7 @@ Note: the constraint values use `ReadonlyArray` and `readonly` tuples because th
 type Kind<
   N extends string = string,
   Members extends Record<string, Kind> = Record<string, never>,
-  Constraints extends ConstraintConfig<Members> = Record<string, never>,
+  Constraints extends Constraints<Members> = Record<string, never>,
 > = {
   readonly kind: N;
   readonly location: string;
@@ -911,14 +911,14 @@ This is the highest-impact change. It:
 
 ### 2. Make the instance member map optional
 
-Whether we use `locate()` or `satisfies InstanceConfig<T>` (per RUNTIME_MARKERS_OPTIONS), the member map should be optional. The common case — all paths derived from member names — should require only a root path.
+Whether we use `locate()` or `satisfies Instance<T>` (per RUNTIME_MARKERS_OPTIONS), the member map should be optional. The common case — all paths derived from member names — should require only a root path.
 
 ```typescript
 // Function form:
 function locate<T extends Kind>(root: string, overrides?: Partial<MemberMap<T>>): void;
 
 // Satisfies form:
-type InstanceConfig<T extends Kind> = { root: string } & Partial<MemberMap<T>>;
+type Instance<T extends Kind> = { root: string } & Partial<MemberMap<T>>;
 ```
 
 This is a low-risk, high-reward simplification. Path overrides remain available for the rare case that needs them.
@@ -956,7 +956,7 @@ The constraints-on-types work can be phased as follows:
 With all three proposals combined (constraints on types + `satisfies` syntax + optional member map):
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // Leaf kinds with intrinsic constraints
 type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
@@ -979,7 +979,7 @@ type CleanArchitecture = Kind<"CleanArchitecture", {
 }>;
 
 // Instance — just a root path
-export const shop = { root: "src" } satisfies InstanceConfig<CleanArchitecture>;
+export const shop = { root: "src" } satisfies Instance<CleanArchitecture>;
 ```
 
 No contract declaration. No member map. Every import is `import type`. The Kind type IS the specification. The compiler enforces it.
@@ -996,13 +996,13 @@ No contract declaration. No member map. Every import is `import type`. The Kind 
 
 4. **How do we handle backwards compatibility?** The Kind syntax migration (type aliases) was a breaking change, and the `satisfies` migration (if adopted) will be another. Adding a third type parameter to Kind is backwards-compatible — existing `Kind<"X">` and `Kind<"X", Members>` definitions continue to work because the third parameter defaults to `Record<string, never>`. Contract declarations (`defineContracts()` or `satisfies ContractConfig<T>`) also continue to work alongside type-level constraints. The classifier merges both sources.
 
-5. **What about custom/plugin constraints?** If users can define their own contract types in the future, they'd need a way to extend the `ConstraintConfig` type. This might require a more extensible design than a fixed set of known properties.
+5. **What about custom/plugin constraints?** If users can define their own contract types in the future, they'd need a way to extend the `Constraints` type. This might require a more extensible design than a fixed set of known properties.
 
 6. **What happens when the instance has no member map and a member Kind has `{ path: "value-objects" }` in its constraints?** The classifier would need to check the member Kind's constraints for a `path` property and use it as the derived path segment. This adds a new classifier responsibility: reading path constraints from Kind types, not just from the instance declaration.
 
 7. **How does this interact with the `satisfies` migration?** The proposals are independent but complementary. Type-level constraints (this doc) change Phase 1 of the classifier. The `satisfies` migration (RUNTIME_MARKERS_OPTIONS) changes Phases 2 and 3. They can be implemented in any order, or together. The combined result is the cleanest: constraints on types, instances via `satisfies`, no runtime functions.
 
-8. **What about the `ConstraintConfig<T>` phantom type parameter?** RUNTIME_MARKERS_OPTIONS proposes adding a phantom `_T` parameter to `ContractConfig` for classifier linkage. If constraints move to the Kind type, the phantom parameter becomes less important — it's only needed for the escape-hatch case of instance-specific additive constraints.
+8. **What about the `Constraints<T>` phantom type parameter?** RUNTIME_MARKERS_OPTIONS proposes adding a phantom `_T` parameter to `ContractConfig` for classifier linkage. If constraints move to the Kind type, the phantom parameter becomes less important — it's only needed for the escape-hatch case of instance-specific additive constraints.
 
 ---
 

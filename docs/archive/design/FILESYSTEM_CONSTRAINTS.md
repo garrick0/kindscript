@@ -2,7 +2,7 @@
 
 > **IMPLEMENTED (2026-02-07):** The filesystem constraint system has been implemented. The `colocated` contract was replaced with `filesystem: { exists?, mirrors? }` on the Kind type's third parameter. Implicit existence checking was removed in favor of opt-in `filesystem.exists`. See `docs/design/EXISTENCE_AND_FILESYSTEM_CONSTRAINTS.md` for the full analysis and implementation plan (Option C).
 >
-> **Previous update:** `ContractConfig<T>` and `defineContracts<T>()` have been removed from KindScript. All constraints are now declared on the Kind type's third parameter (`Kind<N, Members, Constraints>`). References to `ContractConfig` and `defineContracts` in the options below are outdated -- any filesystem constraints would be added to the `ConstraintConfig` type (the Kind's 3rd parameter) rather than to a separate `ContractConfig` or `defineContracts` call. The analysis of constraint categories and design tradeoffs remains relevant; only the declaration mechanism has changed.
+> **Previous update:** `ContractConfig<T>` and `defineContracts<T>()` have been removed from KindScript. All constraints are now declared on the Kind type's third parameter (`Kind<N, Members, Constraints>`). References to `ContractConfig` and `defineContracts` in the options below are outdated -- any filesystem constraints would be added to the `Constraints` type (the Kind's 3rd parameter) rather than to a separate `ContractConfig` or `defineContracts` call. The analysis of constraint categories and design tradeoffs remains relevant; only the declaration mechanism has changed.
 
 ## 1. What Exists Today
 

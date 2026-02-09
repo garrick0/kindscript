@@ -1,6 +1,6 @@
 # Options for Eliminating Runtime Marker Functions
 
-> **Update (2026-02-07):** `ContractConfig<T>` has been removed from KindScript. All constraints are now declared exclusively on the Kind type's third parameter (`Kind<N, Members, Constraints>`). References to `ContractConfig<T>` and `satisfies ContractConfig<T>` in this document are historical -- the recommended approach (Option A) was implemented for `InstanceConfig<T>` but the additive `ContractConfig<T>` was subsequently removed rather than kept as a separate declaration mechanism. The Kind type is the single source of truth for all architectural rules.
+> **Update (2026-02-07):** `ContractConfig<T>` has been removed from KindScript. All constraints are now declared exclusively on the Kind type's third parameter (`Kind<N, Members, Constraints>`). References to `ContractConfig<T>` and `satisfies ContractConfig<T>` in this document are historical -- the recommended approach (Option A) was implemented for `Instance<T>` but the additive `ContractConfig<T>` was subsequently removed rather than kept as a separate declaration mechanism. The Kind type is the single source of truth for all architectural rules.
 
 > Everything KindScript does is purely static AST analysis. The `locate()` and `defineContracts()` functions are identity no-ops that never execute. This document explores options for removing or replacing them.
 
@@ -78,7 +78,7 @@ Replace function calls with plain object literals validated by `satisfies`. All 
 ### User code
 
 ```typescript
-import type { Kind, InstanceConfig, ContractConfig } from 'kindscript';
+import type { Kind, Instance, ContractConfig } from 'kindscript';
 
 type DomainLayer = Kind<"DomainLayer">;
 type ApplicationLayer = Kind<"ApplicationLayer">;
@@ -95,7 +95,7 @@ export const shop = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<ShopContext>;
+} satisfies Instance<ShopContext>;
 
 export const contracts = {
   noDependency: [
@@ -115,8 +115,8 @@ Two new types replace the two deleted functions:
 
 ```typescript
 // Replaces locate<T>(root, members)
-// InstanceConfig<T> = { root: string } + member slots from Kind
-type InstanceConfig<T extends Kind> = { root: string } & MemberMap<T>;
+// Instance<T> = { root: string } + member slots from Kind
+type Instance<T extends Kind> = { root: string } & MemberMap<T>;
 
 // Replaces defineContracts<T>(config)
 // ContractConfig<T> adds a phantom type parameter for classifier linkage
@@ -129,7 +129,7 @@ type ContractConfig<_T extends Kind = Kind> = {
 };
 ```
 
-`InstanceConfig<T>` gives the same type safety as `locate<T>(root, members)` — it validates that the object has the correct member properties for the Kind. The `root` property replaces the first argument of `locate()`.
+`Instance<T>` gives the same type safety as `locate<T>(root, members)` — it validates that the object has the correct member properties for the Kind. The `root` property replaces the first argument of `locate()`.
 
 `ContractConfig<T>` adds a phantom type parameter `_T`. The classifier reads `_T` from the `SatisfiesExpression`'s type reference to associate contracts with the correct Kind. The parameter is unused at the type level (same as `defineContracts<_T>` today).
 
@@ -137,12 +137,12 @@ type ContractConfig<_T extends Kind = Kind> = {
 
 The AST classifier looks for `SatisfiesExpression` nodes instead of `CallExpression` nodes:
 
-- **Instance declarations:** Variable with initializer that is a `SatisfiesExpression` where the type reference is `InstanceConfig<T>`. The type argument `T` gives the Kind name. The `root` property in the object gives the base path. The remaining properties are members.
+- **Instance declarations:** Variable with initializer that is a `SatisfiesExpression` where the type reference is `Instance<T>`. The type argument `T` gives the Kind name. The `root` property in the object gives the base path. The remaining properties are members.
 - **Contract declarations:** Variable with initializer that is a `SatisfiesExpression` where the type reference is `ContractConfig<T>`. The type argument `T` gives the Kind name. The object properties contain the contract definitions (same structure as today).
 
-TypeScript's AST for `{ ... } satisfies InstanceConfig<ShopContext>` produces a `SatisfiesExpression` node with:
+TypeScript's AST for `{ ... } satisfies Instance<ShopContext>` produces a `SatisfiesExpression` node with:
 - `.expression` = the object literal (all the data)
-- `.type` = `TypeReference` with name `InstanceConfig` and type argument `ShopContext`
+- `.type` = `TypeReference` with name `Instance` and type argument `ShopContext`
 
 This provides the same information the classifier currently extracts from `locate<ShopContext>("src", { ... })`.
 
@@ -169,7 +169,7 @@ After both the Kind syntax change and the `satisfies` change, the runtime direct
 | File | Before | After |
 |------|--------|-------|
 | `kind.ts` | `interface Kind<N>` | `type Kind<N, Members>` (still a type — no change in runtime presence) |
-| `locate.ts` | `MemberMap<T>` type + `locate()` function | `MemberMap<T>` type + `InstanceConfig<T>` type (no function) |
+| `locate.ts` | `MemberMap<T>` type + `locate()` function | `MemberMap<T>` type + `Instance<T>` type (no function) |
 | `define-contracts.ts` | `ContractConfig` interface + `defineContracts()` function | `ContractConfig<T>` type (no function) |
 
 Everything in `src/runtime/` becomes purely type-level. The directory could be renamed to `src/types/` to reflect this.
@@ -185,7 +185,7 @@ export { locate, MemberMap } from './runtime/locate';
 // After:
 export type { Kind } from './runtime/kind';
 export type { ContractConfig } from './runtime/define-contracts';
-export type { MemberMap, InstanceConfig } from './runtime/locate';
+export type { MemberMap, Instance } from './runtime/locate';
 ```
 
 All exports are `export type`. The compiled `index.js` is effectively empty. `kindscript` has zero runtime footprint.
@@ -211,7 +211,7 @@ type MemberMap<T extends Kind> = {
       : never;
 };
 
-type InstanceConfig<T extends Kind> = { root: string } & MemberMap<T>;
+type Instance<T extends Kind> = { root: string } & MemberMap<T>;
 
 type ContractConfig<_T extends Kind = Kind> = {
   noDependency?: [string, string][];
@@ -257,8 +257,8 @@ export const cleanArchitectureContracts = defineContracts<CleanContext>({
 });
 
 // After
-import type { Kind, InstanceConfig, ContractConfig } from 'kindscript';
-export type { InstanceConfig };
+import type { Kind, Instance, ContractConfig } from 'kindscript';
+export type { Instance };
 
 export type DomainLayer = Kind<"DomainLayer">;
 export type ApplicationLayer = Kind<"ApplicationLayer">;
@@ -288,14 +288,14 @@ The stdlib package becomes entirely type exports + one plain object. Its compile
 |--------|-------------------|----------------------|
 | Kind definitions | `interface X extends Kind<"X"> { ... }` | `type X = Kind<"X", { ... }>` |
 | Kinds (no members) | `interface X extends Kind<"X"> {}` | `type X = Kind<"X">` |
-| Instance declaration | `locate<T>(root, members)` | `{ root, ...members } satisfies InstanceConfig<T>` |
+| Instance declaration | `locate<T>(root, members)` | `{ root, ...members } satisfies Instance<T>` |
 | Contract declaration | `defineContracts<T>(config)` | `config satisfies ContractConfig<T>` |
 | Import style | `import { Kind, locate, ... }` (value import) | `import type { Kind, ... }` (erased) |
 | Runtime dependency | Required | None |
 | Emitted JS | `require("kindscript")` + function calls | Plain object literals, no imports |
 | `src/runtime/` contents | 2 interfaces + 1 type + 2 functions | 4 types, 0 functions |
 | Classifier Phase 1 | `isInterfaceDeclaration` + heritage check | `isTypeAliasDeclaration` + reference check |
-| Classifier Phase 2 | `CallExpression` named `locate` | `SatisfiesExpression` typed `InstanceConfig<T>` |
+| Classifier Phase 2 | `CallExpression` named `locate` | `SatisfiesExpression` typed `Instance<T>` |
 | Classifier Phase 3 | `CallExpression` named `defineContracts` | `SatisfiesExpression` typed `ContractConfig<T>` |
 | Boilerplate (C1) | Hardcoded function source text | Hardcoded type definitions (simpler, lower risk) |
 | TS version requirement | Any TS 5.x | TS 4.9+ (for `satisfies`) |
@@ -315,8 +315,8 @@ The stdlib package becomes entirely type exports + one plain object. Its compile
 
 - **Breaking change to user API.** But this is already true due to the Kind syntax change — the incremental breakage from `locate()` → `satisfies` is minimal.
 - **`satisfies` requires TS 4.9+.** In practice this is fine (TS 4.9 released Nov 2022), but worth noting.
-- **Loses the "function call" semantic marker.** `locate()` and `defineContracts()` are self-documenting names. With `satisfies`, the distinction comes from the type name (`InstanceConfig` vs `ContractConfig`) rather than the function name. However, these type names are equally descriptive.
-- **`root` moves from a function argument to an object property.** `locate<T>("src", { ... })` puts the root path in a prominent position (first argument). `{ root: "src", domain: {}, ... } satisfies InstanceConfig<T>` puts it inline with the members. This is slightly less visually distinct but arguably more consistent (root is just another property of the instance).
+- **Loses the "function call" semantic marker.** `locate()` and `defineContracts()` are self-documenting names. With `satisfies`, the distinction comes from the type name (`Instance` vs `ContractConfig`) rather than the function name. However, these type names are equally descriptive.
+- **`root` moves from a function argument to an object property.** `locate<T>("src", { ... })` puts the root path in a prominent position (first argument). `{ root: "src", domain: {}, ... } satisfies Instance<T>` puts it inline with the members. This is slightly less visually distinct but arguably more consistent (root is just another property of the instance).
 
 ---
 
@@ -441,7 +441,7 @@ The Kind syntax decision already requires:
 
 Adding `satisfies` support on top of this is a modest incremental effort:
 - Phase 2 and 3 of the classifier change from `CallExpression` matching to `SatisfiesExpression` matching (same scope of work as Phase 1)
-- Two new types (`InstanceConfig<T>`, `ContractConfig<T>`) replace two deleted functions
+- Two new types (`Instance<T>`, `ContractConfig<T>`) replace two deleted functions
 - The same files that are already being rewritten (fixtures, stdlib packages, tests) get the `satisfies` syntax at the same time
 
 The result is a fundamentally cleaner architecture: `kindscript` exports only types, has zero runtime code, and every `import` in user code is `import type`. There is no reason to do the Kind syntax change now and defer the marker change to later — it's strictly less work to do them together.
@@ -451,7 +451,7 @@ The result is a fundamentally cleaner architecture: `kindscript` exports only ty
 After both changes, a complete `architecture.ts` looks like:
 
 ```typescript
-import type { Kind, InstanceConfig, ContractConfig } from 'kindscript';
+import type { Kind, Instance, ContractConfig } from 'kindscript';
 
 // Kind definitions
 type DomainLayer = Kind<"DomainLayer">;
@@ -470,7 +470,7 @@ export const shop = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<ShopContext>;
+} satisfies Instance<ShopContext>;
 
 // Contracts
 export const contracts = {
@@ -510,18 +510,18 @@ No `require("kindscript")`. No function calls. Just data.
 
 | File | Outcome |
 |------|---------|
-| `src/runtime/locate.ts` | `locate()` function deleted. `MemberMap<T>` type stays. `InstanceConfig<T>` type added. |
+| `src/runtime/locate.ts` | `locate()` function deleted. `MemberMap<T>` type stays. `Instance<T>` type added. |
 | `src/runtime/define-contracts.ts` | `defineContracts()` function deleted. `ContractConfig` becomes `ContractConfig<T>` (phantom param). |
 | `src/runtime/kind.ts` | `Kind` changes from interface to type alias with second parameter (Kind syntax change). |
 | `src/index.ts` | All `export` become `export type`. Compiled JS is empty. |
 
 ### Open questions
 
-1. **Should `InstanceConfig` be named something else?** Alternatives: `Instance<T>`, `Layout<T>`, `Mapping<T>`. `InstanceConfig` matches the existing terminology ("Kind instance" is the term for a located Kind).
+1. **Should `Instance` be named something else?** Alternatives: `Instance<T>`, `Layout<T>`, `Mapping<T>`. `Instance` matches the existing terminology ("Kind instance" is the term for a located Kind).
 
 2. **Should `ContractConfig` stay non-generic for inline fixtures?** Test fixtures that inline the boilerplate don't always have a Kind to link to. The phantom `_T` parameter defaults to `Kind`, so `satisfies ContractConfig` (no type argument) still works. The classifier would then infer the Kind association from context.
 
-3. **Should `root` be a separate property or the first tuple element?** Current: `locate<T>("src", members)` — root is a separate argument. Proposed: `{ root: "src", ...members } satisfies InstanceConfig<T>` — root is a property. Alternative: `["src", { domain: {}, ... }] satisfies InstanceConfig<T>` — root is first element of a tuple. The property approach is the clearest.
+3. **Should `root` be a separate property or the first tuple element?** Current: `locate<T>("src", members)` — root is a separate argument. Proposed: `{ root: "src", ...members } satisfies Instance<T>` — root is a property. Alternative: `["src", { domain: {}, ... }] satisfies Instance<T>` — root is first element of a tuple. The property approach is the clearest.
 
 ---
 

@@ -5,11 +5,11 @@
 
 ## Context
 
-`src/runtime/` contained two files exporting four type-only exports (`Kind`, `ConstraintConfig`, `MemberMap`, `InstanceConfig`) — the entire user-facing API of KindScript. The name "runtime" was a leftover from when the folder contained actual runtime functions (`locate()`, `defineContracts()`). Those were removed; everything became `export type`. The name contradicted the project's "zero runtime footprint" value proposition.
+`src/runtime/` contained two files exporting four type-only exports (`Kind`, `Constraints`, `MemberMap`, `Instance`) — the entire user-facing API of KindScript. The name "runtime" was a leftover from when the folder contained actual runtime functions (`locate()`, `defineContracts()`). Those were removed; everything became `export type`. The name contradicted the project's "zero runtime footprint" value proposition.
 
 ## Decision
 
-Flattened all types into `src/index.ts`. Deleted `src/runtime/`. Updated all `.k.ts` fixture files to `import type { Kind, InstanceConfig } from 'kindscript'` instead of inlining type definitions.
+Flattened all types into `src/index.ts`. Deleted `src/runtime/`. Updated all `.k.ts` fixture files to `import type { Kind, Instance } from 'kindscript'` instead of inlining type definitions.
 
 ## Rationale
 

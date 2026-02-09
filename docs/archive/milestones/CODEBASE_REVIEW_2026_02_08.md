@@ -26,7 +26,7 @@ The codebase is in strong shape overall. The domain layer is pure, the applicati
 | 11 | Repeated null-check pattern for `getSourceFile()` in plugins | Low | Code quality |
 | 12 | `readDirectory` has implicit business-level file filtering | Low | Ports/adapters |
 | 13 | `convertToCodeFixAction` has 4 unused parameters (future placeholders) | Low | Dead code |
-| 14 | ASTAdapter hardcodes `'Kind'` and `'InstanceConfig'` string literals | Medium | Fragility |
+| 14 | ASTAdapter hardcodes `'Kind'` and `'Instance'` string literals | Medium | Fragility |
 | 15 | ASTAdapter silently drops malformed input (multiple cases) | Medium | Correctness |
 | 16 | Diagnostic `file` field has inconsistent semantics across plugins | Medium | Design |
 
@@ -439,7 +439,7 @@ The function currently returns description-only fixes with `changes: []` (line 6
 
 ---
 
-## Finding 14: ASTAdapter Hardcodes `'Kind'` and `'InstanceConfig'` String Literals
+## Finding 14: ASTAdapter Hardcodes `'Kind'` and `'Instance'` String Literals
 
 **Location:** `src/infrastructure/ast/ast.adapter.ts:25, 97`
 
@@ -448,23 +448,23 @@ The function currently returns description-only fixes with `changes: []` (line 6
 if (type.typeName.text !== 'Kind') continue;
 
 // Line 97
-if (type.typeName.text !== 'InstanceConfig') continue;
+if (type.typeName.text !== 'Instance') continue;
 ```
 
-**Problem:** The adapter matches type names by exact string comparison against `'Kind'` and `'InstanceConfig'`. If a user imports these types under aliases, the adapter silently ignores them:
+**Problem:** The adapter matches type names by exact string comparison against `'Kind'` and `'Instance'`. If a user imports these types under aliases, the adapter silently ignores them:
 
 ```typescript
-import type { Kind as K, InstanceConfig as IC } from 'kindscript';
+import type { Kind as K, Instance as IC } from 'kindscript';
 type Ctx = K<"Ctx", { domain: D }>;  // Not recognized!
 const app = { domain: {} } satisfies IC<Ctx>;  // Not recognized!
 ```
 
 The adapter does not resolve the type alias back to its origin — it only checks the local name in the source file.
 
-**Impact:** Any user who aliases `Kind` or `InstanceConfig` will get zero classification output with no error message. This is a silent, confusing failure mode.
+**Impact:** Any user who aliases `Kind` or `Instance` will get zero classification output with no error message. This is a silent, confusing failure mode.
 
 **Recommended fix:** Either:
-- Follow the type reference to its declaration and check if the original type name is `Kind`/`InstanceConfig` (using the TypeChecker)
+- Follow the type reference to its declaration and check if the original type name is `Kind`/`Instance` (using the TypeChecker)
 - Or document clearly that aliases are not supported and emit a warning when no Kind definitions are found despite type aliases being present
 
 ---
@@ -513,14 +513,14 @@ If a user writes `noCycles: ["domain", 42, "infra"]`, the `42` is silently dropp
 
 The `extractTuplePairs` method only processes tuples with exactly 2 elements. If a user writes `noDependency: [["a", "b", "c"]]`, the triple is silently dropped.
 
-### 15e: Missing InstanceConfig type argument silently skipped (line 107)
+### 15e: Missing Instance type argument silently skipped (line 107)
 
 ```typescript
 const kindTypeName = /* ... */;
 if (!kindTypeName) continue;
 ```
 
-If a user writes `satisfies InstanceConfig` without a type argument (or with an empty one), the entire instance declaration is silently ignored.
+If a user writes `satisfies Instance` without a type argument (or with an empty one), the entire instance declaration is silently ignored.
 
 **Cumulative impact:** All these cases produce empty results with no errors. The user sees "No contracts found" or "All contracts satisfied" when their code is actually malformed. This is the most significant correctness risk in the codebase.
 
@@ -748,7 +748,7 @@ Import analysis confirms strictly layered dependencies: domain -> application ->
 
 ### All 21 Fixture Files Are Consistent
 
-Every `.k.ts` fixture file uses the same `import type { Kind, InstanceConfig } from 'kindscript'` pattern. All constraints match the public API in `src/types/index.ts`. No deprecated patterns. Clean/violation fixture pairs are intentional and appropriate.
+Every `.k.ts` fixture file uses the same `import type { Kind, Instance } from 'kindscript'` pattern. All constraints match the public API in `src/types/index.ts`. No deprecated patterns. Clean/violation fixture pairs are intentional and appropriate.
 
 ### Contract Plugin `validate()` Methods Are Consistent
 
@@ -793,7 +793,7 @@ All 6 plugins follow an identical validation pattern: check `args.length`, retur
 11. Remove dead `makeDiagnostic()` and `copyFixtureToTemp()` from test helpers (Finding 17)
 12. Replace silent empty-return with a throw in TypeScriptAdapter (Finding 6)
 13. Remove unused parameters from `convertToCodeFixAction` (Finding 13)
-14. Handle aliased Kind/InstanceConfig or document the limitation (Finding 14)
+14. Handle aliased Kind/Instance or document the limitation (Finding 14)
 15. Align MockFileSystemAdapter.readDirectory() with real adapter filtering (Finding 18)
 16. Strengthen weak assertions in integration tests (Finding 19)
 17. Fix performance test title/assertion mismatch, add missing E2E paths (Finding 20)
@@ -828,7 +828,7 @@ The plan is organized into 6 phases. Each phase is independently shippable — t
 - Step 2.1 — Moved `createEngine()` from `create()` to `init()` in plugin ✅
 - Step 2.2 — TypeScriptAdapter throws on missing checker association ✅
 - Step 2.3 — ASTAdapter recognizes `false` as boolean (Finding 15a) ✅
-- Step 2.4 — Added `ASTExtractionResult<T>` wrapper + missing InstanceConfig type arg error (Finding 15e) ✅ **PARTIAL**
+- Step 2.4 — Added `ASTExtractionResult<T>` wrapper + missing Instance type arg error (Finding 15e) ✅ **PARTIAL**
   - ⚠️ Findings 15b (unresolved variable references), 15c (non-string stringList elements), 15d (non-pair tuples) were **not implemented**
 - Step 2.5 — Added `Diagnostic.scope` field, standardized `file` to empty string for structural violations ✅
 
@@ -879,7 +879,7 @@ The plan is organized into 6 phases. Each phase is independently shippable — t
 - Step 6.4 — Added 3 missing E2E test paths (no args, --help, unknown command) ✅
 - Step 6.5 — Fixed platform-specific `/tmp` path ✅
 - Step 6.6 — Documented `readDirectory` filtering in port JSDoc ✅
-- Step 6.7 — Documented Kind/InstanceConfig alias limitation on `ASTAdapter` class JSDoc ✅
+- Step 6.7 — Documented Kind/Instance alias limitation on `ASTAdapter` class JSDoc ✅
   - ⚠️ README.md not updated with alias limitation note
 - Step 6.8 — Documented ConsolePort decision in `main.ts` ✅
 
@@ -917,9 +917,9 @@ These are items explicitly described in the plan that were not fully implemented
 ### Gap 1.1: Silent AST drops not wired (Findings 15b, 15c, 15d)
 
 **Status:** `ASTExtractionResult<T>` wrapper was added to the port and adapter. Errors are plumbed through to `ClassifyASTService`. But only one error case was actually wired:
-- ✅ **15e** — Missing InstanceConfig type argument → pushes error
+- ✅ **15e** — Missing Instance type argument → pushes error
 - ✅ **15a** — `false` recognized as boolean (behavior fix, not error reporting)
-- ❌ **15b** — Unresolved variable references in `satisfies InstanceConfig` → silently dropped
+- ❌ **15b** — Unresolved variable references in `satisfies Instance` → silently dropped
 - ❌ **15c** — Non-string elements in stringList constraints → silently filtered
 - ❌ **15d** — Tuples with length != 2 in tuplePairs → silently dropped
 
@@ -928,7 +928,7 @@ These are items explicitly described in the plan that were not fully implemented
 **Files to change:**
 | Location | Error to add |
 |---|---|
-| `ast.adapter.ts` ~line 164 | When `varMap.get()` returns undefined for an identifier: `"InstanceConfig member '${memberName}': variable '${identifierText}' not resolved."` |
+| `ast.adapter.ts` ~line 164 | When `varMap.get()` returns undefined for an identifier: `"Instance member '${memberName}': variable '${identifierText}' not resolved."` |
 | `ast.adapter.ts` ~line 244 | When `getStringLiteralFromType` returns undefined for an element: `"Constraint '${constraintName}' contains a non-string element."` |
 | `ast.adapter.ts` ~line 284 | When inner tuple length != 2: `"Constraint tuple must have exactly 2 elements, got ${length}."` |
 
@@ -1103,7 +1103,7 @@ The file manually wires all adapters and services (lines 26-56) and defines its 
 All changes in `src/infrastructure/ast/ast.adapter.ts`. Threaded `errors: string[]` through `buildTypeNodeView`, `extractTuplePairs`, `extractMemberValues`, and `extractMemberValuesFromProps`. Added 7 new tests in `tests/infrastructure/ast.adapter.test.ts`.
 
 - **Step 7.1** — `getKindDefinitions` errors for malformed Kind type aliases ✅
-- **Step 7.2** — Unresolved variable references in InstanceConfig ✅
+- **Step 7.2** — Unresolved variable references in Instance ✅
 - **Step 7.3** — Non-string elements in stringList constraints ✅
 - **Step 7.4** — Non-pair tuples and non-string tuple elements ✅
 - **Step 7.5** — 7 new tests added ✅

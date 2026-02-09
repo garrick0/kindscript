@@ -20,10 +20,10 @@ type CleanContext = Kind<"CleanContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;
 ```
 
-The `.k.ts` extension is a convention — the compiler uses `fileName.endsWith('.k.ts')` to find these declarations. But the AST extraction (`getKindDefinitions`, `getInstanceDeclarations`) already works on any TypeScript file. It looks for `Kind<...>` type references and `satisfies InstanceConfig<T>` expressions in the AST. No extension check.
+The `.k.ts` extension is a convention — the compiler uses `fileName.endsWith('.k.ts')` to find these declarations. But the AST extraction (`getKindDefinitions`, `getInstanceDeclarations`) already works on any TypeScript file. It looks for `Kind<...>` type references and `satisfies Instance<T>` expressions in the AST. No extension check.
 
 So: **do we need `.k.ts` at all?**
 
@@ -117,7 +117,7 @@ src/
 
 ### Option 3: Drop Extension, Scan All Files
 
-Check every source file for Kind/InstanceConfig patterns. No filtering at all.
+Check every source file for Kind/Instance patterns. No filtering at all.
 
 ```
 src/
@@ -140,7 +140,7 @@ src/
 - No false negatives — every Kind definition is found, no matter where it lives
 
 **Cons:**
-- Performance — walks every file's AST top-level statements. For a project with 1000 files, that's 1000 walks. Each walk is fast (early-exit if no Kind/InstanceConfig found), but adds up.
+- Performance — walks every file's AST top-level statements. For a project with 1000 files, that's 1000 walks. Each walk is fast (early-exit if no Kind/Instance found), but adds up.
 - False positives — if someone defines their own `Kind` type unrelated to KindScript, it could be picked up. The ASTAdapter checks for `Kind<...>` with type arguments, which is specific but not unique.
 - No discoverability — impossible to quickly find "which files have KindScript definitions?" without running the compiler
 
@@ -192,7 +192,7 @@ The choice of discovery mechanism interacts with where instance declarations liv
 atoms/
   atomVersion.ts             # Kind definition
   atom1/v0.0.1/
-    instance.ts              # { source: {} } satisfies InstanceConfig<AtomVersion>
+    instance.ts              # { source: {} } satisfies Instance<AtomVersion>
     atom1.tsx                # Component code
 ```
 
@@ -204,17 +204,17 @@ Only makes sense with Option 1 or 2. Requires a file per instance. Doesn't scale
 atoms/
   atomVersion.ts             # Kind definition
   atom1/v0.0.1/
-    atom1.tsx                # Component code + InstanceConfig declaration
+    atom1.tsx                # Component code + Instance declaration
 ```
 
 Where `atom1.tsx` contains:
 
 ```typescript
-import type { InstanceConfig } from 'kindscript';
+import type { Instance } from 'kindscript';
 import type { AtomVersion } from '../../atomVersion';
 
 // KindScript instance declaration
-export const _kind = { source: {} } satisfies InstanceConfig<AtomVersion>;
+export const _kind = { source: {} } satisfies Instance<AtomVersion>;
 
 // Component code
 export const Button = () => <button>Click me</button>;
@@ -307,7 +307,7 @@ The real question is: **should KindScript be visible or invisible in a project's
 **Drop the `.k.ts` extension. Piggyback on TypeScript's type checker for discovery and extraction.**
 
 1. TypeScript already creates a program and type-checks all files — this is free
-2. KindScript queries the type checker: "which symbols in this program reference `Kind` or `InstanceConfig` from `'kindscript'`?"
+2. KindScript queries the type checker: "which symbols in this program reference `Kind` or `Instance` from `'kindscript'`?"
 3. No file extension convention. No import scanning heuristic. No string matching. The type checker already resolved every symbol.
 4. Kind definitions live in regular `.ts` files — name them whatever makes sense (`architecture.ts`, `kinds.ts`, `atomVersion.ts`)
 5. Instance declarations can live in those same files or in source files — the type checker finds them either way
@@ -342,14 +342,14 @@ KindScript's `ASTAdapter` duplicates much of this work — poorly. Here's what i
 | Task | ASTAdapter (current) | TypeScript type checker (available but unused) |
 |------|---------------------|-----------------------------------------------|
 | Find Kind definitions | Walks statements, checks `type.typeName.text !== 'Kind'` (string match) | Knows which symbols resolve to `Kind` from `'kindscript'`, through any aliases or re-exports |
-| Find instance declarations | Checks `type.typeName.text !== 'InstanceConfig'` (string match) | Knows which `satisfies` expressions reference `InstanceConfig` from `'kindscript'` |
+| Find instance declarations | Checks `type.typeName.text !== 'Instance'` (string match) | Knows which `satisfies` expressions reference `Instance` from `'kindscript'` |
 | Extract type arguments | Manually walks `type.typeArguments` array | Has fully resolved type arguments, even through indirection |
 | Resolve variable references | Builds its own `varMap` by walking all variable declarations | Full symbol resolution via `checker.getSymbolAtLocation()` |
 | Extract constraint config | Walks raw type nodes structurally (`buildTypeNodeView`) | Has resolved types — handles type aliases, intersections, computed types |
 
 This duplication produces a documented limitation that shouldn't exist:
 
-> **Limitation:** `Kind` and `InstanceConfig` must be imported by their exact names. Aliases (e.g., `import type { Kind as K }`) are not recognized and will be silently ignored.
+> **Limitation:** `Kind` and `Instance` must be imported by their exact names. Aliases (e.g., `import type { Kind as K }`) are not recognized and will be silently ignored.
 > — `ast.adapter.ts`, lines 12-14
 
 This limitation exists because the adapter matches identifier text strings instead of using the type checker's symbol resolution. TypeScript solved this problem decades ago.
@@ -360,9 +360,9 @@ The type checker is already created — `classify-project.service.ts:60` calls `
 
 **Level 0 — Current state.** TypeScript discovers and parses files. KindScript filters by `.k.ts` extension, then re-walks the AST with string matching.
 
-**Level 1 — Discovery.** Use the type checker to find files that reference symbols from `'kindscript'`. Replace the `endsWith('.k.ts')` filter with: "which files contain references to the `Kind` or `InstanceConfig` symbols exported by `'kindscript'`?" No extension convention needed. No import-checking heuristic needed. The type checker already resolved every symbol in every file.
+**Level 1 — Discovery.** Use the type checker to find files that reference symbols from `'kindscript'`. Replace the `endsWith('.k.ts')` filter with: "which files contain references to the `Kind` or `Instance` symbols exported by `'kindscript'`?" No extension convention needed. No import-checking heuristic needed. The type checker already resolved every symbol in every file.
 
-**Level 2 — Identification.** Use the type checker to identify Kind definitions and instances. Instead of walking AST nodes and matching the string `"Kind"`, ask the type checker: "is this type alias's type a reference to the `Kind` symbol from `'kindscript'`?" This handles aliases (`import type { Kind as K }`), re-exports (`export type { Kind } from 'kindscript'`), and barrel files. Same for `InstanceConfig`.
+**Level 2 — Identification.** Use the type checker to identify Kind definitions and instances. Instead of walking AST nodes and matching the string `"Kind"`, ask the type checker: "is this type alias's type a reference to the `Kind` symbol from `'kindscript'`?" This handles aliases (`import type { Kind as K }`), re-exports (`export type { Kind } from 'kindscript'`), and barrel files. Same for `Instance`.
 
 **Level 3 — Extraction.** Use the type checker to extract type arguments and constraint structures. Instead of manually walking `type.typeArguments[2]` and building a `TypeNodeView` from raw AST nodes, ask the type checker: "what is the resolved type of the third type parameter of this `Kind` reference?" The type checker returns the fully resolved type — even if the user wrote:
 
@@ -384,7 +384,7 @@ Type checker resolves all symbols (already happens)
     ↓
 KindScript queries the type checker:
   "Which type aliases in this program resolve to Kind from 'kindscript'?"
-  "Which satisfies expressions resolve to InstanceConfig from 'kindscript'?"
+  "Which satisfies expressions resolve to Instance from 'kindscript'?"
     ↓
 For each match, extract resolved type arguments from the type checker
     ↓
@@ -398,7 +398,7 @@ No file extension convention. No import scanning. No AST walking for discovery. 
 Today the `ASTAdapter` is 323 lines of manual AST walking, variable resolution, and type node interpretation. With type-checker piggybacking, it becomes a thin query layer over `ts.TypeChecker`:
 
 - `getKindDefinitions()` → find all type aliases whose type resolves to the `Kind` symbol; extract resolved type args via `checker.getTypeArguments()`
-- `getInstanceDeclarations()` → find all `satisfies` expressions whose type resolves to `InstanceConfig`; extract the expression value and resolved Kind type
+- `getInstanceDeclarations()` → find all `satisfies` expressions whose type resolves to `Instance`; extract the expression value and resolved Kind type
 - `buildTypeNodeView()` → replaced by walking the checker's resolved `ts.Type` objects instead of raw `ts.TypeNode` AST nodes
 
 The documented alias limitation disappears. Computed types work. Re-exports work. The adapter shrinks and becomes more robust.
@@ -417,7 +417,7 @@ This is a real architectural change but a clean one — the mock adapter is unaf
 
 ### Discovery (drop `.k.ts` filter):
 
-1. `classify-project.service.ts:64` — replace `endsWith('.k.ts')` filter with type-checker query for files containing `Kind`/`InstanceConfig` references from `'kindscript'`
+1. `classify-project.service.ts:64` — replace `endsWith('.k.ts')` filter with type-checker query for files containing `Kind`/`Instance` references from `'kindscript'`
 2. `get-plugin-diagnostics.service.ts:50` — same change
 3. `test-pipeline.ts:51` — same change
 4. `check-contracts.integration.test.ts:41` — same change
@@ -429,7 +429,7 @@ This is a real architectural change but a clean one — the mock adapter is unaf
 
 1. `ASTAdapter` — rewrite to query `ts.TypeChecker` instead of walking raw AST nodes
 2. `ASTAdapter.getKindDefinitions()` — use type checker to find type aliases resolving to `Kind` symbol, extract resolved type arguments via `checker.getTypeArguments()`
-3. `ASTAdapter.getInstanceDeclarations()` — use type checker to find `satisfies` expressions resolving to `InstanceConfig` symbol
+3. `ASTAdapter.getInstanceDeclarations()` — use type checker to find `satisfies` expressions resolving to `Instance` symbol
 4. `ASTAdapter.buildTypeNodeView()` — replace with resolved `ts.Type` walking instead of raw `ts.TypeNode` walking
 5. `ASTViewPort` interface — may need to accept type checker (or adapter receives it via constructor)
 6. Remove the documented alias limitation from `ast.adapter.ts`
@@ -439,6 +439,6 @@ This is a real architectural change but a clean one — the mock adapter is unaf
 - `ClassifyASTService` — consumes the same views (`KindDefinitionView`, `InstanceDeclarationView`)
 - `CheckContractsService` — unchanged
 - `MockASTAdapter` in tests — unchanged (returns canned views, doesn't walk ASTs)
-- All type definitions (`Kind`, `InstanceConfig`, `ConstraintConfig`) — unchanged
+- All type definitions (`Kind`, `Instance`, `Constraints`) — unchanged
 - All constraints and contract plugins — unchanged
 - All domain entities and value objects — unchanged

@@ -238,7 +238,7 @@ export const storybook = {
   core:      {},
   common:    {},
   mocks:     {},
-} satisfies InstanceConfig<StorybookDesignSystem>;
+} satisfies Instance<StorybookDesignSystem>;
 ```
 
 If someone in `atoms/Button/` imports from `organisms/ReleasesManager/`, KindScript catches it.
@@ -284,7 +284,7 @@ export const dashboardPage = {
   data: {},
   types: {},
   validation: {},
-} satisfies InstanceConfig<PageArchitecture>;
+} satisfies Instance<PageArchitecture>;
 ```
 
 Multi-instance support means each page's `.k.ts` gets its own root — they don't interfere with each other or the top-level definition.
@@ -366,7 +366,7 @@ type OrganismLayer = Kind<"OrganismLayer", {}, {
 ```typescript
 export const storybook = {
   atoms: { path: "components/atoms/*/v*" },
-} satisfies InstanceConfig<StorybookDesignSystem>;
+} satisfies Instance<StorybookDesignSystem>;
 ```
 
 **Workaround:** Place `.k.ts` inside the version directory, which already works with root inference.

@@ -306,9 +306,9 @@ When behavior changes, we'd review the diff of this file rather than updating as
 // @expects: violation
 
 // @filename: src/context.k.ts
-import { Kind, ConstraintConfig, MemberMap, InstanceConfig } from 'kindscript';
+import { Kind, Constraints, MemberMap, Instance } from 'kindscript';
 type MyArch = Kind<'MyArch', { domain: {}; infra: {} }, { noDependency: [['domain'], ['infra']] }>;
-export type context = InstanceConfig<MyArch>;
+export type context = Instance<MyArch>;
 export type members = MemberMap<MyArch>;
 
 // @filename: src/domain/entity.ts

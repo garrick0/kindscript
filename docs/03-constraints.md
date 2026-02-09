@@ -1,14 +1,14 @@
-# Contracts
+# Constraints
 
-> All 6 contract types, the plugin architecture, and how contract checking works.
+> All 6 constraint types, the plugin architecture, and how constraint checking works.
 
 ---
 
 ## Overview
 
-KindScript enforces architectural rules through **contracts** — constraints declared on Kind types that are evaluated against the actual codebase. Each contract type checks a different property:
+KindScript enforces architectural rules through **constraints** — rules declared on Kind types that are evaluated against the actual codebase. Each constraint type checks a different property:
 
-| Contract | Category | What It Checks | Diagnostic Code |
+| Constraint | Category | What It Checks | Diagnostic Code |
 |----------|----------|----------------|-----------------|
 | `noDependency` | Dependency | Layer A cannot import from Layer B | KS70001 |
 | `mustImplement` | Dependency | Every port interface has an adapter | KS70002 |
@@ -42,7 +42,7 @@ type OrderingContext = Kind<"OrderingContext", {
 }>;
 ```
 
-The `ConstraintConfig<Members>` type ensures member names are valid identifiers from the Kind's member map.
+The `Constraints<Members>` type ensures member names are valid identifiers from the Kind's member map.
 
 ### Constraint Shapes
 
@@ -57,7 +57,7 @@ Constraints come in four shapes:
 
 ---
 
-## Contract Types
+## Constraint Types
 
 ### noDependency — Forbidden Dependency (KS70001)
 
@@ -218,54 +218,64 @@ error KS70010: Member directory not found: 'src/infrastructure' does not exist
 
 ---
 
-## Contract Plugin Architecture
+## Constraint Plugin Architecture
 
-Each contract type is implemented as a `ContractPlugin` — a self-contained object with validation, checking, and optional generation logic.
+Each constraint type is implemented as a `ContractPlugin` — a self-contained object with validation, checking, and optional generation logic.
 
 ### Plugin Interface
 
-```typescript
-interface ContractPlugin {
-  type: ContractType;              // e.g., 'noDependency'
-  constraintName: string;          // e.g., 'noDependency' (matches ConstraintConfig key)
-  diagnosticCode: number;          // e.g., 70001
+Each `ContractPlugin` extends `ConstraintProvider` (the bind-stage view) with enforcement capabilities:
 
-  validate(args: ArchSymbol[]): string | null;  // Validate contract arguments
-  check(request: CheckRequest): Diagnostic[];    // Evaluate the contract
-  generate?(view: TypeNodeView): Contract[];     // Parse constraints from AST
-  intrinsic?(symbol: ArchSymbol): Contract[];    // Create contracts from intrinsic markers
+```typescript
+interface ConstraintProvider {
+  readonly constraintName: string;
+  generate?: (value: TypeNodeView, instanceSymbol: ArchSymbol, kindName: string, location: string) => GeneratorResult;
+  intrinsic?: {
+    detect(view: TypeNodeView): boolean;
+    propagate(memberSymbol: ArchSymbol, memberName: string, location: string): Contract;
+  };
+}
+
+interface ContractPlugin extends ConstraintProvider {
+  readonly type: ContractType;
+  readonly diagnosticCode: number;
+
+  validate(args: ArchSymbol[]): string | null;
+  check(contract: Contract, ctx: CheckContext): CheckResult;
+
+  codeFix?: { fixName: string; description: string };
 }
 ```
 
 ### Plugin Registry
 
-All 6 plugins are registered in `plugin-registry.ts`:
+All 6 plugins are registered in `plugin-registry.ts`. Each plugin is a singleton object (not a factory function):
 
 ```typescript
-function createAllPlugins(tsPort: TypeScriptPort): ContractPlugin[] {
+function createAllPlugins(): ContractPlugin[] {
   return [
-    noDependencyPlugin(tsPort),
-    mustImplementPlugin(tsPort),
-    purityPlugin(),
-    noCyclesPlugin(tsPort),
-    existsPlugin(),
-    mirrorsPlugin(),
+    noDependencyPlugin,
+    purityPlugin,
+    noCyclesPlugin,
+    mustImplementPlugin,
+    existsPlugin,
+    mirrorsPlugin,
   ];
 }
 ```
 
-The `CheckContractsService` is a thin dispatcher (~60 lines) that:
+The `CheckerService` is a thin dispatcher (~60 lines) that:
 1. Receives contracts and resolved files
 2. Looks up the appropriate plugin for each contract's type
 3. Delegates checking to the plugin
 4. Aggregates all diagnostics
 
-### Adding a New Contract Type
+### Adding a New Constraint Type
 
 1. Add the contract type to `src/domain/types/contract-type.ts`
 2. Add the diagnostic code to `src/domain/constants/diagnostic-codes.ts`
-3. Create the plugin in `src/application/enforcement/check-contracts/<name>/<name>.plugin.ts`
-4. Register it in `plugin-registry.ts`
+3. Create the plugin in `src/application/pipeline/plugins/<name>/<name>.plugin.ts`
+4. Register it in `plugins/plugin-registry.ts`
 5. Add unit tests in `tests/application/<name>.plugin.test.ts`
 6. Add integration tests and fixtures
 7. Add E2E tests in `tests/cli/e2e/cli.e2e.test.ts`
@@ -277,23 +287,25 @@ The `CheckContractsService` is a thin dispatcher (~60 lines) that:
 ### Data Flow
 
 ```
-ClassifyProjectService
-    → discovers source files
-    → creates TS program
+PipelineService (orchestrator)
+    → reads config, discovers source files, creates TS program
 
-ClassifyASTService (binder)
-    → walks AST with type checker
-    → finds Kind definitions → ArchSymbol[]
-    → extracts constraints from 3rd type parameter → Contract[]
-    → finds instance declarations → links to Kind symbols
-    → derives locations from file paths
+ScanService (scanner)
+    → walks AST with type checker via ASTViewPort
+    → extracts KindDefinitionView[] and InstanceDeclarationView[]
 
-resolveSymbolFiles
-    → walks ArchSymbol tree
-    → readDirectory() for each member path
+ParseService (parser)
+    → builds ArchSymbol trees from scan output
+    → derives filesystem locations from member names
+    → resolves files for each member path (readDirectory)
     → produces Map<location, files[]>
 
-CheckContractsService (checker)
+BindService (binder)
+    → walks constraint trees from Kind definitions
+    → generates Contract[] via ConstraintProvider plugins
+    → propagates intrinsic constraints (e.g., pure: true)
+
+CheckerService (checker)
     → for each Contract:
         → validate arguments (plugin.validate)
         → evaluate against resolved files and imports (plugin.check)

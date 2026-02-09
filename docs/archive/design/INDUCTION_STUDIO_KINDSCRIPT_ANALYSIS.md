@@ -813,7 +813,7 @@ This section proposes how every architectural boundary, rule, and relationship i
 This `.k.ts` file sits at the repo root and enforces the macro-level boundaries between apps and packages.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // ─── Member Kinds ───
 
@@ -905,7 +905,7 @@ export const monorepo = {
   knowledge:        { path: "knowledge" },
   scripts:          { path: "scripts" },
   e2eTests:         { path: "tests/e2e" },
-} satisfies InstanceConfig<InductionMonorepo>;
+} satisfies Instance<InductionMonorepo>;
 ```
 
 ### 10.2 Storybook Design System (Atomic Design + Internal Layers)
@@ -913,7 +913,7 @@ export const monorepo = {
 This `.k.ts` file sits inside `apps/storybook/src/` and enforces the Atomic Design hierarchy and supporting infrastructure.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // ─── Component Layer Kinds ───
 
@@ -1048,7 +1048,7 @@ export const designSystem = {
   mocks:      {},
   styles:     {},
   testUtils:  { path: "test" },
-} satisfies InstanceConfig<StorybookDesignSystem>;
+} satisfies Instance<StorybookDesignSystem>;
 ```
 
 ### 10.3 Platform Backend Architecture
@@ -1056,7 +1056,7 @@ export const designSystem = {
 This `.k.ts` file sits inside `apps/platform/src/` and enforces the backend layering.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // ─── Backend Layer Kinds ───
 
@@ -1157,7 +1157,7 @@ export const platform = {
   supabase:    { path: "lib/api/supabase" },
   config:      { path: "lib/api/config" },
   testMocks:   { path: "test/generated-mocks" },
-} satisfies InstanceConfig<PlatformBackend>;
+} satisfies Instance<PlatformBackend>;
 ```
 
 ### 10.4 Page-Level Architecture (DashboardPage)
@@ -1165,7 +1165,7 @@ export const platform = {
 This `.k.ts` file sits inside `apps/storybook/src/components/Pages/DashboardPage/v1.0.0/` and enforces the internal layering of the most complex page.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type UILayer = Kind<"UILayer">;
 type DomainLayer = Kind<"DomainLayer">;
@@ -1212,7 +1212,7 @@ export const page = {
   types: {},
   validation: {},
   tests: {},
-} satisfies InstanceConfig<DashboardPageArch>;
+} satisfies Instance<DashboardPageArch>;
 ```
 
 ### 10.5 TypeSpec Contract Pipeline
@@ -1220,7 +1220,7 @@ export const page = {
 This `.k.ts` file enforces the generation pipeline: specs → generated code. It sits at the repo root alongside the monorepo `.k.ts`.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type SpecSource = Kind<"SpecSource">;
 type GeneratedPlatform = Kind<"GeneratedPlatform">;
@@ -1255,7 +1255,7 @@ export const typespecPipeline = {
   platformSchemas:  { path: "apps/platform/src/lib/api/validation/generated" },
   storybookMocks:   { path: "apps/storybook/src/mocks/generated" },
   sharedClient:     { path: "packages/shared" },
-} satisfies InstanceConfig<TypeSpecPipeline>;
+} satisfies Instance<TypeSpecPipeline>;
 ```
 
 ### 10.6 Knowledge System Access Control
@@ -1263,7 +1263,7 @@ export const typespecPipeline = {
 This `.k.ts` models the documentation permission system. While KindScript today enforces import dependencies, future constraints could enforce write permissions.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type ProtectedDocs = Kind<"ProtectedDocs">;
 type HumanDocs = Kind<"HumanDocs">;
@@ -1303,7 +1303,7 @@ export const knowledge = {
   aiWorkspace:  { path: "ai-workspace" },
   shared:       {},
   archive:      {},
-} satisfies InstanceConfig<KnowledgeSystem>;
+} satisfies Instance<KnowledgeSystem>;
 ```
 
 ### 10.7 Workflow Pipeline Stages
@@ -1311,7 +1311,7 @@ export const knowledge = {
 This models the agent workflow pipeline as architectural members.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type WorkflowStage = Kind<"WorkflowStage">;
 type ExampleContent = Kind<"ExampleContent">;
@@ -1353,7 +1353,7 @@ export const pipeline = {
   specification: { path: "page_specification" },
   wireframing:   { path: "wireframe_generation" },
   examples:      { path: "reference-designs" },
-} satisfies InstanceConfig<AgentPipeline>;
+} satisfies Instance<AgentPipeline>;
 ```
 
 ### 10.8 Organism-Level Self-Containment
@@ -1361,7 +1361,7 @@ export const pipeline = {
 This enforces the Frontend Container Pattern at the organism level. Each organism must be self-contained with its required files.
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type UIFile = Kind<"UIFile">;
 type HookFile = Kind<"HookFile">;
@@ -1508,14 +1508,14 @@ To model flat directories, KindScript needs a new concept: **file-pattern member
 export const page = {
   ui:     { path: "ui" },          // matches files in ui/
   domain: { path: "domain" },      // matches files in domain/
-} satisfies InstanceConfig<PageVersion>;
+} satisfies Instance<PageVersion>;
 
 // Proposed: member → file pattern (new)
 export const atom = {
   component: { match: "*.tsx", exclude: ["*.stories.tsx", "*.test.tsx"] },
   stories:   { match: "*.stories.tsx" },
   tests:     { match: "*.test.tsx" },
-} satisfies InstanceConfig<AtomVersion>;
+} satisfies Instance<AtomVersion>;
 ```
 
 With this extension, every flat directory becomes enforceable — file imports between pattern groups follow the same `noDependency` rules as directory-based members. The rest of this section assumes this feature exists.
@@ -1598,7 +1598,7 @@ export const buttonV1 = {
   component: { match: "*.tsx", exclude: ["*.stories.tsx", "*.test.tsx"] },
   stories:   { match: "*.stories.tsx" },
   tests:     { match: "*.test.tsx" },
-} satisfies InstanceConfig<AtomVersion>;
+} satisfies Instance<AtomVersion>;
 ```
 
 **What this enforces:**
@@ -1660,7 +1660,7 @@ type AtomComponent = Kind<"AtomComponent", {
 export const button = {
   barrel:  { match: "index.ts" },
   version: { path: "v1.0.0" },
-} satisfies InstanceConfig<AtomComponent>;
+} satisfies Instance<AtomComponent>;
 ```
 
 **What this enforces:**
@@ -1753,7 +1753,7 @@ export const formV1 = {
   stories:   { match: "*.stories.tsx" },
   tests:     { match: "*.test.tsx" },
   docs:      { match: "*.md" },
-} satisfies InstanceConfig<MoleculeVersion>;
+} satisfies Instance<MoleculeVersion>;
 ```
 
 **What's new vs atoms:**
@@ -1857,7 +1857,7 @@ export const documentManagerV1 = {
   component:  { match: "*.tsx", exclude: ["*.stories.tsx", "*.test.tsx"] },
   stories:    { match: "*.stories.tsx" },
   tests:      { match: "*.test.ts{,x}" },
-} satisfies InstanceConfig<OrganismVersion>;
+} satisfies Instance<OrganismVersion>;
 ```
 
 **What's new vs molecules:**
@@ -1996,7 +1996,7 @@ export const dashboardV1 = {
   domain:     { path: "domain" },
   ui:         { path: "ui" },
   tests:      { path: "tests" },
-} satisfies InstanceConfig<ComplexPageVersion>;
+} satisfies Instance<ComplexPageVersion>;
 ```
 
 **This is implementable with KindScript today.** No new features needed — just a `.k.ts` file placed in `DashboardPage/v1.0.0/`.
@@ -2106,7 +2106,7 @@ Start with what works today, build outward:
 
 | Feature | Description | Unlocks |
 |---------|-------------|---------|
-| **File-pattern members** | `{ match: "*.tsx", exclude: [...] }` in InstanceConfig | Enforcement of flat directories (Levels 1-4, 5, 7) |
+| **File-pattern members** | `{ match: "*.tsx", exclude: [...] }` in Instance | Enforcement of flat directories (Levels 1-4, 5, 7) |
 | **`forEach` constraint** | Apply a Kind to every child matching a pattern | Template Kinds — one declaration, many directories (Level 8) |
 | **`deniedExternals`** | Ban specific npm packages from a member | Tier-appropriate library restrictions (all levels) |
 | **Conditional `forEach`** | Different Kind based on directory shape | Simple vs complex page detection (Level 8) |

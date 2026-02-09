@@ -20,7 +20,7 @@ This creates friction in larger projects:
 
 - **Central bottleneck** — every team/module must coordinate through one `kindscript.json`
 - **Manual bookkeeping** — adding a new bounded context means editing `kindscript.json`
-- **Redundant information** — the `root` in `InstanceConfig` is usually derivable from where the file lives
+- **Redundant information** — the `root` in `Instance` is usually derivable from where the file lives
 - **No compositional scaling** — monorepo with 20 bounded contexts means 20 entries in one JSON file
 
 TypeScript itself solved an analogous problem. Early TypeScript required `files: [...]` in `tsconfig.json`. Later it added `include` globs, and then project references for compositional scaling. KindScript should learn from this trajectory.
@@ -61,7 +61,7 @@ Each `.k.ts` file defines the architectural rules for its subtree. **No `kindscr
 
 ```typescript
 // architecture.ts (at project root, listed in kindscript.json)
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 export type DomainLayer = Kind<"DomainLayer">;
 export type InfrastructureLayer = Kind<"InfrastructureLayer">;
@@ -77,14 +77,14 @@ export const ordering = {
   root: "src/ordering",        // ← must manually specify
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 **After (distributed):**
 
 ```typescript
 // src/ordering/ordering.k.ts (auto-discovered, root inferred as "src/ordering/")
-import type { Kind, ConstraintConfig, InstanceConfig } from 'kindscript';
+import type { Kind, Constraints, Instance } from 'kindscript';
 
 export type DomainLayer = Kind<"DomainLayer">;
 export type InfrastructureLayer = Kind<"InfrastructureLayer">;
@@ -99,7 +99,7 @@ export type OrderingContext = Kind<"OrderingContext", {
 export const ordering = {
   domain: {},                  // ← no root needed
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 The `root` is inferred as the directory containing `ordering.k.ts`.
@@ -147,7 +147,7 @@ export const app = {
   root: "src",           // ← explicit, relative to project root
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;
 ```
 
 The `root` property is resolved relative to the project root (where `kindscript.json` lives). This is necessary in the centralized model because the definition file could live anywhere relative to the directories it governs.
@@ -164,29 +164,29 @@ src/shared/shared.k.ts       → root is "src/shared/"
 
 **Inference rule:** The root is the **directory containing the `.k.ts` file**.
 
-### InstanceConfig Changes
+### Instance Changes
 
 **Decision: Drop `root` entirely.**
 
 ```typescript
-// Before: InstanceConfig<T> = { root: string } & MemberMap<T>
+// Before: Instance<T> = { root: string } & MemberMap<T>
 export const ordering = {
   root: "src/ordering",
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 
-// After: InstanceConfig<T> = MemberMap<T>
+// After: Instance<T> = MemberMap<T>
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
-`InstanceConfig<T>` becomes a pure alias for `MemberMap<T>`:
+`Instance<T>` becomes a pure alias for `MemberMap<T>`:
 
 ```typescript
-export type InstanceConfig<T extends Kind> = MemberMap<T>;
+export type Instance<T extends Kind> = MemberMap<T>;
 ```
 
 The root is **always** the directory containing the `.k.ts` file. There is no override mechanism — if you need a different root, move the `.k.ts` file to the right directory. This enforces a clean 1:1 relationship between definition files and the subtrees they govern.
@@ -282,7 +282,7 @@ export type OrderingContext = Kind<"OrderingContext", {
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 This works today — the classifier follows TypeScript type resolution. No special mechanism needed.
@@ -376,7 +376,7 @@ ksc check
 | Config file | `kindscript.json` required (with `definitions`) | `kindscript.json` optional (settings only, no `definitions`) |
 | Definition files | `architecture.ts` (soft convention) | `*.k.ts` (enforced convention, auto-discovered) |
 | Root property | Required in every instance | Removed — always inferred from file location |
-| `InstanceConfig<T>` | `{ root: string } & MemberMap<T>` | `MemberMap<T>` |
+| `Instance<T>` | `{ root: string } & MemberMap<T>` | `MemberMap<T>` |
 | Discovery | Explicit enumeration in JSON | Convention-based within TS program |
 | Cross-context | All in one file | Import + compose via Kind hierarchy |
 | CLI entry | `ksc check [path]` | `ksc check [path]` (unchanged) |
@@ -384,7 +384,7 @@ ksc check
 ### What Doesn't Change
 
 - Kind type system (`Kind<N, Members, Constraints>`)
-- Instance declarations (`satisfies InstanceConfig<T>`)
+- Instance declarations (`satisfies Instance<T>`)
 - Constraints declared on Kind type's 3rd parameter
 - All six contract types (noDependency, mustImplement, purity, noCycles, filesystem.exists, filesystem.mirrors)
 - The constraint propagation mechanism
@@ -392,7 +392,7 @@ ksc check
 
 ### Migration Path
 
-1. **Phase 1 — Core type + AST changes.** Remove `root` from `InstanceConfig`. Update the classifier to infer root from the source file path. Add `.k.ts` file filtering. All existing tests updated.
+1. **Phase 1 — Core type + AST changes.** Remove `root` from `Instance`. Update the classifier to infer root from the source file path. Add `.k.ts` file filtering. All existing tests updated.
 
 2. **Phase 2 — Discovery pipeline.** Replace `definitions`-driven discovery in `ClassifyProjectService` with `.k.ts` convention-based discovery. Remove `definitions` from `KindScriptConfig`. Update CLI.
 
@@ -402,7 +402,7 @@ ksc check
 
 | File | Change |
 |------|--------|
-| `src/runtime/locate.ts` | Remove `root` from `InstanceConfig<T>` (becomes alias for `MemberMap<T>`) |
+| `src/runtime/locate.ts` | Remove `root` from `Instance<T>` (becomes alias for `MemberMap<T>`) |
 | `src/application/use-cases/classify-ast/` | Infer root from source file directory path (no more `root` property parsing) |
 | `src/application/use-cases/classify-project/` | Replace `definitions` enumeration with `.k.ts` filtering of TS program source files |
 | `src/application/ports/config.port.ts` | Remove `definitions` from `KindScriptConfig` |
@@ -458,10 +458,10 @@ The parallel is deliberate. Just as `.d.ts` files declare type information witho
 
 ## Implementation Plan
 
-### Step 1: Remove `root` from `InstanceConfig<T>`
+### Step 1: Remove `root` from `Instance<T>`
 
 **Files:**
-- `src/runtime/locate.ts` — Change `InstanceConfig<T>` from `{ root: string } & MemberMap<T>` to `MemberMap<T>`
+- `src/runtime/locate.ts` — Change `Instance<T>` from `{ root: string } & MemberMap<T>` to `MemberMap<T>`
 
 **Rationale:** This is the foundational type change. Everything downstream depends on this.
 
@@ -573,7 +573,7 @@ The parallel is deliberate. Just as `.d.ts` files declare type information witho
 ### Step 11: Update Public API and Notebooks
 
 **Files:**
-- `src/index.ts` — no change needed (still exports `InstanceConfig`)
+- `src/index.ts` — no change needed (still exports `Instance`)
 - `notebooks/example-codebase/architecture.ts` → rename to `.k.ts`
 - `notebooks/*.ipynb` — update references
 
@@ -588,5 +588,5 @@ The parallel is deliberate. Just as `.d.ts` files declare type information witho
 **Changes:**
 - Document `.k.ts` convention
 - Remove references to `architecture.ts` as the default name
-- Remove references to `root` property in `InstanceConfig`
+- Remove references to `root` property in `Instance`
 - Update examples throughout

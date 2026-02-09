@@ -19,7 +19,7 @@ KindScript is an architectural enforcement tool that plugs into the TypeScript c
             name: "Alice",                       domain: { ... },
             age: 30,                             application: { ... },
           }                                      infrastructure: { ... },
-                                               } satisfies InstanceConfig<CleanContext>
+                                               } satisfies Instance<CleanContext>
 
           TS checks: "does value                KS checks: "does codebase
            match the type?"                      match the architecture?"
@@ -27,7 +27,7 @@ KindScript is an architectural enforcement tool that plugs into the TypeScript c
 
 ## How It Works
 
-KindScript extends TypeScript's own compiler pipeline. It reuses the scanner, parser, and type checker, then adds three new phases for architectural analysis:
+KindScript extends TypeScript's own compiler pipeline. It reuses the scanner, parser, and type checker, then adds four new stages for architectural analysis:
 
 ```
   .ts source files
@@ -44,19 +44,29 @@ KindScript extends TypeScript's own compiler pipeline. It reuses the scanner, pa
                                      |
                                ts.Diagnostic
                                      |
-  ================================== | ======   KindScript phases begin
+  ================================== | ======   KindScript stages begin
                                      |
                               +------+------+
-                              | KS Binder   |   Classify AST nodes as
-                              | (Classifier)|   Kind definitions and
-                              +------+------+   instances
+                              | KS Scanner  |   Extract Kind definitions
+                              +------+------+   and instance declarations
                                      |
-                                ArchSymbol
+                                 ScanResult
+                                     |
+                              +------+------+
+                              | KS Parser   |   Build ArchSymbol trees,
+                              +------+------+   resolve file locations
+                                     |
+                                ParseResult
+                                     |
+                              +------+------+
+                              | KS Binder   |   Generate Contracts from
+                              +------+------+   constraint trees
+                                     |
+                                 BindResult
                                      |
                               +------+------+
                               | KS Checker  |   Evaluate contracts against
-                              | (Contracts) |   resolved files and imports
-                              +------+------+
+                              +------+------+   resolved files and imports
                                      |
                                ts.Diagnostic    (same format as TS errors)
                                      |
@@ -79,7 +89,7 @@ npm install kindscript
 ### 2. Define your architecture (`src/context.ts`)
 
 ```typescript
-import type { Kind, ConstraintConfig, InstanceConfig, MemberMap } from 'kindscript';
+import type { Kind, Constraints, Instance, MemberMap } from 'kindscript';
 
 // Define the pattern (normative -- what the architecture MUST look like)
 export type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
@@ -104,7 +114,7 @@ export const ordering = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;
 ```
 
 ### 3. Check contracts
@@ -139,13 +149,13 @@ ksc check [path]                   Check architectural contracts
 
 **`ksc check`** -- Validates all contracts against the codebase. Returns exit code 1 on violations (CI-ready).
 
-## Contract Types
+## Constraint Types
 
-KindScript enforces six contract types, organized into dependency, behavioral, and filesystem categories:
+KindScript enforces six constraint types, organized into dependency, behavioral, and filesystem categories:
 
 ```
   +------------------------------------------------------------+
-  | Contract         | What it checks                          |
+  | Constraint       | What it checks                          |
   |------------------+-----------------------------------------|
   | noDependency     | Layer A cannot import from Layer B      |
   | mustImplement    | Every port interface has an adapter      |
@@ -158,7 +168,7 @@ KindScript enforces six contract types, organized into dependency, behavioral, a
   +------------------------------------------------------------+
 ```
 
-Each contract type produces a specific diagnostic code:
+Each constraint type produces a specific diagnostic code:
 
 ```
   KS70001  Forbidden dependency         (noDependency)
@@ -195,10 +205,9 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |   Ports (shared):                                                     |
   |     TypeScriptPort    FileSystemPort    ConfigPort    ASTPort         |
   |                                                                       |
-  |   Classification:                                                     |
-  |     ClassifyAST            ClassifyProject                            |
-  |   Enforcement:                                                        |
-  |     CheckContracts (6 plugins)                                        |
+  |   Pipeline (4 stages):                                                |
+  |     Scanner → Parser → Binder → Checker (6 plugins)                  |
+  |   PipelineService (orchestrator)                                     |
   |   Engine interface (bundles shared services)                          |
   |                                                                       |
   +----------------------------------+------------------------------------+
@@ -238,7 +247,7 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
 
 ```
 src/
-  types/index.ts                  Public API (Kind, ConstraintConfig, InstanceConfig, MemberMap)
+  types/index.ts                  Public API (Kind, Constraints, Instance, MemberMap)
 
   domain/
     entities/                     ArchSymbol, Contract, Diagnostic, ...
@@ -247,12 +256,15 @@ src/
 
   application/
     ports/                       TypeScriptPort, FileSystemPort, ConfigPort, ASTPort
-    services/                    resolveSymbolFiles
-    classification/
-      classify-ast/              AST -> ArchSymbol classification
-      classify-project/          Project-wide classification + config
-    enforcement/
-      check-contracts/           Contract evaluation (all 6 plugin types)
+    pipeline/
+      scan/                      AST extraction (Kind defs + instances)
+      parse/                     ArchSymbol tree construction + file resolution
+      bind/                      Contract generation from constraint trees
+      check/                     Contract evaluation (dispatcher)
+      plugins/                   Contract plugin system (6 plugins, shared by bind + check)
+      views.ts                   Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
+      program.ts                 ProgramPort, ProgramFactory (config + program setup)
+      pipeline.service.ts        Orchestrator (caching + 4 stages)
     engine.ts                    Engine interface (shared services)
 
   infrastructure/                Shared driven adapters only
@@ -288,7 +300,7 @@ tests/
 ```bash
 npm install              # Install dependencies
 npm run build            # Compile TypeScript
-npm test                 # Run all tests (29 test files, 277 tests)
+npm test                 # Run all tests (29 test files, 276 tests)
 npm run test:coverage    # Run with coverage report
 npm run test:watch       # Watch mode
 npm run lint             # ESLint
@@ -340,7 +352,7 @@ Jupyter notebooks in `notebooks/` provide interactive walkthroughs:
 
 ```
 01-quickstart.ipynb          From zero to enforced architecture (define, check)
-02-contracts.ipynb           All 6 contract types with examples
+02-contracts.ipynb           All 6 constraint types with examples
 04-bounded-contexts.ipynb    Multi-instance Kinds for bounded contexts
 05-design-system.ipynb       Real-world enforcement on a design system codebase
 ```
@@ -377,11 +389,11 @@ KindScript moves architectural rules into the compiler:
 All core functionality is implemented and tested.
 
 **What's working:**
-- All 6 contract types (noDependency, mustImplement, purity, noCycles, filesystem.exists, filesystem.mirrors)
+- All 6 constraint types (noDependency, mustImplement, purity, noCycles, filesystem.exists, filesystem.mirrors)
 - CLI with 1 command (check)
 - TypeScript language service plugin (inline diagnostics + code fix suggestions)
 - AST classifier (Kind definitions and instances)
-- 29 test suites, 277 tests, 100% passing
+- 29 test suites, 276 tests, 100% passing
 
 **What's next:**
 - Watch mode and incremental compilation (`.ksbuildinfo` caching)
@@ -393,7 +405,7 @@ All core functionality is implemented and tested.
 
 - [Architecture](docs/01-architecture.md) -- System overview, pipeline, layers
 - [Kind System](docs/02-kind-system.md) -- Kind syntax, instances, discovery
-- [Contracts](docs/03-contracts.md) -- All 6 contract types
+- [Constraints](docs/03-constraints.md) -- All 6 constraint types
 - [Decisions](docs/04-decisions.md) -- Build/Wrap/Skip rationale
 - [Examples](docs/05-examples.md) -- Real-world modeling
 - [CLAUDE.md](CLAUDE.md) -- Development guide for AI agents and contributors

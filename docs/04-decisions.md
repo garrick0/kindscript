@@ -10,6 +10,11 @@ Each decision records the context, options considered, and outcome. Entries are 
 
 | # | Decision | Date | Status |
 |---|----------|------|--------|
+| D14 | [File-scoped leaf instances](#d14-file-scoped-leaf-instances) | 2026-02-08 | Done |
+| D13 | [Rename `ConstraintConfig` to `Constraints`, align docs terminology](#d13-rename-constraintconfig-to-constraints) | 2026-02-08 | Done |
+| D12 | [Rename `InstanceConfig<T>` to `Instance<T>`](#d12-rename-instanceconfigt-to-instancet) | 2026-02-08 | Done |
+| D11 | [Pipeline cleanup — separation of concerns](#d11-pipeline-cleanup--separation-of-concerns) | 2026-02-08 | Done |
+| D10 | [Four-stage pipeline alignment](#d10-four-stage-pipeline-alignment) | 2026-02-08 | Done |
 | D9 | [Drop `.k.ts`, piggyback on TypeScript type checker](#d9-drop-kts-piggyback-on-typescript-type-checker) | 2026-02-08 | Done |
 | D8 | [Remove `ContractConfig<T>` (additive instance constraints)](#d8-remove-contractconfigt) | 2026-02-07 | Done |
 | D7 | [Flatten `src/runtime/` → `src/types/index.ts`](#d7-flatten-srcruntime) | 2026-02-08 | Done |
@@ -19,6 +24,191 @@ Each decision records the context, options considered, and outcome. Entries are 
 | D3 | [Use `type` alias instead of `interface extends`](#d3-type-alias-instead-of-interface-extends) | 2026-02-07 | Done |
 | D2 | [No ts-morph dependency](#d2-no-ts-morph) | 2026-02-07 | Done |
 | D1 | [Language Service Plugin instead of custom LSP](#d1-language-service-plugin-instead-of-custom-lsp) | 2026-02-07 | Done |
+
+---
+
+## D14: File-Scoped Leaf Instances
+
+**Date:** 2026-02-08
+**Status:** Done
+
+### Context
+
+KindScript's parser unconditionally derived instance locations from the parent directory of the declaring file (`dirnamePath(sourceFileName)`). This meant a `satisfies Instance<AtomSource>` declaration in `Button.tsx` was interpreted as "everything in Button.tsx's directory is an AtomSource" — not "Button.tsx is an AtomSource."
+
+This prevented file-level architectural enforcement. In a design system where `Button.tsx`, `Button.stories.tsx`, and `Button.test.tsx` are colocated in the same directory, you couldn't constrain the source file differently from stories or tests.
+
+### Industry Research
+
+Surveyed 12 systems (Go, Rust, Bazel, Java JPMS, Python, C#, ArchUnit, eslint-plugin-boundaries, dependency-cruiser, Nx, Node.js exports, TypeScript project references). Key findings:
+
+1. **Every directory-scoped system eventually needs file-level escape hatches.** Go added `_test.go`. Bazel has per-file targets. ArchUnit has `SliceAssignment`.
+2. **The industry trend is toward file-level as default.** Node.js deprecated directory-level exports. dependency-cruiser and eslint-boundaries default to file scope.
+3. **Systems with one clear default + minimal exceptions (Go) succeed.** Systems supporting both equally (Rust) create ongoing confusion.
+
+Full research in `.working/FILE_VS_DIRECTORY_SCOPE_RESEARCH.md`.
+
+### Decision
+
+Use the presence of members as the structural indicator for scope:
+
+- **Leaf Kind** (no members): instance location = the declaring file itself
+- **Composite Kind** (has members): instance location = parent directory of the declaring file
+
+### Rationale
+
+- **Members structurally require directories** — they map to subdirectories, so directory scope is justified by necessity
+- **Leaf instances describe themselves** — a file declaring `satisfies Instance<AtomSource>` with no members is naturally saying "I am an AtomSource"
+- **Follows Go's playbook** — one clear default (file), structural escape (members create directory scope)
+- **No new API types or syntax** — the rule is purely structural
+- **Backwards compatible** — all existing instances use composite Kinds with members; no behavior changes for them
+
+### Impact
+
+- `parse.service.ts`: root derivation now conditional on `kindDef.members.length > 0`
+- `resolveSymbolFiles`: handles file locations (single-file resolution) alongside directories
+- `FileSystemPort`: added `fileExists(path): boolean`
+- `FileSystemAdapter` + `MockFileSystemAdapter`: implement `fileExists`
+- 5 new tests in `classify-ast-locate.test.ts`
+- 284 tests, 29 files, 100% passing
+- No existing test changes required
+
+---
+
+## D13: Rename `ConstraintConfig` to `Constraints`
+
+**Date:** 2026-02-08
+**Status:** Done
+
+### Context
+
+The public API type `ConstraintConfig<Members>` carried a `Config` suffix that was a leftover from the `ContractConfig` era (D8). With `Kind` and `Instance` as clean one-word nouns, `ConstraintConfig` was the odd one out — the suffix implied runtime configuration rather than a type-level schema.
+
+Additionally, user-facing documentation led with "contracts" (internal domain model terminology) rather than "constraints" (what users actually write). Users declare constraints on Kind types; they never interact with `Contract` domain entities. The terminology mismatch made the docs harder to navigate.
+
+### Decision
+
+1. Rename `ConstraintConfig<Members>` to `Constraints<Members>` in the public API.
+2. Rename `docs/03-contracts.md` to `docs/03-constraints.md` and update user-facing headings from "Contract Types" to "Constraint Types."
+3. Add plugin registry validation tests (uniqueness of constraint names, contract types, diagnostic codes).
+4. Keep internal domain model names unchanged: `Contract`, `ContractType`, `ContractPlugin` remain as-is.
+
+### Rationale
+
+- `Constraints<Members>` aligns with `Kind` and `Instance` — clean, one-word nouns
+- `Kind<"X", Members, Constraints<Members>>` reads naturally
+- Users write constraints, not contracts — docs should match user vocabulary
+- Internal domain model doesn't need renaming — "contract" is correct for bound, evaluable rules
+- Plugin registry validation tests prevent silent collisions (duplicate names, types, or codes)
+
+### Impact
+
+- Public API: `Kind`, `Instance<T>`, `Constraints<Members>` (3 user-facing types)
+- `docs/03-contracts.md` → `docs/03-constraints.md` (file rename)
+- User-facing headings updated: "Contract Types" → "Constraint Types"
+- Plugin registry: 3 new uniqueness tests
+- All tests passing, no behavioral changes
+
+---
+
+## D12: Rename `InstanceConfig<T>` to `Instance<T>`
+
+**Date:** 2026-02-08
+**Status:** Done
+
+### Context
+
+The public API type `InstanceConfig<T>` served as the projection from a Kind type to its instance value shape (used with `satisfies`). The name was verbose and the type-theoretic relationship was indirect — users had to understand `Kind`, `InstanceConfig`, and `MemberMap` as three separate concepts.
+
+Research across Haskell (class/instance), Scala (trait/given), Rust (trait/impl), OCaml (module type/structure), and TypeScript ecosystem tools (Zod, Effect-TS, Vite) confirmed that every system uses a schema→instance projection, and most call the instance side "instance."
+
+### Decision
+
+Rename `InstanceConfig<T>` to `Instance<T>`. Keep `MemberMap<T>` as an internal implementation detail (still exported for cross-module use, but not documented as part of the public API).
+
+### Rationale
+
+- `Instance<T>` communicates the type-theoretic relationship clearly: "this value satisfies Instance of OrderingContext"
+- Mirrors naming conventions across Haskell (`class`/`instance`), Scala (`trait`/`given`), Rust (`trait`/`impl`)
+- Reduces public API surface from 4 types to 3 user-facing types: `Kind`, `Instance`, `Constraints`
+- `MemberMap` becomes an internal projection mechanism, not a concept users need to learn
+- No deprecated alias — pre-1.0 with no external users, clean break preferred
+- Mechanical rename with no logic changes
+
+### Impact
+
+- Public API: `Kind`, `Instance<T>`, `Constraints` (3 user-facing types)
+- AST adapter: detection string changed from `'InstanceConfig'` to `'Instance'`
+- ~355 occurrences renamed across ~58 files (source, tests, fixtures, docs, notebooks)
+- All 276 tests passing, no behavioral changes
+
+---
+
+## D11: Pipeline Cleanup — Separation of Concerns
+
+**Date:** 2026-02-08
+**Status:** Done
+
+### Context
+
+After the four-stage pipeline alignment (D10), several cross-cutting concerns remained entangled: view DTOs lived in port files, contract plugins were split across `bind/` and `check/`, `PipelineService` handled both program setup and stage orchestration, and the `Engine` interface exposed infrastructure details (`fs`, `ts`) that no app consumed.
+
+### Decision
+
+Five targeted changes to improve separation of concerns:
+
+1. **Extract view types** — Move `TypeNodeView`, `KindDefinitionView`, etc. from `ast.port.ts` into `pipeline/views.ts`. The port re-exports them for adapter compatibility.
+2. **Extract plugins** — Move `ConstraintProvider`, `ContractPlugin`, plugin registry, and all 6 plugin implementations into a neutral `pipeline/plugins/` directory (shared by bind + check stages).
+3. **Add use-case interfaces** — Each stage (scan, parse, bind) gets a use-case interface (`ScanUseCase`, `ParseUseCase`, `BindUseCase`). `PipelineService` depends on interfaces, not concrete classes.
+4. **Extract ProgramFactory** — Config reading, file discovery, and TS program creation move from `PipelineService` into `ProgramFactory` behind a `ProgramPort` interface.
+5. **Slim Engine** — Remove unused `fs` and `ts` from `Engine` interface. Apps only use `pipeline` and `plugins`.
+
+### Rationale
+
+- **View types in port files** — violated Interface Segregation; pipeline stages needed AST port just for DTOs
+- **Plugins split across stages** — `ContractPlugin extends ConstraintProvider` created a cross-stage dependency; neutral `plugins/` directory resolves this
+- **Concrete stage dependencies** — made `PipelineService` hard to test without real services; interfaces enable mock injection
+- **PipelineService doing too much** — program setup is independent of stage orchestration; extracting it follows Single Responsibility
+- **Engine surface area** — `fs` and `ts` were never consumed by any app; removing them reduces coupling
+
+### Impact
+
+- 276 tests, 29 files, 100% passing
+- No public API changes
+- `PipelineService` constructor: 6 interface-typed dependencies
+- `Engine` interface: `{ pipeline, plugins }` only
+
+---
+
+## D10: Four-Stage Pipeline Alignment
+
+**Date:** 2026-02-08
+**Status:** Done
+
+### Context
+
+KindScript's application layer was organized by capability (`classification/` + `enforcement/`), but `ClassifyASTService.execute()` was doing three distinct jobs in one method: extracting raw AST views (scanning), building ArchSymbol trees (parsing), and generating Contracts from constraint trees (binding). This entanglement made it hard to reason about, test, and extend each concern independently.
+
+### Decision
+
+Decompose the application layer into four explicit pipeline stages aligned with TypeScript's compiler terminology: **Scanner → Parser → Binder → Checker**. Replace `classification/` + `enforcement/` + `services/` with a single `pipeline/` directory.
+
+### Rationale
+
+- **TypeScript alignment** — using the same stage names (scan, parse, bind, check) makes the architecture immediately recognizable to TypeScript compiler contributors and readers
+- **Single Responsibility** — each stage has one job with clear input/output types (`ScanResult` → `ParseResult` → `BindResult` → `CheckerResponse`)
+- **Testability** — stages can be tested independently with mock inputs; the three classify-ast test files naturally map to scan, parse, and bind
+- **Simplified orchestration** — `PipelineService` absorbs `ClassifyProjectService` + `RunPipelineService` into one orchestrator that owns config, program creation, caching, and the stage chain
+- **Simpler Engine** — the `Engine` interface shrinks from `{ classifyProject, checkContracts, runPipeline, plugins, fs, ts }` to `{ pipeline, plugins }` (further slimmed in D11)
+
+### Impact
+
+- Deleted `classification/`, `enforcement/`, `services/` directories
+- Created `pipeline/scan/`, `pipeline/parse/`, `pipeline/bind/`, `pipeline/check/`
+- Renamed `CheckContractsService` → `CheckerService`
+- Merged `ClassifyProjectService` + `RunPipelineService` → `PipelineService`
+- Absorbed `resolveSymbolFiles()` into `ParseService` as a private method
+- All 29 test files, 277 tests updated and passing
 
 ---
 
@@ -33,7 +223,7 @@ KindScript used a `.k.ts` file extension as a convention to identify definition 
 
 ### Decision
 
-Drop the `.k.ts` extension entirely. Use TypeScript's type checker (`checker.getSymbolAtLocation()` + `getAliasedSymbol()`) to discover Kind definitions and InstanceConfig declarations. This makes KindScript invisible — definitions live in regular `.ts` files with no special extension, no config file, and no naming convention.
+Drop the `.k.ts` extension entirely. Use TypeScript's type checker (`checker.getSymbolAtLocation()` + `getAliasedSymbol()`) to discover Kind definitions and Instance declarations. This makes KindScript invisible — definitions live in regular `.ts` files with no special extension, no config file, and no naming convention.
 
 ### Rationale
 
@@ -47,7 +237,7 @@ Drop the `.k.ts` extension entirely. Use TypeScript's type checker (`checker.get
 
 - All `.k.ts` fixture files renamed to `.ts`
 - 4 extension filters removed from source
-- `ASTAdapter` rewritten to use type checker for Kind/InstanceConfig identification
+- `ASTAdapter` rewritten to use type checker for Kind/Instance identification
 - ~5 lines of code changed in the core pipeline
 
 ---
@@ -88,7 +278,7 @@ Remove `ContractConfig<T>`. All constraints must be declared on the Kind type's 
 
 ### Context
 
-`src/runtime/` contained ~65 lines of type-only exports (`Kind`, `ConstraintConfig`, `MemberMap`, `InstanceConfig`). The name "runtime" was a leftover from when it contained actual runtime functions (`locate()`, `defineContracts()`).
+`src/runtime/` contained ~65 lines of type-only exports (`Kind`, `Constraints`, `MemberMap`, `Instance`). The name "runtime" was a leftover from when it contained actual runtime functions (`locate()`, `defineContracts()`).
 
 ### Decision
 
@@ -147,16 +337,18 @@ Extract each contract type into a self-contained `ContractPlugin` object. A `plu
 ### Plugin Interface
 
 ```typescript
-interface ContractPlugin {
-  type: ContractType;
-  constraintName: string;
-  diagnosticCode: number;
+interface ContractPlugin extends ConstraintProvider {
+  readonly type: ContractType;
+  readonly diagnosticCode: number;
+
   validate(args: ArchSymbol[]): string | null;
-  check(request: CheckRequest): Diagnostic[];
-  generate?(view: TypeNodeView): Contract[];
-  intrinsic?(symbol: ArchSymbol): Contract[];
+  check(contract: Contract, ctx: CheckContext): CheckResult;
+
+  codeFix?: { fixName: string; description: string };
 }
 ```
+
+Where `ConstraintProvider` provides `constraintName`, optional `generate()`, and optional `intrinsic` (detect + propagate).
 
 ---
 
@@ -171,7 +363,7 @@ Users previously wrote `locate<T>("root", { ... })` and `defineContracts<T>({ ..
 
 ### Decision
 
-Replace all runtime markers with `satisfies` expressions and `import type`. Instances use `{ ... } satisfies InstanceConfig<T>`. Constraints move to the Kind type's 3rd parameter. All imports become `import type` (fully erased from output).
+Replace all runtime markers with `satisfies` expressions and `import type`. Instances use `{ ... } satisfies Instance<T>`. Constraints move to the Kind type's 3rd parameter. All imports become `import type` (fully erased from output).
 
 ### Rationale
 

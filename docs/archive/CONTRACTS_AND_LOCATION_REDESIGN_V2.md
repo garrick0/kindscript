@@ -23,7 +23,7 @@
 A complete `architecture.ts` file:
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // Leaf kinds with intrinsic constraints
 type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
@@ -51,7 +51,7 @@ export const shop = {
   domain: {},              // location derived: src/domain
   application: {},         // location derived: src/application
   infrastructure: {},      // location derived: src/infrastructure
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 - Every `import` is `import type` (zero runtime dependency)
@@ -69,7 +69,7 @@ export const shop = {
 type Kind<
   N extends string = string,
   Members extends Record<string, Kind> = Record<string, never>,
-  Constraints extends ConstraintConfig<Members> = Record<string, never>,
+  Constraints extends Constraints<Members> = Record<string, never>,
 > = {
   readonly kind: N;
   readonly location: string;
@@ -123,7 +123,7 @@ Reading `CleanArchitecture` tells you:
 Member names in the constraints parameter are validated against `keyof Members`:
 
 ```typescript
-type ConstraintConfig<Members = Record<string, never>> = {
+type Constraints<Members = Record<string, never>> = {
   // Intrinsic
   pure?: true;
 
@@ -146,7 +146,7 @@ The classifier's Phase 1 (`classifyKindDefinition`) currently reads:
 It will additionally read:
 - `typeArguments[2]` → constraints type literal
 
-A new AST port method — `getTypeAliasConstraintConfig(node)` — extracts the constraint properties and their tuple/array type values. The pattern is identical to how `getTypeAliasMemberProperties` reads the second type argument's property signatures.
+A new AST port method — `getTypeAliasConstraints(node)` — extracts the constraint properties and their tuple/array type values. The pattern is identical to how `getTypeAliasMemberProperties` reads the second type argument's property signatures.
 
 Constraints from the type parameter are converted to `Contract` objects during Phase 1, alongside the Kind definition. These merge with any additive contract declarations found in Phase 3 (for instance-specific overrides).
 
@@ -191,7 +191,7 @@ The generated contracts are identical to contracts that would be created by an e
 
 ### Future enhancement: D2/D3
 
-**D2 (type-level validation):** The `ConstraintConfig<Members>` type would use conditional types to compute what intrinsic constraints the members carry, and require the composite to acknowledge them. If `DomainLayer` declares `{ pure: true }`, the composite's constraints parameter would be required to include `purity: ["domain"]` — omitting it would be a TypeScript error.
+**D2 (type-level validation):** The `Constraints<Members>` type would use conditional types to compute what intrinsic constraints the members carry, and require the composite to acknowledge them. If `DomainLayer` declares `{ pure: true }`, the composite's constraints parameter would be required to include `purity: ["domain"]` — omitting it would be a TypeScript error.
 
 This makes propagation **visible and explicit** — you can see all active constraints by reading the composite's definition alone. The downside is verbosity: you must repeat constraints from every member.
 
@@ -203,7 +203,7 @@ Both D2 and D3 are additive — they can be implemented on top of D1 without cha
 
 ## Part 3: Instance Declarations
 
-### Decision: `satisfies InstanceConfig<T>`, no `locate()`
+### Decision: `satisfies Instance<T>`, no `locate()`
 
 Per RUNTIME_MARKERS_OPTIONS (Option A), all runtime marker functions are removed. Instances are declared as plain objects validated by `satisfies`:
 
@@ -213,20 +213,20 @@ export const shop = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
-The `locate()` function is deleted. The `InstanceConfig<T>` type replaces it:
+The `locate()` function is deleted. The `Instance<T>` type replaces it:
 
 ```typescript
-type InstanceConfig<T extends Kind> = { root: string } & MemberMap<T>;
+type Instance<T extends Kind> = { root: string } & MemberMap<T>;
 ```
 
-The classifier's Phase 2 changes from matching `CallExpression` nodes named `locate` to matching `SatisfiesExpression` nodes where the type reference is `InstanceConfig<T>`. The data extraction is the same — root path from the `root` property, member assignments from the remaining properties.
+The classifier's Phase 2 changes from matching `CallExpression` nodes named `locate` to matching `SatisfiesExpression` nodes where the type reference is `Instance<T>`. The data extraction is the same — root path from the `root` property, member assignments from the remaining properties.
 
 ### Decision: Full member map required (A'), with optional (E) as future improvement
 
-Starting with A': every member defined in the Kind type must appear in the instance config. TypeScript enforces this through the `InstanceConfig<T>` type.
+Starting with A': every member defined in the Kind type must appear in the instance config. TypeScript enforces this through the `Instance<T>` type.
 
 ```typescript
 // All three members are required:
@@ -235,17 +235,17 @@ export const shop = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 
 // TypeScript error if you omit one:
 export const shop = {
   root: "src",
   domain: {},
   // ← Missing application and infrastructure — type error
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
-This is the safe starting point. Once the system is working well, the member map can be made optional (E) as an ergonomic improvement by changing `InstanceConfig<T>` to use `Partial<MemberMap<T>>`.
+This is the safe starting point. Once the system is working well, the member map can be made optional (E) as an ergonomic improvement by changing `Instance<T>` to use `Partial<MemberMap<T>>`.
 
 ---
 
@@ -275,7 +275,7 @@ export const shop = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 You're binding each logical reference to a location. But not every member necessarily needs a location. Some constraints are purely structural (e.g., "these three layers exist"). Others require filesystem access (e.g., "domain must not import from infrastructure").
@@ -304,7 +304,7 @@ export const shop = {
   root: "src",
   domain: {},              // → src/domain (derived, existence checked)
   infrastructure: {},      // → src/infrastructure (derived, existence checked)
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 Every member gets a path. Every contract is checked. The existence check verifies derived directories exist.
@@ -320,7 +320,7 @@ export const shop = {
   domain: { path: "src/domain" },       // explicit location → contracts checked
   application: {},                       // no location → contracts skipped
   infrastructure: { path: "src/infra" }, // explicit location → contracts checked
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 Members with `{}` are logical references only. The compiler knows they exist architecturally but doesn't know where their files are. Contracts referencing unlocated members are skipped.
@@ -335,7 +335,7 @@ export const shop = {
   root: "src",
   domain: {},                    // → src/domain (derived, contracts checked, existence NOT required)
   infrastructure: {},            // → src/infrastructure (derived, contracts checked)
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 Every member gets a derived path for contract checking, but the existence check (diagnostic 70010) doesn't fire. The compiler uses the derived path to check noDependency, purity, etc. — but doesn't require the directory to exist. If it doesn't exist, the import-based contracts naturally find nothing to check (no files = no imports = no violations).
@@ -350,7 +350,7 @@ export const shop = {
   root: "src",
   domain: {},                          // → src/domain (derived from root + member name)
   infrastructure: { path: "infra" },   // → src/infra (overridden)
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 Every member always gets a location. `{}` derives from the member name. `{ path: "..." }` overrides. No concept of "unlocated" members. Existence is always checked.
@@ -401,7 +401,7 @@ export const shop = {
   root: "src",
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 
 // Instance-specific additive constraint
 export const extraContracts = {
@@ -436,11 +436,11 @@ Note: additive declarations use `string` member references (not `keyof Members`)
 | Component | Before | After |
 |---|---|---|
 | `src/runtime/kind.ts` | `Kind<N, Members>` (2 params) | `Kind<N, Members, Constraints>` (3 params) |
-| `src/runtime/locate.ts` | `locate()` function + `MemberMap<T>` | `InstanceConfig<T>` type + `MemberMap<T>` (no function) |
+| `src/runtime/locate.ts` | `locate()` function + `MemberMap<T>` | `Instance<T>` type + `MemberMap<T>` (no function) |
 | `src/runtime/define-contracts.ts` | `defineContracts()` function + `ContractConfig` | `ContractConfig<T>` type (no function) |
-| `src/index.ts` | `export { Kind, locate, defineContracts }` | `export type { Kind, InstanceConfig, ContractConfig }` |
+| `src/index.ts` | `export { Kind, locate, defineContracts }` | `export type { Kind, Instance, ContractConfig }` |
 | Classifier Phase 1 | Reads `Kind<N, Members>` | Reads `Kind<N, Members, Constraints>` |
-| Classifier Phase 2 | Matches `locate()` call | Matches `satisfies InstanceConfig<T>` |
+| Classifier Phase 2 | Matches `locate()` call | Matches `satisfies Instance<T>` |
 | Classifier Phase 3 | Matches `defineContracts()` call | Matches `satisfies ContractConfig<T>` |
 
 Every export becomes `export type`. The compiled `index.js` is empty. Zero runtime footprint.
@@ -462,7 +462,7 @@ isTypeAliasDeclaration(stmt) →
 
 **New: add constraint extraction:**
 ```
-  getTypeAliasConstraintConfig(node)     → {
+  getTypeAliasConstraints(node)     → {
     noDependency: [["domain", "infrastructure"], ...],
     mustImplement: [...],
     pure: true,
@@ -490,7 +490,7 @@ For each kindDef in kindDefs:
 
 **Before:** Match `CallExpression` named `locate`. Extract type argument and call arguments.
 
-**After:** Match `SatisfiesExpression` where the type reference is `InstanceConfig<T>`. Extract:
+**After:** Match `SatisfiesExpression` where the type reference is `Instance<T>`. Extract:
 - Type argument `T` → Kind name
 - `root` property from the object literal → base path
 - Remaining properties → member assignments (for path overrides)
@@ -515,10 +515,10 @@ getSatisfiesTypeArgumentNames(node: ASTNode): string[];
 getSatisfiesExpression(node: ASTNode): ASTNode | undefined;
 
 // New method on ASTDeclarationPort:
-getTypeAliasConstraintConfig(node: ASTNode): ConstraintConfigAST | undefined;
+getTypeAliasConstraints(node: ASTNode): ConstraintsAST | undefined;
 
-// Where ConstraintConfigAST is:
-interface ConstraintConfigAST {
+// Where ConstraintsAST is:
+interface ConstraintsAST {
   pure?: boolean;
   noDependency?: [string, string][];
   mustImplement?: [string, string][];
@@ -534,8 +534,8 @@ interface ConstraintConfigAST {
 ### Phase 1: Third type parameter + constraint extraction
 
 1. Update `Kind` type in `src/runtime/kind.ts` to accept three parameters
-2. Add `ConstraintConfig` type
-3. Add `getTypeAliasConstraintConfig()` to AST port, adapter, and mock
+2. Add `Constraints` type
+3. Add `getTypeAliasConstraints()` to AST port, adapter, and mock
 4. Update `classifyKindDefinition()` to extract constraints from third type arg
 5. Generate `Contract` objects from type-level constraints (alongside Phase 3 contracts)
 6. Add constraint propagation step (intrinsic constraints from leaf kinds)
@@ -545,10 +545,10 @@ interface ConstraintConfigAST {
 
 ### Phase 2: `satisfies` migration (instances + contracts)
 
-1. Add `InstanceConfig<T>` type to `src/runtime/locate.ts`
+1. Add `Instance<T>` type to `src/runtime/locate.ts`
 2. Add phantom parameter to `ContractConfig<T>` in `src/runtime/define-contracts.ts`
 3. Add `SatisfiesExpression` support to AST port, adapter, and mock
-4. Rewrite classifier Phase 2 to match `satisfies InstanceConfig<T>`
+4. Rewrite classifier Phase 2 to match `satisfies Instance<T>`
 5. Rewrite classifier Phase 3 to match `satisfies ContractConfig<T>`
 6. Delete `locate()` and `defineContracts()` functions
 7. Change all `export` to `export type` in `src/index.ts`
@@ -567,10 +567,10 @@ interface ConstraintConfigAST {
 ### Phase 4: Future enhancements (not in initial implementation)
 
 - **D2/D3:** Type-level validation / full propagation of relational constraints
-- **E:** Optional member map (`Partial<MemberMap<T>>` in `InstanceConfig<T>`)
+- **E:** Optional member map (`Partial<MemberMap<T>>` in `Instance<T>`)
 - **L2:** Logical references (members without locations)
 - **Strict mode:** Disallow additive contract declarations (all constraints on the type)
-- **Custom constraints:** Extensible `ConstraintConfig` for plugin contract types
+- **Custom constraints:** Extensible `Constraints` for plugin contract types
 
 ---
 
@@ -584,7 +584,7 @@ interface ConstraintConfigAST {
 | Intrinsic constraints | On leaf kinds: `Kind<"X", {}, { pure: true }>` | Purity is intrinsic to what a domain layer *means*. |
 | Relational constraints | On composite kinds: `Kind<"X", Members, { noDependency: [...] }>` | Relationships belong on the composite that contains both sides. |
 | Constraint propagation | D1: classifier-time, intrinsic only | DRY. Declare once, enforce everywhere. D2/D3 later. |
-| Instance syntax | `satisfies InstanceConfig<T>` | Zero runtime. Pure types. `import type` only. |
+| Instance syntax | `satisfies Instance<T>` | Zero runtime. Pure types. `import type` only. |
 | Contract syntax | `satisfies ContractConfig<T>` (additive escape hatch) | Same benefits. Optional — most constraints are on the type. |
 | Member map | Required (A') | Safe starting point. E (optional) later. |
 | Member location | Derived from member name (L4) | Simple. Every member has a path. L2 (logical refs) later. |
@@ -599,7 +599,7 @@ interface ConstraintConfigAST {
 ### What the user writes
 
 ```typescript
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 type ApplicationLayer = Kind<"ApplicationLayer">;
@@ -624,7 +624,7 @@ export const shop = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanArchitecture>;
+} satisfies Instance<CleanArchitecture>;
 ```
 
 The Kind type is the specification. The instance is the binding. The compiler enforces it.
@@ -643,20 +643,20 @@ This section is the step-by-step plan for implementing the redesign. Each step i
 
 ---
 
-### Step 1: Add `ConstraintConfig` type and third type parameter to Kind
+### Step 1: Add `Constraints` type and third type parameter to Kind
 
 **Files to change:**
 
 | File | Change |
 |------|--------|
-| `src/runtime/kind.ts` | Add `ConstraintConfig<Members>` type. Add third type parameter `Constraints` to `Kind`. |
+| `src/runtime/kind.ts` | Add `Constraints<Members>` type. Add third type parameter `Constraints` to `Kind`. |
 
 **Detail:**
 
 ```typescript
 // src/runtime/kind.ts — new state
 
-export type ConstraintConfig<Members = Record<string, never>> = {
+export type Constraints<Members = Record<string, never>> = {
   pure?: true;
   noDependency?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
   mustImplement?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
@@ -667,7 +667,7 @@ export type ConstraintConfig<Members = Record<string, never>> = {
 export type Kind<
   N extends string = string,
   Members extends Record<string, Kind> = {},
-  Constraints extends ConstraintConfig<Members> = Record<string, never>,
+  Constraints extends Constraints<Members> = Record<string, never>,
 > = {
   readonly kind: N;
   readonly location: string;
@@ -680,15 +680,15 @@ export type Kind<
 
 ---
 
-### Step 2: Replace `locate()` with `InstanceConfig<T>` type and replace `defineContracts()` with `ContractConfig<T>` type
+### Step 2: Replace `locate()` with `Instance<T>` type and replace `defineContracts()` with `ContractConfig<T>` type
 
 **Files to change:**
 
 | File | Change |
 |------|--------|
-| `src/runtime/locate.ts` | Delete `locate()` function. Add `InstanceConfig<T>` type. Keep `MemberMap<T>`. |
+| `src/runtime/locate.ts` | Delete `locate()` function. Add `Instance<T>` type. Keep `MemberMap<T>`. |
 | `src/runtime/define-contracts.ts` | Delete `defineContracts()` function. Change `ContractConfig` from interface to type with phantom `_T` parameter. |
-| `src/index.ts` | Change all exports to `export type`. Add `InstanceConfig` and `ConstraintConfig` exports. Remove `locate` and `defineContracts` value exports. |
+| `src/index.ts` | Change all exports to `export type`. Add `Instance` and `Constraints` exports. Remove `locate` and `defineContracts` value exports. |
 
 **Detail:**
 
@@ -703,7 +703,7 @@ export type MemberMap<T extends Kind> = {
       : never;
 };
 
-export type InstanceConfig<T extends Kind> = { root: string } & MemberMap<T>;
+export type Instance<T extends Kind> = { root: string } & MemberMap<T>;
 ```
 
 ```typescript
@@ -721,9 +721,9 @@ export type ContractConfig<_T extends Kind = Kind> = {
 
 ```typescript
 // src/index.ts — new state
-export type { Kind, ConstraintConfig } from './runtime/kind';
+export type { Kind, Constraints } from './runtime/kind';
 export type { ContractConfig } from './runtime/define-contracts';
-export type { MemberMap, InstanceConfig } from './runtime/locate';
+export type { MemberMap, Instance } from './runtime/locate';
 ```
 
 **Validation:** `npm run build` compiles. Tests will fail (locate/defineContracts calls removed) — that's expected. Fixed in subsequent steps.
@@ -736,13 +736,13 @@ export type { MemberMap, InstanceConfig } from './runtime/locate';
 
 | File | Change |
 |------|--------|
-| `src/application/ports/ast.port.ts` | Add `isSatisfiesExpression`, `getSatisfiesTypeReferenceName`, `getSatisfiesTypeArgumentNames`, `getSatisfiesExpression` to `ASTNodePort`/`ASTExpressionPort`. Add `getTypeAliasConstraintConfig` to `ASTDeclarationPort`. Add `ConstraintConfigAST` interface. |
+| `src/application/ports/ast.port.ts` | Add `isSatisfiesExpression`, `getSatisfiesTypeReferenceName`, `getSatisfiesTypeArgumentNames`, `getSatisfiesExpression` to `ASTNodePort`/`ASTExpressionPort`. Add `getTypeAliasConstraints` to `ASTDeclarationPort`. Add `ConstraintsAST` interface. |
 
 **Detail:**
 
 ```typescript
 // New interface added alongside existing ones
-export interface ConstraintConfigAST {
+export interface ConstraintsAST {
   pure?: boolean;
   noDependency?: [string, string][];
   mustImplement?: [string, string][];
@@ -759,7 +759,7 @@ getSatisfiesTypeArgumentNames(node: ASTNode): string[];
 getSatisfiesExpression(node: ASTNode): ASTNode | undefined;
 
 // Additions to ASTDeclarationPort:
-getTypeAliasConstraintConfig(node: ASTNode): ConstraintConfigAST | undefined;
+getTypeAliasConstraints(node: ASTNode): ConstraintsAST | undefined;
 ```
 
 **Validation:** `npm run build` compiles (ports are interfaces — implementations must follow).
@@ -772,9 +772,9 @@ getTypeAliasConstraintConfig(node: ASTNode): ConstraintConfigAST | undefined;
 
 | File | Change |
 |------|--------|
-| `src/infrastructure/adapters/ast/ast.adapter.ts` | Implement all new port methods using TypeScript compiler API (`ts.SatisfiesExpression`, `ts.isTypeReferenceNode`, etc.). Implement `getTypeAliasConstraintConfig` to parse the third type argument of `Kind<N, Members, Constraints>`. |
+| `src/infrastructure/adapters/ast/ast.adapter.ts` | Implement all new port methods using TypeScript compiler API (`ts.SatisfiesExpression`, `ts.isTypeReferenceNode`, etc.). Implement `getTypeAliasConstraints` to parse the third type argument of `Kind<N, Members, Constraints>`. |
 
-**Detail for `getTypeAliasConstraintConfig`:**
+**Detail for `getTypeAliasConstraints`:**
 
 Reads `typeArguments[2]` from the `Kind` type reference. Parses the type literal's property signatures:
 - `pure: true` → `TrueLiteralType` → `{ pure: true }`
@@ -785,7 +785,7 @@ Reads `typeArguments[2]` from the `Kind` type reference. Parses the type literal
 
 TypeScript represents `expr satisfies Type` as a `ts.SatisfiesExpression` node (since TS 4.9). Key properties:
 - `node.expression` → the object literal
-- `node.type` → the type reference (`InstanceConfig<T>` or `ContractConfig<T>`)
+- `node.type` → the type reference (`Instance<T>` or `ContractConfig<T>`)
 
 The `isSatisfiesExpression` checks `ts.isSatisfiesExpression(node)`.
 `getSatisfiesTypeReferenceName` extracts the type reference name from `node.type`.
@@ -802,7 +802,7 @@ The `isSatisfiesExpression` checks `ts.isSatisfiesExpression(node)`.
 
 | File | Change |
 |------|--------|
-| `src/infrastructure/adapters/testing/mock-ast.adapter.ts` | Add `MockSatisfiesExpressionNode` interface. Add `withSatisfiesInstanceConfig` and `withSatisfiesContractConfig` fluent methods. Remove `withLocateCall` and `withDefineContractsCall`. Implement all new port methods. Implement `getTypeAliasConstraintConfig` returning constraint data from mock nodes. |
+| `src/infrastructure/adapters/testing/mock-ast.adapter.ts` | Add `MockSatisfiesExpressionNode` interface. Add `withSatisfiesInstance` and `withSatisfiesContractConfig` fluent methods. Remove `withLocateCall` and `withDefineContractsCall`. Implement all new port methods. Implement `getTypeAliasConstraints` returning constraint data from mock nodes. |
 
 **Detail:**
 
@@ -811,7 +811,7 @@ The `isSatisfiesExpression` checks `ts.isSatisfiesExpression(node)`.
 interface MockSatisfiesExpressionNode extends ASTNode {
   __type: 'satisfiesExpression';
   expression: ASTNode;          // The object literal
-  typeReferenceName: string;    // "InstanceConfig" or "ContractConfig"
+  typeReferenceName: string;    // "Instance" or "ContractConfig"
   typeArgumentNames: string[];  // ["CleanArchitecture"]
 }
 
@@ -822,7 +822,7 @@ interface MockTypeAliasNode extends ASTNode {
   referenceName: string;
   typeArgLiterals: string[];
   memberProperties: Array<{ name: string; typeName?: string }>;
-  constraintConfig?: ConstraintConfigAST;  // NEW
+  constraintConfig?: ConstraintsAST;  // NEW
 }
 ```
 
@@ -831,7 +831,7 @@ Add `MockSatisfiesExpressionNode` to the `MockNode` union.
 New fluent methods:
 
 ```typescript
-withSatisfiesInstanceConfig(
+withSatisfiesInstance(
   fileName: string,
   varName: string,
   kindName: string,
@@ -853,7 +853,7 @@ Update `withTypeAlias` to accept optional `constraintConfig` parameter.
 
 ---
 
-### Step 6: Rewrite classifier — Phase 1 (constraints + propagation), Phase 2 (satisfies InstanceConfig), Phase 3 (satisfies ContractConfig)
+### Step 6: Rewrite classifier — Phase 1 (constraints + propagation), Phase 2 (satisfies Instance), Phase 3 (satisfies ContractConfig)
 
 **Files to change:**
 
@@ -870,7 +870,7 @@ interface KindDefinition {
   name: string;
   kindNameLiteral: string;
   properties: Array<{ name: string; typeName?: string }>;
-  constraints?: ConstraintConfigAST;  // NEW
+  constraints?: ConstraintsAST;  // NEW
 }
 ```
 
@@ -878,7 +878,7 @@ interface KindDefinition {
 
 Add constraint extraction:
 ```
-getTypeAliasConstraintConfig(node) → constraints (from typeArguments[2])
+getTypeAliasConstraints(node) → constraints (from typeArguments[2])
 ```
 
 Store constraints on `KindDefinition`.
@@ -913,10 +913,10 @@ if (init && this.astPort.isCallExpression(init)) {
 
 With:
 ```typescript
-// New: match { ... } satisfies InstanceConfig<T>
+// New: match { ... } satisfies Instance<T>
 if (init && this.astPort.isSatisfiesExpression(init)) {
   const typeName = this.astPort.getSatisfiesTypeReferenceName(init);
-  if (typeName === 'InstanceConfig') {
+  if (typeName === 'Instance') {
     const typeArgs = this.astPort.getSatisfiesTypeArgumentNames(init);
     const kindName = typeArgs[0];
     const expression = this.astPort.getSatisfiesExpression(init);
@@ -966,9 +966,9 @@ Both are merged into the same `contracts` array. `CheckContracts` sees no differ
 **Error messages:**
 
 Update all error messages:
-- `locate()` → `satisfies InstanceConfig<T>`
+- `locate()` → `satisfies Instance<T>`
 - `defineContracts()` → `satisfies ContractConfig<T>`
-- `locate() call has no type argument` → `InstanceConfig satisfies expression has no type argument`
+- `locate() call has no type argument` → `Instance satisfies expression has no type argument`
 - etc.
 
 **Remove dead code:**
@@ -986,7 +986,7 @@ Delete `isCallExpression`/`getCallExpressionName` checks for `locate` and `defin
 | File | Tests | Change |
 |------|-------|--------|
 | `tests/unit/classify-ast-kind-parsing.test.ts` | 4 tests | Add constraint config tests (Kind third parameter). Update `withTypeAlias` calls to include `constraintConfig` where applicable. |
-| `tests/unit/classify-ast-locate.test.ts` | 20 tests | Replace all `mockAST.withLocateCall(...)` with `mockAST.withSatisfiesInstanceConfig(...)`. Update variable resolution tests. Rename file to `classify-ast-instance.test.ts`. |
+| `tests/unit/classify-ast-locate.test.ts` | 20 tests | Replace all `mockAST.withLocateCall(...)` with `mockAST.withSatisfiesInstance(...)`. Update variable resolution tests. Rename file to `classify-ast-instance.test.ts`. |
 | `tests/unit/classify-ast-contracts.test.ts` | 34 tests | Replace all `mockAST.withDefineContractsCall(...)` with `mockAST.withSatisfiesContractConfig(...)`. Update error message assertions. Add tests for type-level contracts from Kind definition. Add constraint propagation tests. |
 
 **New tests to add:**
@@ -1015,7 +1015,7 @@ In `classify-ast-contracts.test.ts` (or new `classify-ast-propagation.test.ts` i
 
 | File | Change |
 |------|--------|
-| `tests/unit/ast-adapter.test.ts` (or new file) | Add tests for `isSatisfiesExpression`, `getSatisfiesTypeReferenceName`, `getSatisfiesTypeArgumentNames`, `getSatisfiesExpression`, `getTypeAliasConstraintConfig`. |
+| `tests/unit/ast-adapter.test.ts` (or new file) | Add tests for `isSatisfiesExpression`, `getSatisfiesTypeReferenceName`, `getSatisfiesTypeArgumentNames`, `getSatisfiesExpression`, `getTypeAliasConstraints`. |
 
 **Test approach:** Create TypeScript source strings containing the new syntax, parse them with `ts.createSourceFile`, pass through the real `ASTAdapter`, and assert correct extraction.
 
@@ -1023,14 +1023,14 @@ Example test:
 ```typescript
 it('extracts constraint config from Kind<N, Members, Constraints>', () => {
   const source = `type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;`;
-  // Parse, find the type alias, call getTypeAliasConstraintConfig
+  // Parse, find the type alias, call getTypeAliasConstraints
   // Assert: { pure: true }
 });
 
-it('recognizes satisfies InstanceConfig expression', () => {
-  const source = `export const app = { root: "src", domain: {} } satisfies InstanceConfig<CleanCtx>;`;
+it('recognizes satisfies Instance expression', () => {
+  const source = `export const app = { root: "src", domain: {} } satisfies Instance<CleanCtx>;`;
   // Parse, find the variable, check isSatisfiesExpression, extract type ref
-  // Assert: typeReferenceName === "InstanceConfig", typeArgs === ["CleanCtx"]
+  // Assert: typeReferenceName === "Instance", typeArgs === ["CleanCtx"]
 });
 ```
 
@@ -1051,13 +1051,13 @@ it('recognizes satisfies InstanceConfig expression', () => {
 type Kind<
   N extends string = string,
   Members extends Record<string, Kind> = {},
-  Constraints extends ConstraintConfig<Members> = Record<string, never>,
+  Constraints extends Constraints<Members> = Record<string, never>,
 > = {
   readonly kind: N;
   readonly location: string;
 } & Members;
 
-type ConstraintConfig<Members = Record<string, never>> = {
+type Constraints<Members = Record<string, never>> = {
   pure?: true;
   noDependency?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
   mustImplement?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
@@ -1072,7 +1072,7 @@ type MemberMap<T extends Kind> = {
       : never;
 };
 
-type InstanceConfig<T extends Kind> = { root: string } & MemberMap<T>;
+type Instance<T extends Kind> = { root: string } & MemberMap<T>;
 
 type ContractConfig<_T extends Kind = Kind> = {
   noDependency?: [string, string][];
@@ -1085,7 +1085,7 @@ type ContractConfig<_T extends Kind = Kind> = {
 
 2. Move contracts from `defineContracts<T>({...})` calls onto the Kind type's third parameter where appropriate.
 
-3. Replace `locate<T>("root", {...})` with `{ root: "root", ... } satisfies InstanceConfig<T>`.
+3. Replace `locate<T>("root", {...})` with `{ root: "root", ... } satisfies Instance<T>`.
 
 4. Replace `defineContracts<T>({...})` with `{...} as const satisfies ContractConfig<T>` (for any remaining additive contracts).
 
@@ -1172,8 +1172,8 @@ type ContractConfig<_T extends Kind = Kind> = {
 
 | File | Cells to update |
 |------|----------------|
-| `notebooks/01-quickstart.ipynb` | Update `BOILERPLATE` constant (if any), architecture.ts template in `cell-detect`, explanatory markdown cells (`cell-step1-heading`, `cell-generated-explanation`, `cell-part3-heading`), multi-instance examples in Part 2. Replace all `locate<T>()` with `satisfies InstanceConfig<T>`. Replace all `defineContracts<T>()` with type-level constraints. Update imports from `import { Kind, locate, defineContracts }` to `import type { Kind, InstanceConfig }`. |
-| `notebooks/02-contracts.ipynb` | Update `BOILERPLATE` constant. Update every demo cell (A through F) — each creates an `architecture.ts` with old syntax. Replace `locate()` with `satisfies InstanceConfig`. Replace `defineContracts()` with type-level constraints or `satisfies ContractConfig`. Update the summary cell. |
+| `notebooks/01-quickstart.ipynb` | Update `BOILERPLATE` constant (if any), architecture.ts template in `cell-detect`, explanatory markdown cells (`cell-step1-heading`, `cell-generated-explanation`, `cell-part3-heading`), multi-instance examples in Part 2. Replace all `locate<T>()` with `satisfies Instance<T>`. Replace all `defineContracts<T>()` with type-level constraints. Update imports from `import { Kind, locate, defineContracts }` to `import type { Kind, Instance }`. |
+| `notebooks/02-contracts.ipynb` | Update `BOILERPLATE` constant. Update every demo cell (A through F) — each creates an `architecture.ts` with old syntax. Replace `locate()` with `satisfies Instance`. Replace `defineContracts()` with type-level constraints or `satisfies ContractConfig`. Update the summary cell. |
 | `notebooks/04-bounded-contexts.ipynb` | Update single-instance architecture, multi-instance architecture, workaround section. This notebook documents the multi-instance binding bug — update to reflect the new contract-on-Kind approach. |
 
 **Key changes per notebook:**
@@ -1188,7 +1188,7 @@ type ContractConfig<_T extends Kind = Kind> = {
   ```
   To:
   ```typescript
-  import type { Kind, InstanceConfig } from 'kindscript';
+  import type { Kind, Instance } from 'kindscript';
   // ...
   type DomainLayer = Kind<"DomainLayer">;  // no constraints (or { pure: true })
   type CleanArchitectureContext = Kind<"CleanArchitectureContext", { ... }, {
@@ -1199,14 +1199,14 @@ type ContractConfig<_T extends Kind = Kind> = {
     domain: {},
     application: {},
     infrastructure: {},
-  } satisfies InstanceConfig<CleanArchitectureContext>;
+  } satisfies Instance<CleanArchitectureContext>;
   ```
 - `cell-generated-explanation`: Update to describe the three sections (Kind definitions with constraints, instance declaration with satisfies, no separate contracts section).
 - Standalone member and multi-instance examples: Update syntax.
 
 **02-contracts.ipynb:**
-- `BOILERPLATE` constant: Replace the entire ~30-line boilerplate with the new type definitions (ConstraintConfig, MemberMap, InstanceConfig, ContractConfig — no functions).
-- Each demo cell (A-F): Move contract declarations from `defineContracts<T>({...})` to the Kind type's third parameter. Replace `locate<T>(...)` with `satisfies InstanceConfig<T>`.
+- `BOILERPLATE` constant: Replace the entire ~30-line boilerplate with the new type definitions (Constraints, MemberMap, Instance, ContractConfig — no functions).
+- Each demo cell (A-F): Move contract declarations from `defineContracts<T>({...})` to the Kind type's third parameter. Replace `locate<T>(...)` with `satisfies Instance<T>`.
 - For purity (demo B): Use intrinsic `{ pure: true }` on DomainLayer instead of `purity: ["domain"]` in contracts.
 - Summary cell: Update the combined example and table.
 
@@ -1226,16 +1226,16 @@ type ContractConfig<_T extends Kind = Kind> = {
 
 | File | Change |
 |------|--------|
-| `README.md` | Update Quick Start section: new `architecture.ts` example with `satisfies` syntax and type-level constraints. Update "Source Layout" to mention `InstanceConfig`/`ConstraintConfig`. Remove references to `locate` and `defineContracts` functions. |
+| `README.md` | Update Quick Start section: new `architecture.ts` example with `satisfies` syntax and type-level constraints. Update "Source Layout" to mention `Instance`/`Constraints`. Remove references to `locate` and `defineContracts` functions. |
 | `CLAUDE.md` | Update "Project Overview" (version bump). Update "Directory Structure" to list new files. Update "Common Patterns" section with new test patterns. Update "Recent Changes" section. Update code examples throughout. |
-| `docs/architecture/COMPILER_ARCHITECTURE.md` | Update binder/classifier description (Phase 1 now reads third type arg, constraint propagation step added; Phase 2 matches satisfies InstanceConfig; Phase 3 matches satisfies ContractConfig). |
+| `docs/architecture/COMPILER_ARCHITECTURE.md` | Update binder/classifier description (Phase 1 now reads third type arg, constraint propagation step added; Phase 2 matches satisfies Instance; Phase 3 matches satisfies ContractConfig). |
 | `docs/architecture/DESIGN_DECISIONS.md` | Add decision record for: contracts on Kind type (B+C), satisfies syntax (Option A from RUNTIME_MARKERS_OPTIONS), constraint propagation (D1). |
 | `docs/architecture/BUILD_PLAN.md` | Add new milestone for the redesign. |
 | `docs/status/DONE_VS_TODO.md` | Update Phase 2 (classifier description). Add new section for contracts-on-Kind-type redesign. |
 | `docs/status/CODEBASE_REVIEW.md` | Update any references to locate/defineContracts as areas of concern. |
 | `docs/status/CLEANUP_PLAN.md` | Mark the redesign as complete. Remove any cleanup items related to old syntax. |
 | `docs/README.md` | Add `CONTRACTS_AND_LOCATION_REDESIGN_V2.md` to the design docs listing. Add `RUNTIME_MARKERS_OPTIONS.md` to the listing (if not already). |
-| `tests/README.md` | Update test patterns — new mock methods (`withSatisfiesInstanceConfig`, `withSatisfiesContractConfig`). Update example code. |
+| `tests/README.md` | Update test patterns — new mock methods (`withSatisfiesInstance`, `withSatisfiesContractConfig`). Update example code. |
 | `tests/integration/fixtures/README.md` | Update fixture catalog — note that all fixtures use the new syntax. Update the boilerplate description. |
 
 **Docs to archive:**
@@ -1295,7 +1295,7 @@ cat dist/index.js
 
 | Step | Description | Files | Risk |
 |------|-------------|-------|------|
-| 1 | Add ConstraintConfig + Kind third param | 1 | Low |
+| 1 | Add Constraints + Kind third param | 1 | Low |
 | 2 | Replace locate/defineContracts with types | 3 | Medium (breaking) |
 | 3 | Add satisfies methods to AST port | 1 | Low |
 | 4 | Implement satisfies in real AST adapter | 1 | Medium (TS compiler API) |

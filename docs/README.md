@@ -6,7 +6,7 @@
 |---|---------|-------------|
 | 1 | [Architecture](01-architecture.md) | System overview, compiler pipeline, layers, data flow, source layout |
 | 2 | [Kind System](02-kind-system.md) | Kind syntax, instances, location derivation, MemberMap, discovery |
-| 3 | [Contracts](03-contracts.md) | All 6 contract types, plugin architecture, ConstraintConfig |
+| 3 | [Constraints](03-constraints.md) | All 6 constraint types, plugin architecture, Constraints |
 | 4 | [Decisions](04-decisions.md) | Key decisions log (Build/Wrap/Skip, plugin vs LSP, drop .k.ts, etc.) |
 | 5 | [Examples](05-examples.md) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
 
@@ -21,7 +21,7 @@
 
 **Implementing a feature:**
 1. [01-architecture.md](01-architecture.md) — relevant section
-2. [03-contracts.md](03-contracts.md) — if adding/modifying contracts
+2. [03-constraints.md](03-constraints.md) — if adding/modifying constraints
 3. [tests/README.md](../tests/README.md) — testing guide
 
 **Understanding a decision:**
@@ -35,8 +35,8 @@
 |----------|---------|
 | How does the pipeline work? | [01-architecture.md](01-architecture.md) — Compiler Pipeline |
 | How do I define a Kind? | [02-kind-system.md](02-kind-system.md) — Kind Definitions |
-| What contracts are available? | [03-contracts.md](03-contracts.md) — Contract Types |
-| How do I add a new contract? | [03-contracts.md](03-contracts.md) — Adding a New Contract Type |
+| What constraints are available? | [03-constraints.md](03-constraints.md) — Constraint Types |
+| How do I add a new constraint? | [03-constraints.md](03-constraints.md) — Adding a New Constraint Type |
 | Why plugin instead of LSP? | [04-decisions.md](04-decisions.md) — D1 |
 | Why no .k.ts extension? | [04-decisions.md](04-decisions.md) — D9 |
 | How do I model a design system? | [05-examples.md](05-examples.md) — Design System |
@@ -51,7 +51,7 @@ docs/                                Source of truth (checked in)
 ├── README.md                        This file (index)
 ├── 01-architecture.md               System overview + pipeline + layers
 ├── 02-kind-system.md                Kind syntax + instances + discovery
-├── 03-contracts.md                  All 6 contracts + plugin architecture
+├── 03-constraints.md                All 6 constraints + plugin architecture
 ├── 04-decisions.md                  Key decisions log
 ├── 05-examples.md                   Real-world modeling examples
 └── archive/                         Historical — do not use for implementation
@@ -82,7 +82,7 @@ Active design explorations and scratch documents live in `.working/` at the proj
 
 ## Contributing
 
-- **Update chapter files** when architectural decisions or contracts change
+- **Update chapter files** when architectural decisions or constraints change
 - **Add new decisions** as numbered entries in `04-decisions.md`
 - **Use `.working/`** for design explorations (not checked in)
 - **Uplift findings** from `.working/` into chapters when done, then archive the working doc

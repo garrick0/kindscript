@@ -58,7 +58,7 @@ src/application/use-cases/check-contracts/
 | Domain | `diagnostic.ts` | Factory methods (one per violation type) |
 | Domain | `diagnostic-codes.ts` | Flat constants |
 | Application | `classify-ast.service.ts` | `CONSTRAINT_BINDINGS` map + `walkConstraintView()` — data-driven conversion of `TypeNodeView` constraints into `Contract[]` |
-| Runtime | `kind.ts` | `ConstraintConfig<Members>` — the user-facing type |
+| Runtime | `kind.ts` | `Constraints<Members>` — the user-facing type |
 | Port | `ast.port.ts` | `ASTViewPort` (2 methods), `TypeNodeView` — structural view of constraint type trees |
 
 ---
