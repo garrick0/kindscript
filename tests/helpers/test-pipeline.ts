@@ -1,13 +1,15 @@
-import { ClassifyASTService } from '../../src/application/classification/classify-ast/classify-ast.service';
-import { CheckContractsService } from '../../src/application/enforcement/check-contracts/check-contracts.service';
-import { createAllPlugins } from '../../src/application/enforcement/check-contracts/plugin-registry';
+import { ScanService } from '../../src/application/pipeline/scan/scan.service';
+import { ParseService } from '../../src/application/pipeline/parse/parse.service';
+import { BindService } from '../../src/application/pipeline/bind/bind.service';
+import { CheckerService } from '../../src/application/pipeline/check/checker.service';
+import { CheckerResponse } from '../../src/application/pipeline/check/checker.response';
+import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
 import { TypeScriptAdapter } from '../../src/infrastructure/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../../src/infrastructure/filesystem/filesystem.adapter';
 import { ASTAdapter } from '../../src/infrastructure/ast/ast.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/config/config.adapter';
-import { ClassifyASTResponse } from '../../src/application/classification/classify-ast/classify-ast.types';
-import { CheckContractsResponse } from '../../src/application/enforcement/check-contracts/check-contracts.response';
-import { resolveSymbolFiles } from '../../src/application/services/resolve-symbol-files';
+import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
+import { Contract } from '../../src/domain/entities/contract';
 
 /**
  * Standard integration test services
@@ -17,8 +19,10 @@ export interface TestPipeline {
   fsAdapter: FileSystemAdapter;
   astAdapter: ASTAdapter;
   configAdapter: ConfigAdapter;
-  classifyService: ClassifyASTService;
-  checkService: CheckContractsService;
+  scanService: ScanService;
+  parseService: ParseService;
+  bindService: BindService;
+  checkService: CheckerService;
 }
 
 /**
@@ -30,26 +34,44 @@ export function createTestPipeline(): TestPipeline {
   const astAdapter = new ASTAdapter();
   const configAdapter = new ConfigAdapter(fsAdapter);
   const plugins = createAllPlugins();
-  const classifyService = new ClassifyASTService(astAdapter, plugins);
-  const checkService = new CheckContractsService(plugins, tsAdapter);
+  const scanService = new ScanService(astAdapter);
+  const parseService = new ParseService(fsAdapter);
+  const bindService = new BindService(plugins);
+  const checkService = new CheckerService(plugins, tsAdapter);
 
   return {
     tsAdapter,
     fsAdapter,
     astAdapter,
     configAdapter,
-    classifyService,
+    scanService,
+    parseService,
+    bindService,
     checkService,
   };
 }
 
 /**
- * Run the full classify + check pipeline on a fixture
+ * Result of running the full pipeline on a fixture.
+ */
+export interface FullPipelineResult {
+  symbols: ArchSymbol[];
+  contracts: Contract[];
+  instanceTypeNames: Map<string, string>;
+  classificationErrors: string[];
+  checkResult: CheckerResponse;
+}
+
+/**
+ * Run the full scan → parse → bind → check pipeline on a fixture.
+ *
+ * This is the classify + check result combined, matching the old
+ * runFullPipeline return shape for backward compatibility.
  */
 export function runFullPipeline(
   pipeline: TestPipeline,
   fixturePath: string
-): { classifyResult: ClassifyASTResponse; checkResult: CheckContractsResponse } {
+): { classifyResult: { symbols: ArchSymbol[]; contracts: Contract[]; instanceTypeNames: Map<string, string>; errors: string[] }; checkResult: CheckerResponse } {
   const allFiles = pipeline.fsAdapter.readDirectory(fixturePath, true);
 
   if (allFiles.length === 0) {
@@ -67,20 +89,30 @@ export function runFullPipeline(
     throw new Error(`Could not load any source files in: ${fixturePath}`);
   }
 
-  const classifyResult = pipeline.classifyService.execute({
-    definitionFiles: sourceFiles,
-    checker,
-    projectRoot: fixturePath,
-  });
+  // Stage 1: Scan
+  const scanResult = pipeline.scanService.execute({ sourceFiles, checker });
 
-  const resolvedFiles = resolveSymbolFiles(classifyResult.symbols, pipeline.fsAdapter);
+  // Stage 2: Parse
+  const parseResult = pipeline.parseService.execute(scanResult);
 
+  // Stage 3: Bind
+  const bindResult = pipeline.bindService.execute(parseResult);
+
+  // Combined classify result (convenience shape for test assertions)
+  const classifyResult = {
+    symbols: parseResult.symbols,
+    contracts: bindResult.contracts,
+    instanceTypeNames: parseResult.instanceTypeNames,
+    errors: [...scanResult.errors, ...parseResult.errors, ...bindResult.errors],
+  };
+
+  // Stage 4: Check
   const checkResult = pipeline.checkService.execute({
-    symbols: classifyResult.symbols,
-    contracts: classifyResult.contracts,
+    symbols: parseResult.symbols,
+    contracts: bindResult.contracts,
     config: {},
     program,
-    resolvedFiles,
+    resolvedFiles: parseResult.resolvedFiles,
   });
 
   return { classifyResult, checkResult };

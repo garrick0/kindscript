@@ -77,6 +77,10 @@ export class MockFileSystemAdapter implements FileSystemPort {
     return this.directories.has(path);
   }
 
+  fileExists(path: string): boolean {
+    return this.files.has(path);
+  }
+
   readFile(path: string): string | undefined {
     return this.files.get(path);
   }

@@ -3,7 +3,7 @@
  * Billing bounded context.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type BillingDomain = Kind<"BillingDomain">;
 export type BillingAdapters = Kind<"BillingAdapters">;
@@ -18,4 +18,4 @@ export type BillingContext = Kind<"BillingContext", {
 export const billing = {
   domain: {},
   adapters: {},
-} satisfies InstanceConfig<BillingContext>;
+} satisfies Instance<BillingContext>;

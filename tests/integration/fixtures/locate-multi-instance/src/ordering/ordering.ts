@@ -3,7 +3,7 @@
  * Ordering bounded context.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type OrderingDomain = Kind<"OrderingDomain">;
 export type OrderingInfra = Kind<"OrderingInfra">;
@@ -18,4 +18,4 @@ export type OrderingContext = Kind<"OrderingContext", {
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<OrderingContext>;
+} satisfies Instance<OrderingContext>;

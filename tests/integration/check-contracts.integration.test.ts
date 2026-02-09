@@ -1,16 +1,16 @@
 import * as path from 'path';
-import { RunPipelineService } from '../../src/application/enforcement/run-pipeline/run-pipeline.service';
+import { PipelineService } from '../../src/application/pipeline/pipeline.service';
+import { ProgramFactory } from '../../src/application/pipeline/program';
 import { GetPluginDiagnosticsService } from '../../src/apps/plugin/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
 import { createTestPipeline, runFullPipeline } from '../helpers/test-pipeline';
 import { FIXTURES } from '../helpers/fixtures';
 import { FileSystemAdapter } from '../../src/infrastructure/filesystem/filesystem.adapter';
 import { ConfigAdapter } from '../../src/infrastructure/config/config.adapter';
-import { ClassifyProjectService } from '../../src/application/classification/classify-project/classify-project.service';
 
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
 
 describe('Check Contracts Integration Tests', () => {
-  describe('CheckContractsService', () => {
+  describe('CheckerService', () => {
     it('detects violation in clean-arch-violation fixture', () => {
       const { classifyResult, checkResult } = runFullPipeline(
         createTestPipeline(),
@@ -47,10 +47,18 @@ describe('Check Contracts Integration Tests', () => {
 
     beforeEach(() => {
       const pipeline = createTestPipeline();
-      const classifyProject = new ClassifyProjectService(
-        pipeline.configAdapter, pipeline.fsAdapter, pipeline.tsAdapter, pipeline.classifyService);
-      const runPipeline = new RunPipelineService(classifyProject, pipeline.checkService, pipeline.fsAdapter);
-      pluginService = new GetPluginDiagnosticsService(runPipeline);
+      const programFactory = new ProgramFactory(
+        pipeline.configAdapter, pipeline.fsAdapter, pipeline.tsAdapter,
+      );
+      const pipelineService = new PipelineService(
+        programFactory,
+        pipeline.fsAdapter,
+        pipeline.scanService,
+        pipeline.parseService,
+        pipeline.bindService,
+        pipeline.checkService,
+      );
+      pluginService = new GetPluginDiagnosticsService(pipelineService);
     });
 
     it('detects violation via plugin diagnostics service', () => {

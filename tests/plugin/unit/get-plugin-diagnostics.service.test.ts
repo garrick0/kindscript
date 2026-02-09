@@ -1,83 +1,48 @@
 import { GetPluginDiagnosticsService } from '../../../src/apps/plugin/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
-import { CheckContractsService } from '../../../src/application/enforcement/check-contracts/check-contracts.service';
-import { createAllPlugins } from '../../../src/application/enforcement/check-contracts/plugin-registry';
-import { RunPipelineService } from '../../../src/application/enforcement/run-pipeline/run-pipeline.service';
-import { ClassifyProjectUseCase } from '../../../src/application/classification/classify-project/classify-project.use-case';
-import { ClassifyProjectResult } from '../../../src/application/classification/classify-project/classify-project.types';
-import { MockFileSystemAdapter } from '../../helpers/mocks/mock-filesystem.adapter';
-import { MockTypeScriptAdapter } from '../../helpers/mocks/mock-typescript.adapter';
-import { ContractType } from '../../../src/domain/types/contract-type';
-import { ArchSymbol } from '../../../src/domain/entities/arch-symbol';
-import { ArchSymbolKind } from '../../../src/domain/types/arch-symbol-kind';
-import { Contract } from '../../../src/domain/entities/contract';
-import { Program } from '../../../src/domain/entities/program';
+import { PipelineUseCase, PipelineResponse } from '../../../src/application/pipeline/pipeline.types';
+import { Diagnostic } from '../../../src/domain/entities/diagnostic';
 
 describe('GetPluginDiagnosticsService', () => {
-  let mockFS: MockFileSystemAdapter;
-  let mockTS: MockTypeScriptAdapter;
-  let checkContracts: CheckContractsService;
-  let mockClassifyProject: ClassifyProjectUseCase;
+  let mockPipeline: PipelineUseCase;
   let service: GetPluginDiagnosticsService;
 
-  const domainSymbol = new ArchSymbol('domain', ArchSymbolKind.Member, '/project/src/domain');
-  const infraSymbol = new ArchSymbol('infrastructure', ArchSymbolKind.Member, '/project/src/infrastructure');
+  function makeDiagnostic(file: string, code: number, message: string): Diagnostic {
+    return new Diagnostic(message, code, file, 1, 0);
+  }
 
-  const noDependencyContract = new Contract(
-    ContractType.NoDependency,
-    'noDependency(domain -> infrastructure)',
-    [domainSymbol, infraSymbol],
-    '/project/src/context.ts',
-  );
-
-  function makeSuccessResult(overrides?: Partial<Extract<ClassifyProjectResult, { ok: true }>>): ClassifyProjectResult {
-    const rootFiles = overrides?.rootFiles ?? [
-      '/project/src/domain/service.ts',
-      '/project/src/infrastructure/database.ts',
-    ];
+  function makeSuccessResponse(overrides?: Partial<Extract<PipelineResponse, { ok: true }>>): PipelineResponse {
     return {
       ok: true,
-      symbols: [domainSymbol, infraSymbol],
-      contracts: [noDependencyContract],
+      diagnostics: [],
+      contractsChecked: 0,
+      filesAnalyzed: 0,
       classificationErrors: [],
-      instanceTypeNames: new Map(),
-      program: new Program(rootFiles, {}),
-      rootFiles,
-      config: {},
       ...overrides,
     };
   }
 
   function createService(): GetPluginDiagnosticsService {
-    const runPipeline = new RunPipelineService(mockClassifyProject, checkContracts, mockFS);
-    return new GetPluginDiagnosticsService(runPipeline);
+    return new GetPluginDiagnosticsService(mockPipeline);
   }
 
   beforeEach(() => {
-    mockFS = new MockFileSystemAdapter();
-    mockTS = new MockTypeScriptAdapter();
-    checkContracts = new CheckContractsService(createAllPlugins(), mockTS);
-
-    mockClassifyProject = {
-      execute: jest.fn().mockReturnValue(makeSuccessResult()),
+    mockPipeline = {
+      execute: jest.fn().mockReturnValue(makeSuccessResponse()),
     };
 
     service = createService();
   });
 
   it('returns diagnostics for a file violating noDependency contract', () => {
-    mockFS
-      .withFile('/project/src/domain/service.ts', 'import { db } from "../infrastructure/database";')
-      .withFile('/project/src/infrastructure/database.ts', 'export const db = {};');
-
-    mockTS
-      .withSourceFile('/project/src/domain/service.ts', 'import { db } from "../infrastructure/database";')
-      .withSourceFile('/project/src/infrastructure/database.ts', 'export const db = {};')
-      .withImport(
-        '/project/src/domain/service.ts',
-        '/project/src/infrastructure/database.ts',
-        '../infrastructure/database',
-        1, 0
-      );
+    const diag = makeDiagnostic('/project/src/domain/service.ts', 70001, 'Forbidden dependency');
+    mockPipeline = {
+      execute: jest.fn().mockReturnValue(makeSuccessResponse({
+        diagnostics: [diag],
+        contractsChecked: 1,
+        filesAnalyzed: 2,
+      })),
+    };
+    service = createService();
 
     const result = service.execute({
       fileName: '/project/src/domain/service.ts',
@@ -90,19 +55,10 @@ describe('GetPluginDiagnosticsService', () => {
   });
 
   it('returns empty diagnostics for a file with no violations', () => {
-    mockFS
-      .withFile('/project/src/domain/entity.ts', 'export class Entity {}')
-      .withFile('/project/src/infrastructure/database.ts', 'export const db = {};');
-
-    mockTS
-      .withSourceFile('/project/src/domain/entity.ts', 'export class Entity {}')
-      .withSourceFile('/project/src/infrastructure/database.ts', 'export const db = {};');
-
-    mockClassifyProject = {
-      execute: jest.fn().mockReturnValue(makeSuccessResult({
-        rootFiles: [
-          '/project/src/domain/entity.ts',
-          '/project/src/infrastructure/database.ts',
+    mockPipeline = {
+      execute: jest.fn().mockReturnValue(makeSuccessResponse({
+        diagnostics: [
+          makeDiagnostic('/project/src/domain/service.ts', 70001, 'Forbidden dependency'),
         ],
       })),
     };
@@ -116,8 +72,8 @@ describe('GetPluginDiagnosticsService', () => {
     expect(result.diagnostics).toHaveLength(0);
   });
 
-  it('returns empty diagnostics when classify returns error', () => {
-    mockClassifyProject = {
+  it('returns empty diagnostics when pipeline returns error', () => {
+    mockPipeline = {
       execute: jest.fn().mockReturnValue({ ok: false, error: 'No Kind definitions found in the project.' }),
     };
     service = createService();
@@ -131,8 +87,8 @@ describe('GetPluginDiagnosticsService', () => {
   });
 
   it('returns empty when no contracts found', () => {
-    mockClassifyProject = {
-      execute: jest.fn().mockReturnValue(makeSuccessResult({ contracts: [] })),
+    mockPipeline = {
+      execute: jest.fn().mockReturnValue(makeSuccessResponse({ diagnostics: [] })),
     };
     service = createService();
 
@@ -154,28 +110,10 @@ describe('GetPluginDiagnosticsService', () => {
   });
 
   it('filters diagnostics to only those relevant to the requested file', () => {
-    mockFS
-      .withFile('/project/src/domain/service.ts', '')
-      .withFile('/project/src/domain/entity.ts', '')
-      .withFile('/project/src/infrastructure/database.ts', '');
-
-    mockTS
-      .withSourceFile('/project/src/domain/service.ts', '')
-      .withSourceFile('/project/src/domain/entity.ts', '')
-      .withSourceFile('/project/src/infrastructure/database.ts', '')
-      .withImport(
-        '/project/src/domain/service.ts',
-        '/project/src/infrastructure/database.ts',
-        '../infrastructure/database',
-        1, 0
-      );
-
-    mockClassifyProject = {
-      execute: jest.fn().mockReturnValue(makeSuccessResult({
-        rootFiles: [
-          '/project/src/domain/service.ts',
-          '/project/src/domain/entity.ts',
-          '/project/src/infrastructure/database.ts',
+    mockPipeline = {
+      execute: jest.fn().mockReturnValue(makeSuccessResponse({
+        diagnostics: [
+          makeDiagnostic('/project/src/domain/service.ts', 70001, 'Forbidden dependency'),
         ],
       })),
     };
@@ -186,7 +124,6 @@ describe('GetPluginDiagnosticsService', () => {
       fileName: '/project/src/domain/entity.ts',
       projectRoot: '/project',
     });
-
     expect(result.diagnostics).toHaveLength(0);
 
     // Check service.ts — should have diagnostics
@@ -194,20 +131,19 @@ describe('GetPluginDiagnosticsService', () => {
       fileName: '/project/src/domain/service.ts',
       projectRoot: '/project',
     });
-
     expect(result2.diagnostics).toHaveLength(1);
   });
 
-  it('delegates to classifyProject on each call (caching is in ClassifyProjectService)', () => {
+  it('delegates to pipeline on each call (caching is in PipelineService)', () => {
     service.execute({ fileName: '/project/src/domain/service.ts', projectRoot: '/project' });
     service.execute({ fileName: '/project/src/domain/service.ts', projectRoot: '/project' });
 
-    // ClassifyProject is called every time — it handles its own caching internally
-    expect(mockClassifyProject.execute).toHaveBeenCalledTimes(2);
+    // Pipeline is called every time — it handles its own caching internally
+    expect(mockPipeline.execute).toHaveBeenCalledTimes(2);
   });
 
   it('catches errors and returns empty diagnostics', () => {
-    mockClassifyProject = {
+    mockPipeline = {
       execute: jest.fn().mockImplementation(() => {
         throw new Error('Internal error');
       }),

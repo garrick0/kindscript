@@ -26,7 +26,7 @@ export const FIXTURES = {
   MIRRORS_CLEAN: path.join(FIXTURES_BASE, 'mirrors-clean'),
   MIRRORS_VIOLATION: path.join(FIXTURES_BASE, 'mirrors-violation'),
 
-  // InstanceConfig<T> feature fixtures
+  // Instance<T> feature fixtures
   LOCATE_CLEAN_ARCH: path.join(FIXTURES_BASE, 'locate-clean-arch'),
   LOCATE_VIOLATION: path.join(FIXTURES_BASE, 'locate-violation'),
   LOCATE_EXISTENCE: path.join(FIXTURES_BASE, 'locate-existence'),

@@ -3,7 +3,7 @@
  * The "infrastructure" member derives path "src/infrastructure" which does NOT exist.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type DomainLayer = Kind<"DomainLayer">;
 
@@ -23,4 +23,4 @@ export type CleanContext = Kind<"CleanContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;

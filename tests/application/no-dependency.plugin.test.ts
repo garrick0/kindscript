@@ -1,5 +1,5 @@
-import { noDependencyPlugin } from '../../src/application/enforcement/check-contracts/no-dependency/no-dependency.plugin';
-import { CheckContext } from '../../src/application/enforcement/check-contracts/contract-plugin';
+import { noDependencyPlugin } from '../../src/application/pipeline/plugins/no-dependency/no-dependency.plugin';
+import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
 import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';

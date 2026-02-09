@@ -1,15 +1,7 @@
 import * as path from 'path';
 import { CheckCommand } from '../../../src/apps/cli/commands/check.command';
-import { CheckContractsService } from '../../../src/application/enforcement/check-contracts/check-contracts.service';
-import { createAllPlugins } from '../../../src/application/enforcement/check-contracts/plugin-registry';
-import { RunPipelineService } from '../../../src/application/enforcement/run-pipeline/run-pipeline.service';
-import { ClassifyASTService } from '../../../src/application/classification/classify-ast/classify-ast.service';
-import { ClassifyProjectService } from '../../../src/application/classification/classify-project/classify-project.service';
-import { TypeScriptAdapter } from '../../../src/infrastructure/typescript/typescript.adapter';
-import { FileSystemAdapter } from '../../../src/infrastructure/filesystem/filesystem.adapter';
-import { ConfigAdapter } from '../../../src/infrastructure/config/config.adapter';
+import { createEngine } from '../../../src/infrastructure/engine-factory';
 import { CLIDiagnosticAdapter } from '../../../src/apps/cli/adapters/cli-diagnostic.adapter';
-import { ASTAdapter } from '../../../src/infrastructure/ast/ast.adapter';
 import { ConsolePort } from '../../../src/apps/cli/ports/console.port';
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', '..', 'integration', 'fixtures');
@@ -31,20 +23,10 @@ describe('CLI E2E Tests', () => {
   });
 
   function createCheckCommand(mockConsole?: ConsolePort): CheckCommand {
-    const tsAdapter = new TypeScriptAdapter();
-    const fsAdapter = new FileSystemAdapter();
-    const configAdapter = new ConfigAdapter(fsAdapter);
+    const engine = createEngine();
     const diagnosticAdapter = new CLIDiagnosticAdapter((msg) => captured.push(msg));
-    const astAdapter = new ASTAdapter();
-
-    const plugins = createAllPlugins();
-    const classifyAST = new ClassifyASTService(astAdapter, plugins);
-    const classifyProject = new ClassifyProjectService(configAdapter, fsAdapter, tsAdapter, classifyAST);
-    const checkContracts = new CheckContractsService(plugins, tsAdapter);
-    const runPipeline = new RunPipelineService(classifyProject, checkContracts, fsAdapter);
-
     const console = mockConsole ?? createMockConsole();
-    return new CheckCommand(runPipeline, diagnosticAdapter, console);
+    return new CheckCommand(engine.pipeline, diagnosticAdapter, console);
   }
 
   it('returns exit code 1 for project with violations', () => {

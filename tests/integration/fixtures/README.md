@@ -78,13 +78,13 @@ Each contract type has dedicated fixtures.
 
 ---
 
-### InstanceConfig<T> Feature Fixtures
+### Instance<T> Feature Fixtures
 Test the location derivation mechanism.
 
 | Fixture | Purpose | Tests |
 |---------|---------|-------|
-| `locate-clean-arch` | Basic InstanceConfig with derived locations | Member location derivation |
-| `locate-violation` | InstanceConfig with contract violation | noDependency on derived paths |
+| `locate-clean-arch` | Basic Instance with derived locations | Member location derivation |
+| `locate-violation` | Instance with contract violation | noDependency on derived paths |
 | `locate-existence` | Tests existence checking for derived locations | Missing derived location diagnostic |
 | `locate-nested` | Multi-level Kind tree | Nested member path derivation (src/domain/entities) |
 | `locate-standalone-member` | Standalone variable references | Variable resolution in instance members |
@@ -116,7 +116,7 @@ Tests the atomic design pattern with `.tsx` files.
 fixture-name/
 ├── tsconfig.json          # TypeScript config
 └── src/                   # Source code
-    ├── context.ts         # Kind definitions + InstanceConfig (root = src/)
+    ├── context.ts         # Kind definitions + Instance (root = src/)
     ├── domain/
     │   ├── entity.ts
     │   └── service.ts

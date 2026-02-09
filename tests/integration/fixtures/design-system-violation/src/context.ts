@@ -3,7 +3,7 @@
  * Same model as design-system-clean, but atoms/Button.tsx imports from organisms.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type Atoms = Kind<"Atoms">;
 export type Molecules = Kind<"Molecules">;
@@ -31,4 +31,4 @@ export const ui = {
   molecules: {},
   organisms: {},
   pages: {},
-} satisfies InstanceConfig<DesignSystem>;
+} satisfies Instance<DesignSystem>;

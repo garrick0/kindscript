@@ -1,8 +1,8 @@
 /**
- * Architectural kind definitions using satisfies InstanceConfig<T> syntax -- with a violation.
+ * Architectural kind definitions using satisfies Instance<T> syntax -- with a violation.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type DomainLayer = Kind<"DomainLayer">;
 
@@ -18,4 +18,4 @@ export type CleanContext = Kind<"CleanContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;

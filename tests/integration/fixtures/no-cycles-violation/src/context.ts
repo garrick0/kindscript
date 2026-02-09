@@ -1,4 +1,4 @@
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type DomainLayer = Kind<"DomainLayer">;
 
@@ -14,4 +14,4 @@ export type AppContext = Kind<"AppContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<AppContext>;
+} satisfies Instance<AppContext>;

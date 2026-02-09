@@ -3,7 +3,7 @@
  * The domain member is declared as a standalone variable, then referenced by identifier.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type DomainLayer = Kind<"DomainLayer">;
 
@@ -18,4 +18,4 @@ const domainConfig = {};
 
 export const app = {
   domain: domainConfig,
-} satisfies InstanceConfig<AppContext>;
+} satisfies Instance<AppContext>;

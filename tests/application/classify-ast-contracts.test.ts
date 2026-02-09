@@ -1,6 +1,9 @@
-import { ClassifyASTService } from '../../src/application/classification/classify-ast/classify-ast.service';
+import { ScanService } from '../../src/application/pipeline/scan/scan.service';
+import { ParseService } from '../../src/application/pipeline/parse/parse.service';
+import { BindService } from '../../src/application/pipeline/bind/bind.service';
 import { MockASTAdapter } from '../helpers/mocks/mock-ast.adapter';
-import { createAllPlugins } from '../../src/application/enforcement/check-contracts/plugin-registry';
+import { MockFileSystemAdapter } from '../helpers/mocks/mock-filesystem.adapter';
+import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
 import { ContractType } from '../../src/domain/types/contract-type';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.port';
@@ -8,13 +11,29 @@ import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.
 const mockChecker = {} as TypeChecker;
 const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
 
-describe('ClassifyASTService - Contract Parsing', () => {
-  let service: ClassifyASTService;
+/** Helper: run scan → parse → bind and return combined result */
+function classify(mockAST: MockASTAdapter, files: SourceFile[]) {
+  const scanner = new ScanService(mockAST);
+  const parser = new ParseService(new MockFileSystemAdapter());
+  const binder = new BindService(createAllPlugins());
+
+  const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
+  const parseResult = parser.execute(scanResult);
+  const bindResult = binder.execute(parseResult);
+
+  return {
+    symbols: parseResult.symbols,
+    contracts: bindResult.contracts,
+    instanceTypeNames: parseResult.instanceTypeNames,
+    errors: [...scanResult.errors, ...parseResult.errors, ...bindResult.errors],
+  };
+}
+
+describe('Pipeline - Contract Parsing', () => {
   let mockAST: MockASTAdapter;
 
   beforeEach(() => {
     mockAST = new MockASTAdapter();
-    service = new ClassifyASTService(mockAST, createAllPlugins());
   });
 
   afterEach(() => {
@@ -41,11 +60,7 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.contracts).toHaveLength(1);
       expect(result.contracts[0].type).toBe(ContractType.NoDependency);
@@ -70,11 +85,7 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'ports' }, { name: 'adapters' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.contracts).toHaveLength(1);
       expect(result.contracts[0].type).toBe(ContractType.MustImplement);
@@ -99,11 +110,7 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.contracts).toHaveLength(1);
       expect(result.contracts[0].type).toBe(ContractType.NoCycles);
@@ -129,11 +136,7 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       const purityContracts = result.contracts.filter(c => c.type === ContractType.Purity);
       expect(purityContracts).toHaveLength(1);
@@ -159,11 +162,7 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       const existsContracts = result.contracts.filter(c => c.type === ContractType.Exists);
       expect(existsContracts).toHaveLength(1);
@@ -191,11 +190,7 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'components' }, { name: 'tests' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       const mirrorsContracts = result.contracts.filter(c => c.type === ContractType.Mirrors);
       expect(mirrorsContracts).toHaveLength(1);
@@ -231,14 +226,10 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [
-          sourceFile('/project/src/ordering/ordering.ts'),
-          sourceFile('/project/src/billing/billing.ts'),
-        ],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [
+        sourceFile('/project/src/ordering/ordering.ts'),
+        sourceFile('/project/src/billing/billing.ts'),
+      ]);
 
       // Both instances should be classified
       const instances = result.symbols.filter(s => s.kind === ArchSymbolKind.Instance);
@@ -282,14 +273,10 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [
-          sourceFile('/project/src/ordering/ordering.ts'),
-          sourceFile('/project/src/billing/billing.ts'),
-        ],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [
+        sourceFile('/project/src/ordering/ordering.ts'),
+        sourceFile('/project/src/billing/billing.ts'),
+      ]);
 
       // Both instances should get purity contracts for their domain member
       const purityContracts = result.contracts.filter(c => c.type === ContractType.Purity);
@@ -327,14 +314,10 @@ describe('ClassifyASTService - Contract Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [
-          sourceFile('/project/src/a/a.ts'),
-          sourceFile('/project/src/b/b.ts'),
-        ],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [
+        sourceFile('/project/src/a/a.ts'),
+        sourceFile('/project/src/b/b.ts'),
+      ]);
 
       const noCyclesContracts = result.contracts.filter(c => c.type === ContractType.NoCycles);
       expect(noCyclesContracts).toHaveLength(2);

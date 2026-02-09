@@ -5,14 +5,14 @@
 This directory contains the complete test suite for KindScript, organized to mirror the source directory structure:
 
 - **Domain Tests** (`tests/domain/`) - Pure domain entity tests
-- **Application Tests** (`tests/application/`) - Classification and enforcement service tests
+- **Application Tests** (`tests/application/`) - Pipeline stage and contract plugin tests
 - **Infrastructure Tests** (`tests/infrastructure/`) - Shared adapter tests
 - **CLI Tests** (`tests/cli/`) - CLI command tests (unit + E2E)
 - **Plugin Tests** (`tests/plugin/`) - Plugin service tests
 - **Integration Tests** (`tests/integration/`) - Multi-component tests with real I/O
 - **Helpers** (`tests/helpers/`) - Shared utilities, factories, mocks
 
-**Current Stats:** 29 test files, 277 tests, 100% passing
+**Current Stats:** 29 test files, 276 tests, 100% passing
 
 ---
 
@@ -110,8 +110,8 @@ npm test -- tests/integration
 | What are you testing? | Where |
 |-----------------------|-------|
 | Domain entity / value object | `tests/domain/` |
-| Classification service (classify-ast, classify-project) | `tests/application/` |
-| Enforcement plugin (contract checker) | `tests/application/` |
+| Pipeline stage service (scan, parse, bind, pipeline) | `tests/application/` |
+| Contract plugin (checker) | `tests/application/` |
 | Shared infrastructure adapter | `tests/infrastructure/` |
 | CLI command or CLI adapter | `tests/cli/unit/` |
 | Plugin service or plugin adapter | `tests/plugin/unit/` |
@@ -166,12 +166,12 @@ const result = run(['check', '/path/to/project']);
 
 ---
 
-## Adding New Contract Types
+## Adding New Constraint Types
 
 1. **Domain layer** - Add contract type to `src/domain/types/contract-type.ts`
 2. **Domain layer** - Add diagnostic code to `src/domain/constants/diagnostic-codes.ts`
-3. **Application layer** - Create plugin in `src/application/enforcement/check-contracts/<name>/<name>.plugin.ts`
-4. **Application layer** - Register plugin in `plugin-registry.ts` (`createAllPlugins()`)
+3. **Application layer** - Create plugin in `src/application/pipeline/plugins/<name>/<name>.plugin.ts`
+4. **Application layer** - Register plugin in `src/application/pipeline/plugins/plugin-registry.ts` (`createAllPlugins()`)
 5. **Tests** - Add unit tests in `tests/application/<name>.plugin.test.ts`
 6. **Tests** - Add integration tests in `tests/integration/tier2-contracts.integration.test.ts`
 7. **Fixtures** - Create clean + violation fixtures in `tests/integration/fixtures/`

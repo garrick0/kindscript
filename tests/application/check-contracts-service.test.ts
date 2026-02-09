@@ -1,5 +1,5 @@
-import { CheckContractsService } from '../../src/application/enforcement/check-contracts/check-contracts.service';
-import { createAllPlugins } from '../../src/application/enforcement/check-contracts/plugin-registry';
+import { CheckerService } from '../../src/application/pipeline/check/checker.service';
+import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
 import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ContractType } from '../../src/domain/types/contract-type';
 import { Contract } from '../../src/domain/entities/contract';
@@ -9,13 +9,33 @@ import {
   noDependency,
 } from '../helpers/factories';
 
-describe('CheckContractsService - Dispatcher', () => {
-  let service: CheckContractsService;
+describe('Plugin Registry - Uniqueness', () => {
+  it('all plugins have unique constraintNames', () => {
+    const plugins = createAllPlugins();
+    const names = plugins.map(p => p.constraintName);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('all plugins have unique ContractTypes', () => {
+    const plugins = createAllPlugins();
+    const types = plugins.map(p => p.type);
+    expect(new Set(types).size).toBe(types.length);
+  });
+
+  it('all plugins have unique diagnostic codes', () => {
+    const plugins = createAllPlugins();
+    const codes = plugins.map(p => p.diagnosticCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+});
+
+describe('CheckerService - Dispatcher', () => {
+  let service: CheckerService;
   let mockTS: MockTypeScriptAdapter;
 
   beforeEach(() => {
     mockTS = new MockTypeScriptAdapter();
-    service = new CheckContractsService(createAllPlugins(), mockTS);
+    service = new CheckerService(createAllPlugins(), mockTS);
   });
 
   afterEach(() => {

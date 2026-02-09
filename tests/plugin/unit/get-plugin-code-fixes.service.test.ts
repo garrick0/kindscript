@@ -1,5 +1,5 @@
 import { GetPluginCodeFixesService } from '../../../src/apps/plugin/use-cases/get-plugin-code-fixes/get-plugin-code-fixes.service';
-import { createAllPlugins } from '../../../src/application/enforcement/check-contracts/plugin-registry';
+import { createAllPlugins } from '../../../src/application/pipeline/plugins/plugin-registry';
 
 describe('GetPluginCodeFixesService', () => {
   let service: GetPluginCodeFixesService;

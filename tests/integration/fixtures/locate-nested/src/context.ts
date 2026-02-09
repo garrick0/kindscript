@@ -3,7 +3,7 @@
  * DomainLayer has sub-members: entities and ports.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type EntitiesModule = Kind<"EntitiesModule">;
 export type PortsModule = Kind<"PortsModule">;
@@ -24,4 +24,4 @@ export const app = {
     entities: {},
     ports: {},
   },
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;

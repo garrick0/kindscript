@@ -1,19 +1,38 @@
-import { ClassifyASTService } from '../../src/application/classification/classify-ast/classify-ast.service';
+import { ScanService } from '../../src/application/pipeline/scan/scan.service';
+import { ParseService } from '../../src/application/pipeline/parse/parse.service';
+import { BindService } from '../../src/application/pipeline/bind/bind.service';
 import { MockASTAdapter } from '../helpers/mocks/mock-ast.adapter';
-import { createAllPlugins } from '../../src/application/enforcement/check-contracts/plugin-registry';
+import { MockFileSystemAdapter } from '../helpers/mocks/mock-filesystem.adapter';
+import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
 import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.port';
 import { ContractType } from '../../src/domain/types/contract-type';
 
 const mockChecker = {} as TypeChecker;
 const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
 
-describe('ClassifyASTService - Kind Definition Parsing', () => {
-  let service: ClassifyASTService;
+/** Helper: run scan → parse → bind and return combined result */
+function classify(mockAST: MockASTAdapter, files: SourceFile[]) {
+  const scanner = new ScanService(mockAST);
+  const parser = new ParseService(new MockFileSystemAdapter());
+  const binder = new BindService(createAllPlugins());
+
+  const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
+  const parseResult = parser.execute(scanResult);
+  const bindResult = binder.execute(parseResult);
+
+  return {
+    symbols: parseResult.symbols,
+    contracts: bindResult.contracts,
+    instanceTypeNames: parseResult.instanceTypeNames,
+    errors: [...scanResult.errors, ...parseResult.errors, ...bindResult.errors],
+  };
+}
+
+describe('Pipeline - Kind Definition Parsing', () => {
   let mockAST: MockASTAdapter;
 
   beforeEach(() => {
     mockAST = new MockASTAdapter();
-    service = new ClassifyASTService(mockAST, createAllPlugins());
   });
 
   afterEach(() => {
@@ -31,11 +50,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         ],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       // Kind definitions show up as symbols
       const kindSymbol = result.symbols.find(s => s.name === 'OrderingContext');
@@ -49,22 +64,14 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.symbols.some(s => s.name === 'MyContext')).toBe(true);
     });
 
     it('ignores type aliases not referencing Kind', () => {
       // No kind definition added
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.symbols).toHaveLength(0);
       expect(result.contracts).toHaveLength(0);
@@ -77,11 +84,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.symbols.some(s => s.name === 'EmptyKind')).toBe(true);
     });
@@ -110,11 +113,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         ],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.contracts).toHaveLength(1);
       expect(result.contracts[0].type).toBe(ContractType.NoDependency);
@@ -135,11 +134,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.contracts).toHaveLength(0);
     });
@@ -163,11 +158,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       // Purity contract should be auto-generated from DomainLayer's { pure: true }
       expect(result.contracts).toHaveLength(1);
@@ -175,7 +166,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
       expect(result.contracts[0].args[0].name).toBe('domain');
     });
 
-    it('reports error when InstanceConfig references unknown Kind', () => {
+    it('reports error when Instance references unknown Kind', () => {
       // No Kind definition — only the instance declaration
       mockAST.withInstanceDeclaration('/project/src/arch.ts', {
         variableName: 'app',
@@ -183,11 +174,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('UnknownKind');
@@ -209,11 +196,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.errors.some(e => e.includes('nonexistent'))).toBe(true);
     });
@@ -234,11 +217,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.errors.some(e => e.includes('nonexistent'))).toBe(true);
     });
@@ -259,11 +238,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.errors.some(e => e.includes('nonexistent_first'))).toBe(true);
     });
@@ -293,11 +268,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       // Should have both: noDependency from relational constraint + purity from propagation
       expect(result.contracts).toHaveLength(2);
@@ -325,11 +296,7 @@ describe('ClassifyASTService - Kind Definition Parsing', () => {
         members: [{ name: 'domain' }, { name: 'infra' }],
       });
 
-      const result = service.execute({
-        definitionFiles: [sourceFile('/project/src/arch.ts')],
-        checker: mockChecker,
-        projectRoot: '/project',
-      });
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       expect(result.contracts).toHaveLength(2);
     });

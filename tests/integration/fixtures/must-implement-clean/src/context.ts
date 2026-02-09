@@ -1,4 +1,4 @@
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 export type PortsLayer = Kind<"PortsLayer">;
 
@@ -14,4 +14,4 @@ export type AppContext = Kind<"AppContext", {
 export const app = {
   ports: {},
   adapters: {},
-} satisfies InstanceConfig<AppContext>;
+} satisfies Instance<AppContext>;

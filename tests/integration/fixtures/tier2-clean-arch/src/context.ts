@@ -2,7 +2,7 @@
  * Architectural kind definitions for the clean-arch fixture.
  */
 
-import type { Kind, InstanceConfig } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // Kind definitions
 export type DomainLayer = Kind<"DomainLayer">;
@@ -16,8 +16,8 @@ export type CleanContext = Kind<"CleanContext", {
   noDependency: [["domain", "infrastructure"]];
 }>;
 
-// Instance declaration using satisfies InstanceConfig<T>
+// Instance declaration using satisfies Instance<T>
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies InstanceConfig<CleanContext>;
+} satisfies Instance<CleanContext>;

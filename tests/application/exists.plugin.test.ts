@@ -1,5 +1,5 @@
-import { existsPlugin } from '../../src/application/enforcement/check-contracts/exists/exists.plugin';
-import { CheckContext } from '../../src/application/enforcement/check-contracts/contract-plugin';
+import { existsPlugin } from '../../src/application/pipeline/plugins/exists/exists.plugin';
+import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
 import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';

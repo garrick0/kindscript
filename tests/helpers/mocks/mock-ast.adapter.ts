@@ -2,7 +2,7 @@ import { ASTViewPort, ASTExtractionResult, TypeNodeView, KindDefinitionView, Ins
 import { SourceFile, TypeChecker } from '../../../src/application/ports/typescript.port';
 
 /**
- * Mock implementation of ASTViewPort for testing ClassifyASTService.
+ * Mock implementation of ASTViewPort for testing the Scanner stage.
  *
  * Provides a fluent API for building mock domain views:
  * ```typescript

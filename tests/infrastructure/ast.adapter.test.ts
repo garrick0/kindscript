@@ -97,7 +97,7 @@ describe('ASTAdapter', () => {
         const app = {
           domain: {},
           infra: {},
-        } satisfies InstanceConfig<Ctx>;
+        } satisfies Instance<Ctx>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls).toHaveLength(1);
@@ -113,7 +113,7 @@ describe('ASTAdapter', () => {
         const domain = { entities: {}, ports: {} };
         const app = {
           domain: domain,
-        } satisfies InstanceConfig<Ctx>;
+        } satisfies Instance<Ctx>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls).toHaveLength(1);
@@ -130,7 +130,7 @@ describe('ASTAdapter', () => {
             entities: {},
             ports: {},
           },
-        } satisfies InstanceConfig<Ctx>;
+        } satisfies Instance<Ctx>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls[0].members[0].children).toHaveLength(2);
@@ -138,7 +138,7 @@ describe('ASTAdapter', () => {
       expect(decls[0].members[0].children![1].name).toBe('ports');
     });
 
-    it('ignores non-InstanceConfig satisfies expressions', () => {
+    it('ignores non-Instance satisfies expressions', () => {
       const sf = parseSource('test.ts', `
         const app = { domain: {} } satisfies SomeOtherType<Ctx>;
       `);
@@ -148,8 +148,8 @@ describe('ASTAdapter', () => {
 
     it('handles multiple instance declarations', () => {
       const sf = parseSource('test.ts', `
-        const ordering = { domain: {} } satisfies InstanceConfig<Ctx>;
-        const billing = { domain: {} } satisfies InstanceConfig<Ctx>;
+        const ordering = { domain: {} } satisfies Instance<Ctx>;
+        const billing = { domain: {} } satisfies Instance<Ctx>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls).toHaveLength(2);
@@ -159,7 +159,7 @@ describe('ASTAdapter', () => {
 
     it('skips instance with no type argument and reports error', () => {
       const sf = parseSource('test.ts', `
-        const app = { domain: {} } satisfies InstanceConfig;
+        const app = { domain: {} } satisfies Instance;
       `);
       const result = adapter.getInstanceDeclarations(sf, mockChecker);
       expect(result.data).toHaveLength(0);
@@ -211,7 +211,7 @@ describe('ASTAdapter', () => {
         const sf = parseSource('test.ts', `
           const app = {
             domain: externalVar,
-          } satisfies InstanceConfig<Ctx>;
+          } satisfies Instance<Ctx>;
         `);
         const result = adapter.getInstanceDeclarations(sf, mockChecker);
         expect(result.data).toHaveLength(1);
@@ -222,7 +222,7 @@ describe('ASTAdapter', () => {
         const sf = parseSource('test.ts', `
           const app = {
             domain,
-          } satisfies InstanceConfig<Ctx>;
+          } satisfies Instance<Ctx>;
         `);
         const result = adapter.getInstanceDeclarations(sf, mockChecker);
         expect(result.data).toHaveLength(1);

@@ -1,5 +1,5 @@
-import { mirrorsPlugin } from '../../src/application/enforcement/check-contracts/mirrors/mirrors.plugin';
-import { CheckContext } from '../../src/application/enforcement/check-contracts/contract-plugin';
+import { mirrorsPlugin } from '../../src/application/pipeline/plugins/mirrors/mirrors.plugin';
+import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
 import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';

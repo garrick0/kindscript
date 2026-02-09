@@ -9,7 +9,7 @@ describe('Tier 2 Locate Integration Tests', () => {
   describe('locate-clean-arch fixture (no violations)', () => {
     const fixturePath = FIXTURES.LOCATE_CLEAN_ARCH;
 
-    it('classifies InstanceConfig<T> instance with derived member locations', () => {
+    it('classifies Instance<T> instance with derived member locations', () => {
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -148,7 +148,7 @@ describe('Tier 2 Locate Integration Tests', () => {
   });
 
   describe('locate-multi-instance fixture', () => {
-    it('classifies two InstanceConfig<T> declarations across definition files', () => {
+    it('classifies two Instance<T> declarations across definition files', () => {
       const fixturePath = FIXTURES.LOCATE_MULTI_INSTANCE;
       const { classifyResult } = runPipeline(fixturePath);
 
