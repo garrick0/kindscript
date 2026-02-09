@@ -18,12 +18,12 @@ This document provides context and guidelines for AI agents maintaining and exte
 
 ## Architecture
 
-KindScript follows **A+Apps+Features**: onion layers at the top level, an `apps/` directory for products, and `classification/`+`enforcement/` grouping inside the application layer.
+KindScript follows **A+Apps+Pipeline**: onion layers at the top level, an `apps/` directory for products, and a four-stage `pipeline/` inside the application layer aligned with TypeScript's compiler stages.
 
 ```
 Domain Layer (pure)
   ↑ depends on
-Application Layer (ports + classification + enforcement)
+Application Layer (ports + pipeline: scan → parse → bind → check)
   ↑ implements
 Infrastructure Layer (shared driven adapters only)
 Apps Layer (CLI + Plugin — each with own ports, adapters, use cases)
@@ -42,19 +42,36 @@ src/
 │   └── utils/                                  # cycle-detection, path-matching
 ├── application/
 │   ├── ports/                                  # 4 driven ports (typescript, filesystem, config, ast)
-│   ├── classification/                         # Capability: understanding code
-│   │   ├── classify-ast/                       # AST → ArchSymbol classification
-│   │   │   └── constraint-provider.ts          # ConstraintProvider (narrow interface for plugins)
-│   │   └── classify-project/                   # Project-wide classification + config
-│   ├── enforcement/                            # Capability: checking rules
-│   │   ├── check-contracts/                    # Contract validation (plugin per type)
-│   │   │   ├── contract-plugin.ts              # ContractPlugin interface + getSourceFilesForPaths helper
-│   │   │   ├── generator-helpers.ts            # Shared generate() helpers (tuplePairs/stringList)
-│   │   │   └── plugin-registry.ts              # createAllPlugins()
-│   │   └── run-pipeline/                       # Orchestration pipeline (classify→resolve→check)
-│   │       ├── run-pipeline.use-case.ts
-│   │       └── run-pipeline.service.ts
-│   ├── services/                               # resolveSymbolFiles
+│   ├── pipeline/                               # Four-stage compiler pipeline
+│   │   ├── scan/                               # Stage 1: AST → raw views (KindDefinitionView, InstanceDeclarationView)
+│   │   │   ├── scan.types.ts                   # ScanRequest, ScanResult, ScanUseCase
+│   │   │   └── scan.service.ts                 # ScanService (uses ASTViewPort)
+│   │   ├── parse/                              # Stage 2: views → ArchSymbol trees + file resolution
+│   │   │   ├── parse.types.ts                  # ParseResult, ParseUseCase
+│   │   │   └── parse.service.ts                # ParseService (uses FileSystemPort)
+│   │   ├── bind/                               # Stage 3: constraint trees → Contract[]
+│   │   │   ├── bind.types.ts                   # BindResult, BindUseCase
+│   │   │   └── bind.service.ts                 # BindService (uses ConstraintProvider plugins)
+│   │   ├── check/                              # Stage 4: contracts × files → Diagnostic[]
+│   │   │   ├── checker.service.ts              # CheckerService (dispatcher)
+│   │   │   ├── checker.use-case.ts             # CheckerUseCase interface
+│   │   │   ├── checker.request.ts              # CheckerRequest
+│   │   │   └── checker.response.ts             # CheckerResponse
+│   │   ├── plugins/                            # Contract plugin system (shared by bind + check)
+│   │   │   ├── constraint-provider.ts          # ConstraintProvider interface + GeneratorResult
+│   │   │   ├── contract-plugin.ts              # ContractPlugin interface + helpers
+│   │   │   ├── generator-helpers.ts            # Shared generate() helpers
+│   │   │   ├── plugin-registry.ts              # createAllPlugins()
+│   │   │   ├── no-dependency/                  # noDependencyPlugin
+│   │   │   ├── no-cycles/                      # noCyclesPlugin
+│   │   │   ├── purity/                         # purityPlugin
+│   │   │   ├── must-implement/                 # mustImplementPlugin
+│   │   │   ├── exists/                         # existsPlugin
+│   │   │   └── mirrors/                        # mirrorsPlugin
+│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
+│   │   ├── program.ts                          # ProgramPort, ProgramFactory, ProgramSetup
+│   │   ├── pipeline.types.ts                   # PipelineRequest, PipelineResponse, PipelineUseCase
+│   │   └── pipeline.service.ts                 # PipelineService (orchestrator: caching + 4 stages)
 │   └── engine.ts                               # Engine interface
 ├── infrastructure/                             # Shared driven adapters ONLY
 │   ├── typescript/typescript.adapter.ts
@@ -81,7 +98,7 @@ src/
 
 ## Test Suite Organization
 
-**Current Stats:** 29 test files, 277 tests, 100% passing
+**Current Stats:** 29 test files, 284 tests, 100% passing
 
 ### Test Layers
 
@@ -145,7 +162,7 @@ tests/
 **classify-ast** tests (3 files in `tests/application/`):
 - `classify-ast-kind-parsing.test.ts` - Kind definition parsing
 - `classify-ast-contracts.test.ts` - Type-level contract parsing (filesystem.exists, filesystem.mirrors) + multi-instance
-- `classify-ast-locate.test.ts` - InstanceConfig<T> & multi-file
+- `classify-ast-locate.test.ts` - Instance<T>, multi-file, file-scoped leaf instances
 
 **Per-contract plugin tests** (6 files in `tests/application/` + 1 dispatcher):
 - `no-dependency.plugin.test.ts` (15 tests) - noDependencyPlugin (check + generate + validate)
@@ -184,8 +201,10 @@ tests/
 
 ✅ **Do:**
 - Keep domain layer pure (no external dependencies)
-- Add new contracts in `src/application/enforcement/check-contracts/`
-- Add classification logic in `src/application/classification/`
+- Add new contract plugins in `src/application/pipeline/plugins/<name>/`
+- Add scanning logic in `src/application/pipeline/scan/`
+- Add parsing logic in `src/application/pipeline/parse/`
+- Add binding logic in `src/application/pipeline/bind/`
 - Add shared adapters in `src/infrastructure/`
 - Add CLI-specific code in `src/apps/cli/`
 - Add plugin-specific code in `src/apps/plugin/`
@@ -204,7 +223,7 @@ tests/
 | What are you testing? | Test Location |
 |-----------------------|------------|
 | Domain entities/value-objects | `tests/domain/` |
-| Application services (classification/enforcement) | `tests/application/` |
+| Application services (pipeline stages + contract plugins) | `tests/application/` |
 | Infrastructure adapters | `tests/infrastructure/` |
 | CLI commands/adapters | `tests/cli/unit/` |
 | Plugin services/adapters | `tests/plugin/unit/` |
@@ -252,14 +271,14 @@ import { run } from './helpers';
 - Update `tests/helpers/fixtures.ts` with new fixture paths
 - Document in `tests/integration/fixtures/README.md`
 
-#### 4. Adding New Contract Types
+#### 4. Adding New Constraint Types
 
 Follow this checklist:
 
 1. **Domain layer** - Add contract type to `src/domain/types/contract-type.ts`
 2. **Domain layer** - Add diagnostic code to `src/domain/constants/diagnostic-codes.ts`
-3. **Application layer** - Create plugin in `src/application/enforcement/check-contracts/<name>/<name>.plugin.ts`
-4. **Application layer** - Register plugin in `plugin-registry.ts` (`createAllPlugins()`)
+3. **Application layer** - Create plugin in `src/application/pipeline/plugins/<name>/<name>.plugin.ts`
+4. **Application layer** - Register plugin in `src/application/pipeline/plugins/plugin-registry.ts` (`createAllPlugins()`)
 5. **Tests** - Add unit tests in `tests/application/<name>.plugin.test.ts`
 6. **Tests** - Add integration tests in `tests/integration/tier2-contracts.integration.test.ts`
 7. **Fixtures** - Create clean + violation fixtures
@@ -350,24 +369,31 @@ it('checks contracts', () => {
 
 **Date:** 2026-02-08
 
-**Summary:** TypeScript piggybacking — invisible KindScript
-- Dropped `.k.ts` extension — Kind definitions and instances live in regular `.ts`/`.tsx` files
-- Removed path overrides (`{ path: "..." }` in MemberMap/InstanceConfig) — instances never specify paths
-- Rewrote `ASTAdapter` to piggyback on TypeScript's type checker for `Kind`/`InstanceConfig` discovery
-- Added `isSymbolNamed()` method: resolves type names through import aliases via `checker.getSymbolAtLocation()` + `getAliasedSymbol()`, with string matching fallback
-- `ASTViewPort` methods now accept `TypeChecker` parameter
-- `ClassifyProjectService` passes all source files to classifier (no extension filter)
-- Renamed all 20 fixture `.k.ts` files to `.ts`; deleted `locate-path-override` fixture
-- Restructured design-system fixtures: members map directly to `src/` subdirectories (no `components/` nesting)
+**Summary:** File-scoped leaf instances (D14)
+- Leaf Kind instances (no members) now resolve to the declaring file, not its parent directory
+- Composite Kind instances (has members) continue to resolve to the parent directory (unchanged)
+- Added `fileExists` to `FileSystemPort` + both adapters
+- `resolveSymbolFiles` handles file locations (single-file resolution) alongside directories
+- 5 new tests in `classify-ast-locate.test.ts` — 284 total, 100% passing
+
+**Previous:** Pipeline cleanup — separation of concerns + slim Engine
+- Extracted view DTOs (`TypeNodeView`, `KindDefinitionView`, etc.) from `ast.port.ts` into `pipeline/views.ts`
+- Moved contract plugins from `bind/` and `check/` into neutral `pipeline/plugins/` directory
+- Added use-case interfaces (`ScanUseCase`, `ParseUseCase`, `BindUseCase`) — all stages depend on interfaces
+- Extracted `ProgramFactory` from `PipelineService` behind `ProgramPort` interface
+- Slimmed `Engine` interface from `{ pipeline, plugins, fs, ts }` to `{ pipeline, plugins }`
+- `PipelineService` constructor now takes interfaces: `ProgramPort`, `FileSystemPort`, `ScanUseCase`, `ParseUseCase`, `BindUseCase`, `CheckerUseCase`
 
 **Key entities:**
-- `Engine` interface: `{ classifyProject, checkContracts, runPipeline, plugins, fs, ts }`
+- `Engine` interface: `{ pipeline, plugins }` — minimal surface for app composition roots
+- `ProgramPort` / `ProgramFactory`: encapsulates config reading, file discovery, TS program creation
+- `PipelineService`: orchestrates scan → parse → bind → check with caching (delegates program setup to ProgramPort)
 - `ContractPlugin` interface: `{ type, constraintName, diagnosticCode, validate, check, generate?, intrinsic?, codeFix? }`
-- `ConstraintProvider` interface: `{ constraintName, generate?, intrinsic? }` — narrow type used by classification
+- `ConstraintProvider` interface: `{ constraintName, generate?, intrinsic? }` — narrow type used by Binder
 - `Diagnostic` entity: has `scope?: string` field for structural violations (file is empty string)
 - `ASTExtractionResult<T>`: `{ data: T, errors: string[] }` — wraps AST port results
 
-**Previous:** Codebase review (RunPipelineService, ConstraintProvider, codeFix, Diagnostic.scope), A+Apps+Features restructure, self-registering contract plugins
+**Previous:** Pipeline alignment (4-stage), TypeScript piggybacking (dropped .k.ts), A+Apps+Features restructure
 
 ---
 
@@ -375,14 +401,20 @@ it('checks contracts', () => {
 
 ### Source Code
 
-- `src/types/index.ts` - Public API (Kind, ConstraintConfig, InstanceConfig, MemberMap)
+- `src/types/index.ts` - Public API (Kind, Constraints, Instance, MemberMap)
 - `src/domain/entities/arch-symbol.ts` - Core domain entity
-- `src/application/enforcement/check-contracts/` - Contract validation logic
-- `src/application/enforcement/check-contracts/contract-plugin.ts` - ContractPlugin interface + helpers
-- `src/application/classification/classify-ast/constraint-provider.ts` - ConstraintProvider interface
-- `src/application/enforcement/check-contracts/generator-helpers.ts` - Shared generate() helpers
-- `src/application/enforcement/run-pipeline/run-pipeline.service.ts` - Orchestration pipeline
-- `src/application/classification/classify-ast/` - AST classification logic
+- `src/application/pipeline/scan/scan.service.ts` - Stage 1: AST extraction
+- `src/application/pipeline/parse/parse.service.ts` - Stage 2: ArchSymbol tree building
+- `src/application/pipeline/bind/bind.service.ts` - Stage 3: Contract generation
+- `src/application/pipeline/plugins/constraint-provider.ts` - ConstraintProvider interface
+- `src/application/pipeline/check/checker.service.ts` - Stage 4: Contract checking (dispatcher)
+- `src/application/pipeline/plugins/contract-plugin.ts` - ContractPlugin interface + helpers
+- `src/application/pipeline/plugins/generator-helpers.ts` - Shared generate() helpers
+- `src/application/pipeline/plugins/plugin-registry.ts` - createAllPlugins()
+- `src/application/pipeline/views.ts` - Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
+- `src/application/pipeline/program.ts` - ProgramPort, ProgramFactory, ProgramSetup
+- `src/application/pipeline/pipeline.service.ts` - Pipeline orchestrator (caching + 4 stages)
+- `src/application/pipeline/pipeline.types.ts` - PipelineRequest/Response/UseCase
 - `src/application/engine.ts` - Engine interface
 - `src/infrastructure/engine-factory.ts` - Shared wiring factory
 - `src/apps/cli/main.ts` - CLI entry point
@@ -412,7 +444,7 @@ docs/                                # Source of truth (checked in)
 ├── README.md                        # Index + reading order (start here)
 ├── 01-architecture.md               # System overview, pipeline, layers, data flow
 ├── 02-kind-system.md                # Kind syntax, instances, location derivation, discovery
-├── 03-contracts.md                  # All 6 contract types, plugin architecture
+├── 03-constraints.md                # All 6 constraint types, plugin architecture
 ├── 04-decisions.md                  # Key decisions log (Build/Wrap/Skip, etc.)
 ├── 05-examples.md                   # Real-world modeling examples
 └── archive/                         # Historical — do not use for implementation
@@ -428,7 +460,7 @@ docs/                                # Source of truth (checked in)
 |---|---|
 | Understand the pipeline / architecture | `docs/01-architecture.md` |
 | Understand Kind syntax and instances | `docs/02-kind-system.md` |
-| Understand contracts or add a new one | `docs/03-contracts.md` |
+| Understand constraints or add a new one | `docs/03-constraints.md` |
 | Understand why a decision was made | `docs/04-decisions.md` |
 | See real-world modeling examples | `docs/05-examples.md` |
 | Look at old architecture versions | `docs/archive/architecture/` |
@@ -533,4 +565,4 @@ If still unclear, ask the user for clarification rather than guessing.
 ---
 
 **Last Updated:** 2026-02-08
-**Test Suite Status:** 29 files, 277 tests, 100% passing
+**Test Suite Status:** 29 files, 276 tests, 100% passing
