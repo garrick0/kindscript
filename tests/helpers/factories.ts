@@ -2,9 +2,7 @@ import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { Contract } from '../../src/domain/entities/contract';
 import { ContractType } from '../../src/domain/types/contract-type';
-import { Diagnostic } from '../../src/domain/entities/diagnostic';
 import { Program } from '../../src/domain/entities/program';
-import { DiagnosticCode } from '../../src/domain/constants/diagnostic-codes';
 
 // ---------------------------------------------------------------------------
 // Symbols
@@ -90,24 +88,4 @@ export function makeCheckRequest(
     program: program ?? new Program([], {}),
     resolvedFiles: resolvedFiles ?? new Map<string, string[]>(),
   };
-}
-
-// ---------------------------------------------------------------------------
-// Diagnostics
-// ---------------------------------------------------------------------------
-
-export function makeDiagnostic(overrides?: {
-  message?: string;
-  code?: number;
-  file?: string;
-  line?: number;
-  column?: number;
-}): Diagnostic {
-  return new Diagnostic(
-    overrides?.message ?? 'Test diagnostic',
-    overrides?.code ?? DiagnosticCode.ForbiddenDependency,
-    overrides?.file ?? 'test.ts',
-    overrides?.line ?? 1,
-    overrides?.column ?? 0,
-  );
 }

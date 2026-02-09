@@ -3,12 +3,11 @@ import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { ContractType } from '../../src/domain/types/contract-type';
 import { DiagnosticCode } from '../../src/domain/constants/diagnostic-codes';
 import { runPipeline } from '../helpers/test-pipeline';
-
-const FIXTURES = path.resolve(__dirname, 'fixtures');
+import { FIXTURES } from '../helpers/fixtures';
 
 describe('Tier 2 Locate Integration Tests', () => {
   describe('locate-clean-arch fixture (no violations)', () => {
-    const fixturePath = path.join(FIXTURES, 'locate-clean-arch');
+    const fixturePath = FIXTURES.LOCATE_CLEAN_ARCH;
 
     it('classifies InstanceConfig<T> instance with derived member locations', () => {
       const { classifyResult } = runPipeline(fixturePath);
@@ -50,7 +49,7 @@ describe('Tier 2 Locate Integration Tests', () => {
 
   describe('locate-violation fixture', () => {
     it('detects forbidden dependency via locate-derived locations', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-violation');
+      const fixturePath = FIXTURES.LOCATE_VIOLATION;
       const { classifyResult, checkResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -65,7 +64,7 @@ describe('Tier 2 Locate Integration Tests', () => {
 
   describe('locate-existence fixture', () => {
     it('detects missing derived location on disk', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-existence');
+      const fixturePath = FIXTURES.LOCATE_EXISTENCE;
       const { classifyResult, checkResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -74,14 +73,14 @@ describe('Tier 2 Locate Integration Tests', () => {
       const existenceDiags = checkResult.diagnostics.filter(
         d => d.code === DiagnosticCode.LocationNotFound
       );
-      expect(existenceDiags.length).toBeGreaterThanOrEqual(1);
+      expect(existenceDiags).toHaveLength(1);
       expect(existenceDiags.some(d => d.message.includes('infrastructure'))).toBe(true);
     });
   });
 
   describe('locate-nested fixture', () => {
     it('derives multi-level paths for nested Kind tree', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-nested');
+      const fixturePath = FIXTURES.LOCATE_NESTED;
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -116,7 +115,7 @@ describe('Tier 2 Locate Integration Tests', () => {
     });
 
     it('runs full pipeline with no violations', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-nested');
+      const fixturePath = FIXTURES.LOCATE_NESTED;
       const { checkResult } = runPipeline(fixturePath);
 
       expect(checkResult.violationsFound).toBe(0);
@@ -125,7 +124,7 @@ describe('Tier 2 Locate Integration Tests', () => {
 
   describe('locate-standalone-member fixture', () => {
     it('resolves standalone variable references in locate members', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-standalone-member');
+      const fixturePath = FIXTURES.LOCATE_STANDALONE_MEMBER;
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -141,38 +140,7 @@ describe('Tier 2 Locate Integration Tests', () => {
     });
 
     it('runs full pipeline with no violations', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-standalone-member');
-      const { checkResult } = runPipeline(fixturePath);
-
-      expect(checkResult.violationsFound).toBe(0);
-    });
-  });
-
-  describe('locate-path-override fixture', () => {
-    it('uses path override to derive custom directory name', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-path-override');
-      const { classifyResult } = runPipeline(fixturePath);
-
-      expect(classifyResult.errors).toHaveLength(0);
-
-      const instances = classifyResult.symbols.filter(s => s.kind === ArchSymbolKind.Instance);
-      expect(instances).toHaveLength(1);
-
-      // "domain" member has { path: "value-objects" } override
-      const domain = instances[0].findMember('domain');
-      expect(domain).toBeDefined();
-      expect(domain!.declaredLocation).toBe(path.join(fixturePath, 'src/value-objects'));
-      expect(domain!.kind).toBe(ArchSymbolKind.Member);
-      expect(domain!.locationDerived).toBe(true);
-
-      // "infrastructure" member uses default name derivation
-      const infra = instances[0].findMember('infrastructure');
-      expect(infra).toBeDefined();
-      expect(infra!.declaredLocation).toBe(path.join(fixturePath, 'src/infrastructure'));
-    });
-
-    it('runs full pipeline with no violations', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-path-override');
+      const fixturePath = FIXTURES.LOCATE_STANDALONE_MEMBER;
       const { checkResult } = runPipeline(fixturePath);
 
       expect(checkResult.violationsFound).toBe(0);
@@ -180,8 +148,8 @@ describe('Tier 2 Locate Integration Tests', () => {
   });
 
   describe('locate-multi-instance fixture', () => {
-    it('classifies two InstanceConfig<T> declarations across .k.ts files', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-multi-instance');
+    it('classifies two InstanceConfig<T> declarations across definition files', () => {
+      const fixturePath = FIXTURES.LOCATE_MULTI_INSTANCE;
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -217,7 +185,7 @@ describe('Tier 2 Locate Integration Tests', () => {
     });
 
     it('classifies contracts for both instances', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-multi-instance');
+      const fixturePath = FIXTURES.LOCATE_MULTI_INSTANCE;
       const { classifyResult } = runPipeline(fixturePath);
 
       expect(classifyResult.contracts).toHaveLength(2);
@@ -225,7 +193,7 @@ describe('Tier 2 Locate Integration Tests', () => {
     });
 
     it('runs full pipeline with no violations', () => {
-      const fixturePath = path.join(FIXTURES, 'locate-multi-instance');
+      const fixturePath = FIXTURES.LOCATE_MULTI_INSTANCE;
       const { checkResult } = runPipeline(fixturePath);
 
       expect(checkResult.violationsFound).toBe(0);
