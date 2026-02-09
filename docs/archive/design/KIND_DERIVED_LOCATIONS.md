@@ -187,13 +187,13 @@ function locate<T extends Kind>(root: string, members: MemberMap<T>): MemberMap<
 
 ### Type-level
 
-`MemberMap<T>` transforms a Kind type alias into a location-assignment type. It strips `kind` and `location` (these are derived), keeps member names, and allows either an empty object `{}` (leaf) or a nested `MemberMap<ChildKind>` (branch):
+`MemberMap<T>` transforms a Kind type alias into a location-assignment type. It strips `kind` and `location` (these are derived), keeps member names, and allows either an empty object `{}` (no sub-members) or a nested `MemberMap<ChildKind>` (with sub-members):
 
 ```typescript
 type MemberMap<T extends Kind> = {
   [K in keyof T as K extends 'kind' | 'location' ? never : K]:
     T[K] extends Kind
-      ? MemberMap<T[K]> | {}  // branch or leaf
+      ? MemberMap<T[K]> | {}  // with or without sub-members
       : never;
 };
 ```
@@ -992,7 +992,7 @@ const memberPath = parentPath + "/" + segment;
 ```typescript
 import { Kind } from './kind';
 
-/** Strips kind/location, maps members to MemberMap or leaf. */
+/** Strips kind/location, maps members to MemberMap or empty object. */
 export type MemberMap<T extends Kind> = {
   [K in keyof T as K extends 'kind' | 'location' ? never : K]:
     T[K] extends Kind
@@ -1019,7 +1019,7 @@ export function locate<T extends Kind>(
 - Define a Kind type alias
 - Use `locate<T>()` — verify TypeScript catches missing members, extra members, wrong nesting
 - Verify `{ path: "override" }` is accepted by the type
-- Verify `{}` is accepted for leaf members
+- Verify `{}` is accepted for members without sub-members
 
 **Validation:** `npm run build` (type checking); `npm test`.
 

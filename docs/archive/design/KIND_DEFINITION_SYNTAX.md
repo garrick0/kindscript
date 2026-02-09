@@ -18,7 +18,7 @@ The current Kind definition syntax has three issues:
    //              ^^^^^^^^^^^                ^^^^^^^^^^^
    ```
 
-2. **Verbose leaf kinds** — kinds with no members still need `extends` and empty braces:
+2. **Verbose kinds with no members** — kinds without members still need `extends` and empty braces:
    ```typescript
    export interface DomainLayer extends Kind<"DomainLayer"> {}
    ```
@@ -88,7 +88,7 @@ export interface ShopContext extends Kind<"ShopContext"> {
 
 **Cons:**
 - Redundant name in every definition
-- Leaf kinds have empty `{}`
+- Kinds with no members have empty `{}`
 - `extends` implies inheritance, but there's no runtime base
 - Forces `interface` (not `type`) — this matters because `type` vs `interface` is already used as a semantic signal elsewhere (e.g. `PlaceOrderRequest` uses `type` to avoid `mustImplement` treating it as a port)
 
@@ -221,7 +221,7 @@ type Kind<Members extends Record<string, Kind> = {}> = {
 - The classifier already falls back to the declaration name when no string literal is found (`kindNameLiterals[0] ?? name` at line 155)
 
 **Cons:**
-- **Loses nominal typing.** All leaf kinds resolve to the same structural type: `{ kind: string; location: string }`. TypeScript considers `DomainLayer` and `ApplicationLayer` identical types. This means:
+- **Loses nominal typing.** All kinds without members resolve to the same structural type: `{ kind: string; location: string }`. TypeScript considers `DomainLayer` and `ApplicationLayer` identical types. This means:
   - You can assign a `DomainLayer` where an `ApplicationLayer` is expected
   - Type errors from mixing up members in `locate()` or `defineContracts()` are weaker
   - Future features that depend on distinguishing kinds at the type level won't work
@@ -280,7 +280,7 @@ No separate Kind definitions, instances, or contracts. One call declares everyth
 
 ## Comparison
 
-| | Leaf syntax | Composite syntax | Redundant name | Type safety | Classifier complexity |
+| | No-members syntax | With-members syntax | Redundant name | Type safety | Classifier complexity |
 |---|---|---|---|---|---|
 | **A (current)** | `interface X extends Kind<"X"> {}` | `interface X extends Kind<"X"> { ... }` | yes | full | none (existing) |
 | **B (intersection)** | `type X = Kind<"X">` | `type X = Kind<"X"> & { ... }` | yes | full | medium |
@@ -334,7 +334,7 @@ Option C is slightly simpler because the position is fixed (second type arg), wh
 ```typescript
 import { Kind, locate, defineContracts } from 'kindscript';
 
-// Leaf kinds — one line each
+// Kinds with no members — one line each
 type DomainLayer = Kind<"DomainLayer">;
 type ApplicationLayer = Kind<"ApplicationLayer">;
 type InfrastructureLayer = Kind<"InfrastructureLayer">;
@@ -782,7 +782,7 @@ export type CleanContext = Kind<"CleanContext", {
 }>;
 ```
 
-Note: leaf kinds must be declared before composite kinds that reference them (type aliases can't forward-reference like interfaces can). Reorder declarations if needed.
+Note: Kinds without members must be declared before Kinds that reference them as members (type aliases can't forward-reference like interfaces can). Reorder declarations if needed.
 
 **Verify:** `npm test -- tests/integration` should pass after this phase.
 

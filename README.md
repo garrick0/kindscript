@@ -76,7 +76,7 @@ KindScript produces standard `ts.Diagnostic` objects (error codes 70001-70010), 
 npm install kindscript
 ```
 
-### 2. Define your architecture (`src/context.k.ts`)
+### 2. Define your architecture (`src/context.ts`)
 
 ```typescript
 import type { Kind, ConstraintConfig, InstanceConfig, MemberMap } from 'kindscript';
@@ -99,7 +99,7 @@ export type OrderingContext = Kind<"OrderingContext", {
 }>;
 
 // Declare the instance (descriptive -- where the code ACTUALLY lives)
-// Root is inferred from this .k.ts file's directory (src/)
+// Root is inferred from this file's directory (src/)
 export const ordering = {
   domain: {},
   application: {},
@@ -169,33 +169,6 @@ Each contract type produces a specific diagnostic code:
   KS70010  Member directory not found    (filesystem.exists)
 ```
 
-## Adoption Tiers
-
-KindScript offers a graduated adoption path -- start simple, add complexity only when needed:
-
-```
-  Tier 1                     Tier 2
-  Config-based contracts     Full Kind definitions
-  ========================   =========================
-
-  kindscript.json:           context.k.ts:
-  {                          type CleanContext = Kind<
-    "contracts": {             "CleanContext", {
-      "noDependency": [          domain: DomainLayer;
-        ["domain", "infra"]       ...
-        ...                   }>
-      ]                      }, {
-    }                          noDependency: [...];
-  }                          }>;
-                             { ... } satisfies InstanceConfig<T>
-  Good for:
-  - Simple dependency rules   Good for:
-  - No TypeScript types       - Full IDE support
-    needed                    - Type-safe definitions
-                              - All contract types
-                              - Autocomplete + go-to-def
-```
-
 ## Architecture
 
 KindScript itself follows strict Clean Architecture. The domain layer has zero external dependencies -- no TypeScript compiler API, no Node.js `fs`, nothing.
@@ -207,7 +180,7 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |   =====================================================               |
   |                                                                       |
   |   Entities:       ArchSymbol, Contract, Diagnostic, Program           |
-  |   Value Objects:  ImportEdge, Location, ...                           |
+  |   Value Objects:  ImportEdge, ContractReference, ...                  |
   |   Types:          ArchSymbolKind, ContractType                        |
   |                                                                       |
   +----------------------------------+------------------------------------+
@@ -219,13 +192,14 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |   Application Layer (use cases + port interfaces)                     |
   |   ===================================================                 |
   |                                                                       |
-  |   Ports:                                                              |
-  |     TypeScriptPort    FileSystemPort    ConfigPort                    |
-  |     ASTPort           DiagnosticPort    LanguageServicePort           |
+  |   Ports (shared):                                                     |
+  |     TypeScriptPort    FileSystemPort    ConfigPort    ASTPort         |
   |                                                                       |
-  |   Use Cases (5):                                                      |
-  |     CheckContracts        ClassifyAST          ClassifyProject        |
-  |     GetPluginDiagnostics  GetPluginCodeFixes                          |
+  |   Classification:                                                     |
+  |     ClassifyAST            ClassifyProject                            |
+  |   Enforcement:                                                        |
+  |     CheckContracts (6 plugins)                                        |
+  |   Engine interface (bundles shared services)                          |
   |                                                                       |
   +----------------------------------+------------------------------------+
                                      |
@@ -233,7 +207,7 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
                                      |
   +----------------------------------+------------------------------------+
   |                                                                       |
-  |   Infrastructure Layer (adapters + entry points)                      |
+  |   Infrastructure Layer (shared adapters)                              |
   |   ======================================================              |
   |                                                                       |
   |   Adapters:                                                           |
@@ -241,12 +215,21 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
   |     FileSystemAdapter  (wraps Node.js fs + path)                      |
   |     ASTAdapter         (wraps ts.Node traversal)                      |
   |     ConfigAdapter      (reads kindscript.json / tsconfig.json)        |
-  |     DiagnosticAdapter  (formats diagnostics for terminal)             |
-  |     LanguageServiceAdapter (wraps ts.server.PluginCreateInfo)         |
+  |   Engine Factory (wires all shared adapters + services)               |
   |                                                                       |
-  |   Entry Points (composition roots):                                   |
-  |     CLI  (main.ts)  -----> ksc check                                 |
-  |     Plugin (index.ts) ---> TS language service plugin                 |
+  +----------------------------------+------------------------------------+
+                                     |
+                                     | used by
+                                     |
+  +----------------------------------+------------------------------------+
+  |                                                                       |
+  |   Apps (product entry points)                                         |
+  |   ======================================================              |
+  |                                                                       |
+  |   CLI (apps/cli/):                                                    |
+  |     ConsolePort, DiagnosticPort, CheckCommand                         |
+  |   Plugin (apps/plugin/):                                              |
+  |     LanguageServicePort, GetPluginDiagnostics, GetPluginCodeFixes     |
   |                                                                       |
   +-----------------------------------------------------------------------+
 ```
@@ -255,35 +238,48 @@ KindScript itself follows strict Clean Architecture. The domain layer has zero e
 
 ```
 src/
-  index.ts                        Public API (exports Kind, ConstraintConfig, InstanceConfig, MemberMap)
-  runtime/
-    kind.ts                       Kind<N, Members, Constraints> + ConstraintConfig<Members>
-    locate.ts                     MemberMap<T> + InstanceConfig<T>
+  types/index.ts                  Public API (Kind, ConstraintConfig, InstanceConfig, MemberMap)
 
   domain/
     entities/                     ArchSymbol, Contract, Diagnostic, ...
-    value-objects/                ImportEdge, Location, ...
+    value-objects/                ImportEdge, ContractReference, ...
     types/                       ArchSymbolKind, ContractType, ...
 
   application/
-    ports/                       TypeScriptPort, FileSystemPort, ...
-    services/                    ConfigSymbolBuilder, resolveSymbolFiles
-    use-cases/
-      check-contracts/           Contract evaluation (all 6 types)
+    ports/                       TypeScriptPort, FileSystemPort, ConfigPort, ASTPort
+    services/                    resolveSymbolFiles
+    classification/
       classify-ast/              AST -> ArchSymbol classification
       classify-project/          Project-wide classification + config
-      get-plugin-diagnostics/    Plugin diagnostic integration
-      get-plugin-code-fixes/     Plugin quick-fix suggestions
+    enforcement/
+      check-contracts/           Contract evaluation (all 6 plugin types)
+    engine.ts                    Engine interface (shared services)
 
-  infrastructure/
-    adapters/                    Real implementations + mock test doubles
+  infrastructure/                Shared driven adapters only
+    typescript/                  TypeScriptAdapter (wraps ts.Program)
+    filesystem/                  FileSystemAdapter (wraps fs)
+    config/                      ConfigAdapter (reads configs)
+    ast/                         ASTAdapter (wraps ts.Node traversal)
+    engine-factory.ts            Creates Engine with all shared wiring
+
+  apps/
     cli/                         CLI entry point + commands
+      ports/                     ConsolePort, DiagnosticPort
+      adapters/                  CLIConsoleAdapter, CLIDiagnosticAdapter
+      commands/                  CheckCommand
     plugin/                      TS language service plugin
+      ports/                     LanguageServicePort
+      adapters/                  LanguageServiceAdapter
+      use-cases/                 GetPluginDiagnostics, GetPluginCodeFixes
 
 tests/
-  unit/                          Domain entity, service, and adapter unit tests
-  integration/                   Multi-component tests with 18 fixtures
-  e2e/                           Full CLI subprocess tests
+  domain/                        Domain entity tests (5 files)
+  application/                   Classification + enforcement tests (11 files)
+  infrastructure/                Shared adapter tests (2 files)
+  cli/unit/                      CLI command tests (2 files)
+  cli/e2e/                       CLI subprocess tests (1 file)
+  plugin/unit/                   Plugin service tests (5 files)
+  integration/                   Multi-component tests with 19 fixtures
   helpers/                       Shared test utilities and builders
 ```
 
@@ -292,18 +288,20 @@ tests/
 ```bash
 npm install              # Install dependencies
 npm run build            # Compile TypeScript
-npm test                 # Run all tests (29 test files, 278 tests)
+npm test                 # Run all tests (29 test files, 277 tests)
 npm run test:coverage    # Run with coverage report
 npm run test:watch       # Watch mode
 npm run lint             # ESLint
 
 # Run specific test layers
-npm test -- tests/unit         # Unit tests only (fast)
-npm test -- tests/integration  # Integration tests only
-npm test -- tests/e2e          # E2E tests only
+npm test -- tests/domain        # Domain tests only
+npm test -- tests/application   # Application tests only
+npm test -- tests/integration   # Integration tests only
+npm test -- tests/cli           # CLI tests (unit + E2E)
+npm test -- tests/plugin        # Plugin tests only
 
 # Run specific test file
-npm test -- no-dependency.checker
+npm test -- no-dependency.plugin
 ```
 
 ### Testing
@@ -312,16 +310,23 @@ KindScript has a comprehensive test suite achieving **100% pass rate**:
 
 ```
   tests/
-    unit/             24 files - Component tests with mocked dependencies
-    integration/      3 files  - Multi-component tests with 18 fixtures
-    e2e/              1 file   - Full CLI subprocess tests
+    domain/           5 files  - Domain entity tests
+    application/      11 files - Classification + enforcement tests
+    infrastructure/   2 files  - Shared adapter tests
+    cli/unit/         2 files  - CLI command tests
+    cli/e2e/          1 file   - CLI subprocess tests
+    plugin/unit/      5 files  - Plugin service tests
+    integration/      3 files  - Multi-component tests with 19 fixtures
     helpers/          4 files  - Shared test utilities and builders
 ```
 
 **Test Organization:**
-- **Unit tests** - Fast, isolated tests for domain entities, services, and adapters
+- **Domain tests** - Pure domain entity tests (no external dependencies)
+- **Application tests** - Classification and enforcement service tests
+- **Infrastructure tests** - Shared adapter tests
+- **CLI tests** - CLI command unit tests + E2E subprocess tests
+- **Plugin tests** - Plugin service tests
 - **Integration tests** - Real TypeScript compiler + file system with fixture directories
-- **E2E tests** - Complete CLI workflows via subprocess invocation
 
 **Coverage thresholds** are strictly enforced:
 - Domain layer: 90% lines/functions, 75% branches
@@ -334,8 +339,10 @@ See **[tests/README.md](tests/README.md)** for complete testing documentation, i
 Jupyter notebooks in `notebooks/` provide interactive walkthroughs:
 
 ```
-01-quickstart.ipynb       From zero to enforced architecture (define, check)
-02-contracts.ipynb        All 6 contract types with examples
+01-quickstart.ipynb          From zero to enforced architecture (define, check)
+02-contracts.ipynb           All 6 contract types with examples
+04-bounded-contexts.ipynb    Multi-instance Kinds for bounded contexts
+05-design-system.ipynb       Real-world enforcement on a design system codebase
 ```
 
 ## Why KindScript?
@@ -346,8 +353,8 @@ KindScript moves architectural rules into the compiler:
 
 - Violations caught in the IDE, before commit
 - Refactoring-safe -- rename a layer and all violations surface
-- Self-documenting -- `.k.ts` files are the source of truth
-- Gradual adoption -- works on existing codebases, two tiers of investment
+- Self-documenting -- definition files are the source of truth
+- Gradual adoption -- works on existing codebases
 - Zero runtime overhead -- compile-time only
 
 **Comparison:**
@@ -367,14 +374,14 @@ KindScript moves architectural rules into the compiler:
 
 **Version:** `0.8.0-m8`
 
-All core functionality is implemented and tested. See [DONE_VS_TODO.md](docs/status/DONE_VS_TODO.md) for the detailed breakdown.
+All core functionality is implemented and tested.
 
 **What's working:**
 - All 6 contract types (noDependency, mustImplement, purity, noCycles, filesystem.exists, filesystem.mirrors)
 - CLI with 1 command (check)
 - TypeScript language service plugin (inline diagnostics + code fix suggestions)
 - AST classifier (Kind definitions and instances)
-- 29 test suites, 100% passing
+- 29 test suites, 277 tests, 100% passing
 
 **What's next:**
 - Watch mode and incremental compilation (`.ksbuildinfo` caching)
@@ -384,10 +391,12 @@ All core functionality is implemented and tested. See [DONE_VS_TODO.md](docs/sta
 
 ## Documentation
 
-- [Architecture V4](docs/architecture/COMPILER_ARCHITECTURE.md) -- Full architectural specification
-- [Status: Done vs TODO](docs/status/DONE_VS_TODO.md) -- Implementation progress
-- [Build Plan](docs/architecture/BUILD_PLAN.md) -- Milestone roadmap
-- [Design Decisions](docs/architecture/DESIGN_DECISIONS.md) -- Build/Wrap/Skip rationale
+- [Architecture](docs/01-architecture.md) -- System overview, pipeline, layers
+- [Kind System](docs/02-kind-system.md) -- Kind syntax, instances, discovery
+- [Contracts](docs/03-contracts.md) -- All 6 contract types
+- [Decisions](docs/04-decisions.md) -- Build/Wrap/Skip rationale
+- [Examples](docs/05-examples.md) -- Real-world modeling
+- [CLAUDE.md](CLAUDE.md) -- Development guide for AI agents and contributors
 
 ## License
 

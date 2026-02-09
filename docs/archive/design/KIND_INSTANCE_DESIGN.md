@@ -274,7 +274,7 @@ Then any Kind that has a `DomainLayer` member knows it lives at `./domain`. But 
 
 Members are real `const` declarations with Kind types, composed into parents like normal TypeScript.
 
-**Leaf Kind instances:**
+**Kind instances (no sub-members):**
 
 ```typescript
 const domain: DomainLayer = { kind: "DomainLayer" };
@@ -339,7 +339,7 @@ type DomainLayer = Kind<"DomainLayer", {
   valueObjects: ValueObjectsModule;
 }>;
 
-// Leaf instances
+// Instances (no sub-members)
 const entities: EntitiesModule = { kind: "EntitiesModule" };
 const valueObjects: ValueObjectsModule = { kind: "ValueObjectsModule" };
 
@@ -384,7 +384,7 @@ The classifier would need to:
 - Clean separation: Kind definition = structure, instance = identity, location = derived
 
 **Cons:**
-- More lines of code for leaf instances (each needs a `const` declaration)
+- More lines of code for member instances (each needs a `const` declaration)
 - Classifier needs reference resolution (medium complexity)
 - If member instances carry no location and no unique state, what's the point of declaring them at all? (See Design 4)
 

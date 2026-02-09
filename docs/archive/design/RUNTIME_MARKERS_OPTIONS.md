@@ -287,7 +287,7 @@ The stdlib package becomes entirely type exports + one plain object. Its compile
 | Aspect | Before (current) | After (both changes) |
 |--------|-------------------|----------------------|
 | Kind definitions | `interface X extends Kind<"X"> { ... }` | `type X = Kind<"X", { ... }>` |
-| Leaf kinds | `interface X extends Kind<"X"> {}` | `type X = Kind<"X">` |
+| Kinds (no members) | `interface X extends Kind<"X"> {}` | `type X = Kind<"X">` |
 | Instance declaration | `locate<T>(root, members)` | `{ root, ...members } satisfies InstanceConfig<T>` |
 | Contract declaration | `defineContracts<T>(config)` | `config satisfies ContractConfig<T>` |
 | Import style | `import { Kind, locate, ... }` (value import) | `import type { Kind, ... }` (erased) |

@@ -749,7 +749,7 @@ export type DomainLayer = Kind<"DomainLayer", {
   readonly ports: string;
 }>;
 
-// ... more leaf kind definitions
+// ... more Kind definitions (no members — constraints apply to scope)
 
 /** A bounded context following Clean Architecture principles. */
 export type CleanContext = Kind<"CleanContext", {

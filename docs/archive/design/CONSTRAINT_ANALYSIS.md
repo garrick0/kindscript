@@ -104,8 +104,8 @@ type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 
 ### How It Works
 
-1. `pure: true` is an *intrinsic* constraint — it's declared on a leaf Kind
-2. When a composite Kind includes a member whose Kind has `pure: true`, a `Purity` contract is **automatically propagated** to that member
+1. `pure: true` is an *intrinsic* constraint — it's declared on the Kind itself (in this case one with no members, but any Kind can carry intrinsic constraints)
+2. When a Kind is used as a member of another Kind and carries `pure: true`, a `Purity` contract is **automatically propagated** to that member
 3. At check time, all files in the symbol's directory are scanned for import module specifiers
 4. Each specifier is looked up in the `NODE_BUILTINS` set (58 entries: 27 bare names + `node:` prefixes + `/promises` subpaths)
 5. Any match produces a `Diagnostic.impureImport` (code 70003) with file/line/column
@@ -145,7 +145,7 @@ Importing `fs-extra` (which wraps `fs`) passes purity even though it introduces 
 
 ### Strengths
 
-- Constraint propagation is elegant — declaring `pure: true` on a leaf Kind automatically applies to all composites that use it
+- Constraint propagation is elegant — declaring `pure: true` on a Kind automatically applies wherever that Kind is used as a member
 - Deduplication prevents double-reporting when purity is both explicitly declared and propagated
 - Well-tested: 8 unit tests covering bare, `node:` prefix, and `/promises` subpath variants
 

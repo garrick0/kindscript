@@ -1,86 +1,89 @@
 # KindScript Documentation
 
-## Directory Structure
+## Chapters
 
-```
-docs/
-├── architecture/          Core reference (start here)
-│   ├── COMPILER_ARCHITECTURE.md   The complete architectural specification (V4)
-│   ├── BUILD_PLAN.md              Incremental implementation roadmap (M0-M8)
-│   └── DESIGN_DECISIONS.md        Decision rationale (Build/Wrap/Skip choices)
-│
-├── status/                Current state
-│   ├── DONE_VS_TODO.md            Implementation progress (v0.8.0-m8)
-│   ├── CODEBASE_REVIEW_2026_02_07.md  Codebase review & implementation plan
-│   └── CLEANUP_PLAN.md            Remaining cleanup work
-│
-├── design/                Active design explorations
-│   ├── KIND_DERIVED_LOCATIONS.md           Derived locations design
-│   ├── KIND_INSTANCE_DESIGN.md             Location/instance model
-│   ├── MEMBER_KIND_TYPES.md                Member Kind type analysis
-│   ├── FILESYSTEM_CONSTRAINTS.md           Filesystem constraint analysis
-│   ├── KIND_DEFINITION_SYNTAX.md           Kind definition syntax alternatives
-│   ├── RUNTIME_MARKERS_OPTIONS.md          Runtime marker alternatives
-│   └── TS_COMPILER_INTEGRATION_ANALYSIS.md TS compiler integration analysis
-│
-└── archive/               Historical (do not use for implementation)
-    ├── architecture/      V1-V3 compiler architecture specs
-    ├── milestones/        Completed milestone plans (M0-M8)
-    ├── test-consolidation/  Completed test consolidation work
-    ├── CONTRACTS_AND_LOCATION_REDESIGN.md     V1 redesign (completed)
-    ├── CONTRACTS_AND_LOCATION_REDESIGN_V2.md  V2 redesign (completed)
-    └── CODEBASE_REVIEW_OUTDATED.md            Previous review (superseded)
-```
+| # | Chapter | What's in it |
+|---|---------|-------------|
+| 1 | [Architecture](01-architecture.md) | System overview, compiler pipeline, layers, data flow, source layout |
+| 2 | [Kind System](02-kind-system.md) | Kind syntax, instances, location derivation, MemberMap, discovery |
+| 3 | [Contracts](03-contracts.md) | All 6 contract types, plugin architecture, ConstraintConfig |
+| 4 | [Decisions](04-decisions.md) | Key decisions log (Build/Wrap/Skip, plugin vs LSP, drop .k.ts, etc.) |
+| 5 | [Examples](05-examples.md) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
 
 ---
 
 ## Reading Order
 
-**Implementing a feature:**
-1. [COMPILER_ARCHITECTURE.md](architecture/COMPILER_ARCHITECTURE.md) — relevant section
-2. [BUILD_PLAN.md](architecture/BUILD_PLAN.md) — relevant milestone
-3. [tests/README.md](../tests/README.md) — testing guide
-
-**Reviewing the architecture:**
-1. [COMPILER_ARCHITECTURE.md](architecture/COMPILER_ARCHITECTURE.md) — full spec
-2. [DESIGN_DECISIONS.md](architecture/DESIGN_DECISIONS.md) — rationale
-3. [CODEBASE_REVIEW.md](status/CODEBASE_REVIEW.md) — current issues
-
 **Onboarding:**
 1. [README.md](../README.md) — project overview
 2. [CLAUDE.md](../CLAUDE.md) — development guide
-3. [BUILD_PLAN.md](architecture/BUILD_PLAN.md) — M0-M2
+3. [01-architecture.md](01-architecture.md) — system overview
+
+**Implementing a feature:**
+1. [01-architecture.md](01-architecture.md) — relevant section
+2. [03-contracts.md](03-contracts.md) — if adding/modifying contracts
+3. [tests/README.md](../tests/README.md) — testing guide
+
+**Understanding a decision:**
+1. [04-decisions.md](04-decisions.md) — rationale for all major decisions
 
 ---
 
 ## Quick Reference
 
-| Question | Document |
-|----------|----------|
-| How does the binder work? | [COMPILER_ARCHITECTURE.md](architecture/COMPILER_ARCHITECTURE.md) Part 4.1 |
-| How do contracts work? | [COMPILER_ARCHITECTURE.md](architecture/COMPILER_ARCHITECTURE.md) Part 4.3 |
-| Why plugin instead of LSP? | [DESIGN_DECISIONS.md](architecture/DESIGN_DECISIONS.md) Opportunity 1 |
-| Why no ts-morph? | [DESIGN_DECISIONS.md](architecture/DESIGN_DECISIONS.md) Opportunity 5 |
-| What's the build order? | [COMPILER_ARCHITECTURE.md](architecture/COMPILER_ARCHITECTURE.md) Part 9 |
-| What's in Milestone 1? | [BUILD_PLAN.md](architecture/BUILD_PLAN.md) Milestone 1 |
-| What's done vs remaining? | [DONE_VS_TODO.md](status/DONE_VS_TODO.md) |
-| What cleanup is needed? | [CLEANUP_PLAN.md](status/CLEANUP_PLAN.md) |
+| Question | Chapter |
+|----------|---------|
+| How does the pipeline work? | [01-architecture.md](01-architecture.md) — Compiler Pipeline |
+| How do I define a Kind? | [02-kind-system.md](02-kind-system.md) — Kind Definitions |
+| What contracts are available? | [03-contracts.md](03-contracts.md) — Contract Types |
+| How do I add a new contract? | [03-contracts.md](03-contracts.md) — Adding a New Contract Type |
+| Why plugin instead of LSP? | [04-decisions.md](04-decisions.md) — D1 |
+| Why no .k.ts extension? | [04-decisions.md](04-decisions.md) — D9 |
+| How do I model a design system? | [05-examples.md](05-examples.md) — Design System |
+| How do bounded contexts work? | [05-examples.md](05-examples.md) — Bounded Contexts |
 
 ---
 
-## Document Evolution
+## Directory Structure
 
-V1 → V2: Corrected "dual front-end" to single front-end (TypeScript parser for all .ts files).
-V2 → V3: Fixed 9 major issues (binder-checker boundary, symbol-to-files resolution, contract trust, etc.).
-V3 → V4: Simplified based on ecosystem evidence (plugin API, no ts-morph).
+```
+docs/                                Source of truth (checked in)
+├── README.md                        This file (index)
+├── 01-architecture.md               System overview + pipeline + layers
+├── 02-kind-system.md                Kind syntax + instances + discovery
+├── 03-contracts.md                  All 6 contracts + plugin architecture
+├── 04-decisions.md                  Key decisions log
+├── 05-examples.md                   Real-world modeling examples
+└── archive/                         Historical — do not use for implementation
+    ├── architecture/                V1–V4 compiler specs + design decisions
+    ├── design/                      24 completed design explorations
+    ├── milestones/                  Completed milestone plans (M0–M8)
+    └── test-consolidation/          Completed test consolidation work
 
-Old versions preserved in `archive/architecture/` for historical context. **Do not use them for implementation.**
+.working/                            Working docs (gitignored, not checked in)
+├── *.md                             Active design explorations
+└── archive/                         Completed working docs
+```
+
+---
+
+## Working Documents Convention
+
+Active design explorations and scratch documents live in `.working/` at the project root (gitignored — not checked in). This keeps the committed `docs/` directory clean and authoritative.
+
+**Lifecycle:**
+1. Create a working document in `.working/` for design exploration
+2. When the exploration is complete, uplift the relevant findings into the appropriate `docs/` chapter
+3. Archive the working document by moving it to `.working/archive/`
+
+**Key rule:** `.working/` documents are never the source of truth. If something is decided, it must be reflected in the `docs/` chapter files. Working documents are disposable scratchpads.
 
 ---
 
 ## Contributing
 
-- Update `architecture/` docs when architectural decisions change
-- Update `status/` docs when implementation progress changes
-- Add to `design/` for new design explorations
-- Move completed work to `archive/` when done
+- **Update chapter files** when architectural decisions or contracts change
+- **Add new decisions** as numbered entries in `04-decisions.md`
+- **Use `.working/`** for design explorations (not checked in)
+- **Uplift findings** from `.working/` into chapters when done, then archive the working doc
+- **Update this README** if chapters are added or reorganized
