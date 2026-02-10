@@ -1,6 +1,6 @@
 # Constraints
 
-> All 6 constraint types, the plugin architecture, and how constraint checking works.
+> All 3 constraint types, the plugin architecture, and how constraint checking works.
 
 ---
 
@@ -13,11 +13,9 @@ KindScript enforces architectural rules through **constraints** — rules declar
 | Constraint | Category | What It Checks | Diagnostic Code |
 |----------|----------|----------------|-----------------|
 | `noDependency` | Dependency | Layer A cannot import from Layer B | KS70001 |
-| `mustImplement` | Dependency | Every port interface has an adapter | KS70002 |
 | `purity` | Behavioral | Layer has no side-effect imports | KS70003 |
 | `noCycles` | Dependency | No circular dependencies between layers | KS70004 |
-| `filesystem.mirrors` | Filesystem | Related files exist in parallel directories | KS70005 |
-| `filesystem.exists` | Filesystem | Member directories exist on disk | KS70010 |
+| `scope` | Structural | Instance location matches Kind's declared scope | KS70005 |
 
 ---
 
@@ -35,12 +33,7 @@ type OrderingContext = Kind<"OrderingContext", {
     ["domain", "infrastructure"],
     ["domain", "application"],
   ];
-  mustImplement: [["domain", "infrastructure"]];
   noCycles: ["domain", "application", "infrastructure"];
-  filesystem: {
-    exists: ["domain", "application", "infrastructure"];
-    mirrors: [["domain", "infrastructure"]];
-  };
 }>;
 ```
 
@@ -48,14 +41,13 @@ The `Constraints<Members>` type ensures member names are valid identifiers from 
 
 ### Constraint Shapes
 
-Constraints come in four shapes:
+Constraints come in three shapes:
 
 | Shape | Constraints | Declaration |
 |-------|-------------|-------------|
 | **Intrinsic** (applies to a member kind) | `pure` | `pure: true` on the member Kind |
-| **Relational** (between two members) | `noDependency`, `mustImplement`, `filesystem.mirrors` | `[["from", "to"]]` |
+| **Relational** (between two members) | `noDependency` | `[["from", "to"]]` |
 | **Collective** (across a group) | `noCycles` | `["member1", "member2", ...]` |
-| **Existence** (per member) | `filesystem.exists` | `["member1", "member2", ...]` |
 
 ---
 
@@ -82,7 +74,7 @@ type Context = Kind<"Context", {
 
 **Example violation:**
 ```
-src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain -> infrastructure
+src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain → infrastructure (src/domain/service.ts → src/infrastructure/database.ts)
 
   12 import { Db } from '../infrastructure/database';
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,31 +84,6 @@ src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain -> infr
 - Both `import` and `import type` are checked (type-only imports are not exempted)
 - Dynamic imports (`import()` expressions) are not currently checked
 - Re-exports through barrel files are detected at the resolved target level
-
-### mustImplement — Missing Implementation (KS70002)
-
-Checks that every interface exported from member A has a corresponding class implementing it in member B. This enforces the ports-and-adapters pattern.
-
-```typescript
-type Context = Kind<"Context", {
-  domain: DomainLayer;
-  infrastructure: InfrastructureLayer;
-}, {
-  mustImplement: [["domain", "infrastructure"]];
-}>;
-```
-
-**How it works:**
-1. Finds all exported interfaces in the `from` member's files
-2. Searches all files in the `to` member for classes with `implements` clauses
-3. For each unimplemented interface, produces a violation
-
-**Example violation:**
-```
-src/domain/ports/user-repo.ts:3:1 - error KS70002: Missing implementation: UserRepository
-
-  Interface 'UserRepository' has no implementing class in infrastructure
-```
 
 ### purity — Impure Import (KS70003)
 
@@ -136,7 +103,7 @@ type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 
 **Example violation:**
 ```
-src/domain/service.ts:1:1 - error KS70003: Impure import in pure layer: 'fs'
+src/domain/service.ts:1:1 - error KS70003: Impure import in 'domain': 'fs'
 
   1 import { readFileSync } from 'fs';
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -163,60 +130,8 @@ type Context = Kind<"Context", {
 
 **Example violation:**
 ```
-error KS70004: Circular dependency detected: domain -> infrastructure -> domain
+error KS70004: Circular dependency detected: domain → infrastructure → domain
 ```
-
-### filesystem.mirrors — Missing Counterpart File (KS70005)
-
-Checks that for every file in member A, a corresponding file exists in member B. This is useful for ensuring every component has a test file, every interface has an implementation file, etc.
-
-```typescript
-type Context = Kind<"Context", {
-  components: ComponentsLayer;
-  tests: TestsLayer;
-}, {
-  filesystem: {
-    mirrors: [["components", "tests"]];
-  };
-}>;
-```
-
-**How it works:**
-1. Lists all files in member A's directory
-2. Lists all files in member B's directory
-3. For each file in A, checks if a file with the same relative path (basename) exists in B
-4. Missing counterparts are violations
-
-**Example violation:**
-```
-error KS70005: Missing counterpart: 'components/Button.tsx' has no counterpart in 'tests/'
-```
-
-### filesystem.exists — Member Directory Not Found (KS70010)
-
-Checks that each declared member's derived directory actually exists on the filesystem.
-
-```typescript
-type Context = Kind<"Context", {
-  domain: DomainLayer;
-  infrastructure: InfrastructureLayer;
-}, {
-  filesystem: {
-    exists: ["domain", "infrastructure"];
-  };
-}>;
-```
-
-**How it works:**
-1. For each member named in the constraint, checks if the derived directory path exists
-2. Missing directories are violations
-
-**Example violation:**
-```
-error KS70010: Member directory not found: 'src/infrastructure' does not exist
-```
-
-**Note:** This is an explicit, opt-in constraint — directories are NOT checked automatically. Only members listed in `filesystem.exists` are verified.
 
 ---
 
@@ -293,7 +208,7 @@ interface ContractPlugin extends ConstraintProvider {
 
 ### Plugin Registry
 
-All 6 plugins are registered in `plugin-registry.ts`. Each plugin is a singleton object (not a factory function):
+All 3 plugins are registered in `plugin-registry.ts`. Each plugin is a singleton object (not a factory function):
 
 ```typescript
 function createAllPlugins(): ContractPlugin[] {
@@ -301,9 +216,7 @@ function createAllPlugins(): ContractPlugin[] {
     noDependencyPlugin,
     purityPlugin,
     noCyclesPlugin,
-    mustImplementPlugin,
-    existsPlugin,
-    mirrorsPlugin,
+    scopePlugin,
   ];
 }
 ```
@@ -326,99 +239,14 @@ The `CheckerService` is a thin dispatcher (~60 lines) that:
 
 ### Walkthrough: Implementing a Plugin
 
-This walkthrough shows the structure of a typical plugin using `existsPlugin` as a reference — the simplest real plugin.
+See any plugin in `src/application/pipeline/plugins/` for a reference implementation. Each plugin is a singleton object implementing `ContractPlugin` with:
 
-**Step 1: Domain types**
+1. **Domain types** — Add `ContractType` enum value and `DiagnosticCode` constant
+2. **Plugin file** — Implement `type`, `constraintName`, `diagnosticCode`, `validate()`, `check()`, and optionally `generate()` / `intrinsic`
+3. **Register** — Add to `createAllPlugins()` in `plugin-registry.ts`
+4. **Tests** — Every plugin needs validation, check, and generate tests
 
-```typescript
-// src/domain/types/contract-type.ts — add to the enum
-export enum ContractType {
-  // ... existing types
-  Exists = 'Exists',
-}
-
-// src/domain/constants/diagnostic-codes.ts — add a code
-export const DiagnosticCode = {
-  // ... existing codes
-  MemberNotFound: 70010,
-} as const;
-```
-
-**Step 2: Plugin file** (`src/application/pipeline/plugins/exists/exists.plugin.ts`)
-
-Every plugin is a singleton object implementing `ContractPlugin`:
-
-```typescript
-import { ContractPlugin } from '../contract-plugin';
-import { ContractType } from '../../../../domain/types/contract-type';
-import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-
-export const existsPlugin: ContractPlugin = {
-  type: ContractType.Exists,
-  constraintName: 'filesystem.exists',       // dotted name matching constraint tree path
-  diagnosticCode: DiagnosticCode.MemberNotFound,
-
-  // generate(): called by the Binder to create Contract[] from constraint values
-  generate: {
-    fromStringList: true,  // uses the shared generateFromStringList() helper
-  },
-
-  // validate(): called by the Checker before check(). Return null if valid.
-  validate(args) {
-    if (args.length === 0) return 'exists requires at least one symbol';
-    return null;
-  },
-
-  // check(): called by the Checker to evaluate the contract
-  check(contract, ctx) {
-    const diagnostics = [];
-    for (const symbol of contract.args) {
-      if (!ctx.resolvedFiles.has(symbol.declaredLocation)) {
-        diagnostics.push(new Diagnostic(
-          `Member directory not found: '${symbol.declaredLocation}'`,
-          DiagnosticCode.MemberNotFound,
-          '',    // empty string = structural (not file-specific)
-          0, 0,
-        ));
-      }
-    }
-    return { diagnostics, filesAnalyzed: 0 };
-  },
-};
-```
-
-**Step 3: Register** in `src/application/pipeline/plugins/plugin-registry.ts`:
-
-```typescript
-import { existsPlugin } from './exists/exists.plugin';
-
-export function createAllPlugins(): ContractPlugin[] {
-  return [
-    // ... existing plugins
-    existsPlugin,
-  ];
-}
-```
-
-**Step 4: Tests** — every plugin needs three test categories:
-
-```typescript
-// tests/application/exists.plugin.test.ts
-describe('existsPlugin', () => {
-  // 1. Validation tests
-  it('validates with at least one arg', () => { ... });
-  it('rejects empty args', () => { ... });
-
-  // 2. Check tests (with mock resolved files)
-  it('passes when directory exists', () => { ... });
-  it('reports missing directory', () => { ... });
-
-  // 3. Generate tests (contract generation from constraint values)
-  it('generates contracts from string list', () => { ... });
-});
-```
-
-All 6 existing plugins follow this exact pattern. See any plugin in `src/application/pipeline/plugins/` for a complete reference.
+All 3 existing plugins follow this pattern.
 
 ---
 
@@ -437,13 +265,14 @@ ScanService (scanner)
 ParseService (parser)
     → builds ArchSymbol trees from scan output
     → derives filesystem locations from member names
-    → resolves files for each member path (readDirectory)
-    → produces Map<location, files[]>
+    → purely structural (no I/O)
 
 BindService (binder)
+    → resolves symbol locations to files (directory/file/declaration)
     → walks constraint trees from Kind definitions
     → generates Contract[] via ConstraintProvider plugins
     → propagates intrinsic constraints (e.g., pure: true)
+    → produces resolvedFiles: Map<location, files[]>
 
 CheckerService (checker)
     → for each Contract:
@@ -452,6 +281,15 @@ CheckerService (checker)
         → collect Diagnostic[]
     → return all diagnostics
 ```
+
+### TypeKind Member Resolution
+
+When TypeKind members are used inside a filesystem Kind, the binder resolves them differently from filesystem members:
+
+- **Filesystem members:** `readDirectory()` on the derived path (folder resolution) or single file (file resolution)
+- **TypeKind members:** collect all typed exports within the parent Kind's scope that match the TypeKind name (declaration resolution)
+
+Both resolution paths populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult`. The checker operates on this unified map — existing constraint plugins (`noDependency`, `noCycles`, etc.) work unchanged with TypeKind members.
 
 ### What the Checker Receives
 

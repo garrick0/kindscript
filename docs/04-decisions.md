@@ -10,6 +10,10 @@ Each decision records the context, options considered, and outcome. Entries are 
 
 | # | Decision | Date | Status |
 |---|----------|------|--------|
+| D18 | [Semantic error messages](#d18-semantic-error-messages) | 2026-02-10 | Done |
+| D17 | [Remove mustImplement, exists, mirrors plugins](#d17-remove-mustimplement-exists-mirrors-plugins) | 2026-02-10 | Done |
+| D16 | [Resolution moves from parser to binder](#d16-resolution-moves-from-parser-to-binder) | 2026-02-10 | Done |
+| D15 | [Unified Kind type — TypeKind as sugar](#d15-unified-kind-type--typekind-as-sugar) | 2026-02-10 | Done |
 | D14 | [File-scoped leaf instances](#d14-file-scoped-leaf-instances) | 2026-02-08 | Done |
 | D13 | [Rename `ConstraintConfig` to `Constraints`, align docs terminology](#d13-rename-constraintconfig-to-constraints) | 2026-02-08 | Done |
 | D12 | [Rename `InstanceConfig<T>` to `Instance<T>`](#d12-rename-instanceconfigt-to-instancet) | 2026-02-08 | Done |
@@ -24,6 +28,167 @@ Each decision records the context, options considered, and outcome. Entries are 
 | D3 | [Use `type` alias instead of `interface extends`](#d3-type-alias-instead-of-interface-extends) | 2026-02-07 | Done |
 | D2 | [No ts-morph dependency](#d2-no-ts-morph) | 2026-02-07 | Done |
 | D1 | [Language Service Plugin instead of custom LSP](#d1-language-service-plugin-instead-of-custom-lsp) | 2026-02-07 | Done |
+
+---
+
+## D18: Semantic Error Messages
+
+**Date:** 2026-02-10
+**Status:** Done
+
+### Context
+
+KindScript's diagnostic messages reported violations using raw file paths:
+
+```
+Forbidden dependency: src/domain/service.ts -> src/infra/database.ts
+Impure import in pure layer: 'fs' in src/domain/service.ts
+```
+
+Users think in terms of architectural symbols ("domain", "infrastructure"), not file paths. The messages forced users to mentally map paths back to symbols.
+
+### Decision
+
+Include symbol names in all diagnostic messages, keeping file paths as supporting context:
+
+```
+Forbidden dependency: domain → infrastructure (src/domain/service.ts → src/infra/database.ts)
+Impure import in 'domain': 'fs'
+Circular dependency detected: domain → infrastructure → domain
+```
+
+### Rationale
+
+- **Matches mental model** — users think "domain depends on infrastructure", not "this file depends on that file"
+- **Actionable** — symbol names tell you which architectural rule is violated; file paths tell you where to fix it
+- **Consistent** — all three plugins now lead with semantic context
+- **Backwards-compatible** — messages still contain file paths, so existing `.toContain()` assertions in tests still pass
+
+### Impact
+
+- `noDependencyPlugin`: `Forbidden dependency: ${from} → ${to} (${sourceFile} → ${targetFile})`
+- `purityPlugin`: `Impure import in '${symbol}': '${module}'`
+- `noCyclesPlugin`: already used symbol names — no change
+- All 263 tests passing, no test changes required
+
+---
+
+## D17: Remove mustImplement, exists, mirrors Plugins
+
+**Date:** 2026-02-10
+**Status:** Done
+
+### Context
+
+KindScript had 6 constraint types: `noDependency`, `mustImplement`, `purity`, `noCycles`, `filesystem.exists`, and `filesystem.mirrors`. Three of them (`mustImplement`, `filesystem.exists`, `filesystem.mirrors`) had limited real-world value and added complexity:
+
+- **mustImplement** — checked that every exported interface in one layer had an implementing class in another. Useful in theory, but in practice classes often implement interfaces from unrelated packages or use patterns (abstract classes, partial implementations) that the simple "has `implements` clause" check didn't handle well.
+- **filesystem.exists** — checked that member directories existed on disk. Redundant: if a directory is missing, dependency checks simply pass (no files to violate). The constraint only caught the case where a user declared members they never created — a trivially fixable setup issue.
+- **filesystem.mirrors** — checked that every file in one directory had a counterpart in another (e.g., every component has a test). Brittle in practice: test file naming conventions vary, colocated tests break the pattern, and the check produced false positives on stories, fixtures, and helpers.
+
+### Decision
+
+Remove all three plugins and focus on the 3 core constraints: `noDependency`, `purity`, `noCycles`. These three are compositional, behavioral, and universally applicable.
+
+### Rationale
+
+- **Focus** — 3 constraints that compose well are more valuable than 6 that each cover a narrow case
+- **Simpler mental model** — users only need to learn 3 constraint types
+- **Less maintenance surface** — 3 plugin implementations instead of 6
+- **No real-world loss** — the removed constraints had workarounds (mustImplement → TypeScript's own type checking; exists → visual inspection; mirrors → test coverage tools)
+- **Principled** — the remaining 3 constraints are all import-graph analysis, which is KindScript's core competency
+
+### Impact
+
+- Deleted `src/application/pipeline/plugins/must-implement/`, `exists/`, `mirrors/`
+- Deleted 3 test files, 3 sets of integration fixtures, related E2E tests
+- Removed `ContractType` enum values, `DiagnosticCode` constants, factory functions
+- Removed `filesystem.exists`/`filesystem.mirrors` from all notebooks and documentation
+- 26 test files, 263 tests, 100% passing
+
+---
+
+## D16: Resolution Moves from Parser to Binder
+
+**Date:** 2026-02-10
+**Status:** Done
+
+### Context
+
+The parser (`ParseService`) had two responsibilities: building ArchSymbol trees from scan output (structural) and resolving those symbols to actual files on disk (I/O). This meant the parser depended on `FileSystemPort`, which violated its role as a structural transformation stage. It also meant resolution logic was split between parser (filesystem resolution) and binder (TypeKind declaration resolution), making the data flow harder to follow.
+
+### Decision
+
+Move all name resolution from the parser to the binder. The parser becomes purely structural (no I/O dependencies). The binder performs unified resolution using a three-strategy approach:
+
+1. **TypeKind declaration resolution** — scan for typed exports within the parent scope
+2. **Folder resolution** — `readDirectory()` on the derived path
+3. **File resolution** — single file check
+
+### Rationale
+
+- **Parser purity** — the parser is now a pure function from scan output to ArchSymbol trees, with zero I/O
+- **Unified resolution** — all three resolution strategies live in one place (the binder), making the data flow clear
+- **Aligned with TypeScript's model** — TypeScript's binder is where names are resolved to declarations
+- **Single source of `resolvedFiles`** — `BindResult.resolvedFiles` is the one authoritative map; `ParseResult` no longer carries it
+
+### Impact
+
+- `ParseService`: constructor takes zero arguments (was `FileSystemPort`); removed `resolveSymbolFiles()` and `resolveTypeKindFiles()`
+- `ParseResult`: removed `resolvedFiles` field
+- `BindService`: constructor takes `(plugins, fsPort)`; new `resolveMembers()` method
+- `BindResult`: now includes `resolvedFiles: Map<string, string[]>`
+- `PipelineService`: uses `bindResult.resolvedFiles` directly (no merge)
+- `engine-factory.ts`: `new ParseService()` (no args), `new BindService(plugins, fs)`
+- All 263 tests passing, 5 test files updated for new constructors
+
+---
+
+## D15: Unified Kind Type — TypeKind as Sugar
+
+**Date:** 2026-02-10
+**Status:** Done
+
+### Context
+
+KindScript had two separate type-level primitives: `Kind<N, Members, Constraints>` for directory/file-based architectural units, and `TypeKind<N, T>` for declaration-based units. At the type level, they were unrelated types. This created a conceptual split — users had to learn two different systems — and a practical problem: `Members extends Record<string, KindRef>` needed `KindRef` to be a shared marker, but `Kind` and `TypeKind` had no common base.
+
+Additionally, `TypeKind` only took 2 type parameters — it couldn't carry standalone constraints (like `pure: true`), limiting its expressiveness.
+
+### Decision
+
+Make `Kind` a conditional type with a 4th parameter `_Config extends KindConfig`:
+
+```typescript
+type KindConfig = { wraps?: unknown; scope?: 'folder' | 'file' };
+
+type Kind<N, Members, _Constraints, _Config> =
+  _Config extends { wraps: infer T }
+    ? T & { readonly __kindscript_brand?: N }  // TypeKind shape
+    : { kind: N; location: string } & Members; // structural shape
+
+type TypeKind<N, T, C = {}> = Kind<N, {}, C, { wraps: T }>;  // sugar
+```
+
+`TypeKind<N, T, C>` is now literally `Kind<N, {}, C, { wraps: T }>` — not a separate concept, but a convenience alias. Both produce `KindRef`-compatible types.
+
+### Rationale
+
+- **One concept, not two** — Kind and TypeKind are the same thing configured differently (directory scope vs. declaration scope)
+- **TypeKind gains constraints** — `TypeKind<"Decider", DeciderFn, { pure: true }>` enables standalone purity enforcement on typed exports
+- **Shared `KindRef`** — both branches satisfy the phantom marker, so `Members extends Record<string, KindRef>` works naturally
+- **`KindConfig` consolidates** — the previous 4th parameter `_Scope` (from D14) and the new `wraps` live together in one config type
+- **Minimal API expansion** — 2 new exports (`KindConfig`, `KindRef`), 1 parameter added to `TypeKind`
+
+### Impact
+
+- `src/types/index.ts`: `Kind` is now a conditional type; `TypeKind` gains 3rd parameter; `KindConfig` and `KindRef` exported
+- Public API: 6 types (`Kind`, `TypeKind`, `Instance`, `Constraints`, `KindConfig`, `KindRef`)
+- Scanner: extracts `constraints` from TypeKind's 3rd type parameter via `TypeKindDefinitionView.constraints`
+- Binder: generates standalone TypeKind contracts from `typeKindDefs` with constraints
+- 2 new integration fixtures (typekind-purity-clean, typekind-purity-violation)
+- 2 new E2E tests for TypeKind standalone purity
+- 26 test files, 263 tests, 100% passing
 
 ---
 

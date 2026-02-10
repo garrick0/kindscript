@@ -9,7 +9,7 @@
 KindScript's type system has two primitives:
 
 1. **Kind definitions** — type-level declarations of architectural patterns (`type X = Kind<...>`)
-2. **Instance declarations** — value-level declarations mapping patterns to a specific codebase (`satisfies Instance<T>`)
+2. **Instance declarations** — value-level declarations mapping patterns to a specific codebase (`satisfies Instance<T, Path>`)
 
 Kinds are normative (what the architecture MUST look like). Instances are descriptive (where the code ACTUALLY lives). The compiler compares them and reports violations.
 
@@ -17,7 +17,7 @@ Kinds are normative (what the architecture MUST look like). Instances are descri
 
 ## Kind Definitions
 
-A Kind is a TypeScript type alias using the `Kind<N, Members, Constraints>` generic:
+A Kind is a TypeScript type alias using the `Kind<N, Members, Constraints, Config>` generic. `Kind` is a conditional type — when `Config` includes `wraps`, it produces a wrapped type (TypeKind behavior); otherwise it produces a structural type for `satisfies Instance<T, Path>`.
 
 ```typescript
 import type { Kind } from 'kindscript';
@@ -49,13 +49,14 @@ type StrictCleanContext = Kind<"StrictCleanContext", {
 }>;
 ```
 
-### The Three Type Parameters
+### The Type Parameters
 
 | Parameter | Required | Purpose |
 |-----------|----------|---------|
 | `N` (name) | Yes | String literal discriminant — must match the type alias name |
 | `Members` | No | Object type mapping member names to their Kind types |
 | `Constraints` | No | `Constraints<Members>` — architectural rules to enforce |
+| `_Config` | No | `KindConfig` — `{ wraps?: T; scope?: 'folder' \| 'file' }`. `wraps` makes Kind produce a type annotation shape (TypeKind behavior). `scope` declares the expected instance scope, validated by the scope plugin. |
 
 ### Why `type` Instead of `interface`
 
@@ -70,7 +71,7 @@ KindScript uses `type X = Kind<...>` (type alias), not `interface X extends Kind
 
 ## Instance Declarations
 
-An instance maps a Kind to a specific location in a codebase using `satisfies Instance<T>`:
+An instance maps a Kind to a specific location in a codebase using `satisfies Instance<T, Path>`:
 
 ```typescript
 import type { Kind, Instance } from 'kindscript';
@@ -85,11 +86,11 @@ type OrderingContext = Kind<"OrderingContext", {
   noDependency: [["domain", "infrastructure"]];
 }>;
 
-// Instance declaration — root derived from this file's directory
+// Instance declaration — context file is inside the directory it governs
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<OrderingContext>;
+} satisfies Instance<OrderingContext, '.'>;
 ```
 
 ### What `satisfies` Gives Us
@@ -100,18 +101,41 @@ The `satisfies` keyword is valid TypeScript — no macros, no transforms, no run
 2. **Zero runtime** — `import type` is fully erased; no `kindscript` dependency at runtime
 3. **IDE support** — autocomplete, hover docs, go-to-definition all work natively
 
-### What Instances Never Do
+### Explicit Location
 
-Instances never specify paths. The Kind defines structure (what members exist). The compiler discovers reality (what directories exist). Validation compares them. If an instance said "look here," it would be doing the compiler's job.
+The second type parameter on `Instance<T, Path>` specifies where the instance lives, relative to the declaration file (same resolution semantics as TypeScript imports):
+
+```typescript
+// src/context.ts — '.' resolves to src/
+export const app = { domain: {}, infra: {} } satisfies Instance<App, '.'>;
+
+// src/architecture.ts — './ordering' resolves to src/ordering/
+export const ordering = { domain: {}, infra: {} } satisfies Instance<App, './ordering'>;
+
+// src/components/atoms/Button/Button.tsx — './Button.tsx' resolves to the file itself
+export const _ = {} satisfies Instance<AtomSource, './Button.tsx'>;
+```
+
+Path syntax determines granularity:
+- `'./ordering'` — folder (directory tree, all `.ts` files recursively)
+- `'./helpers.ts'` — file (single source file)
+- `'./handlers.ts#validate'` — sub-file (specific named export)
+
+Location is required. Omitting it is a scanner error.
 
 ---
 
-## Location Derivation
+## Location Resolution
 
-KindScript automatically derives filesystem locations from the instance declaration. The scope depends on whether the Kind has members:
+KindScript resolves the instance root from the declared path, then derives member paths from member names.
 
-- **Composite Kind** (has members) — location is the **directory** containing the declaring file. Members map to subdirectories.
-- **Leaf Kind** (no members) — location is the **declaring file itself**. The file IS the architectural entity.
+### Root Resolution
+
+The declared path is resolved relative to the directory of the declaring file, using the same semantics as TypeScript import paths:
+
+- `'.'` — directory of the declaring file
+- `'./src'` — `src/` subdirectory relative to the declaring file
+- `'../sibling'` — a sibling directory one level up
 
 ### Composite Instance (Directory Scope)
 
@@ -121,11 +145,11 @@ Given this file at `src/context.ts`:
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<OrderingContext>;
+} satisfies Instance<OrderingContext, '.'>;
 ```
 
-KindScript derives:
-- **Root:** `src/` (directory of `context.ts` — composite Kind, has members)
+KindScript resolves:
+- **Root:** `src/` (declared path `'.'` resolves to the directory of `context.ts`)
 - **domain:** `src/domain/` (root + member name)
 - **infrastructure:** `src/infrastructure/` (root + member name)
 
@@ -136,26 +160,50 @@ Given this file at `src/components/atoms/Button/v1.0.0/Button.tsx`:
 ```typescript
 type AtomSource = Kind<"AtomSource", {}, { pure: true }>;
 
-export const _ = {} satisfies Instance<AtomSource>;
+export const _ = {} satisfies Instance<AtomSource, './Button.tsx'>;
 ```
 
-KindScript derives:
-- **Location:** `Button.tsx` itself (leaf Kind, no members — the file IS the entity)
+KindScript resolves:
+- **Location:** `Button.tsx` itself (the path ends with `.tsx`, so it's a single file)
 
 Constraints on `AtomSource` (like `pure`) apply only to `Button.tsx`. Other files in the same directory (`Button.stories.tsx`, `Button.test.tsx`) are unaffected.
 
-### Why Members Determine Scope
+### Path Granularity
 
-Members structurally require directories — `{ domain: {}, infra: {} }` needs `domain/` and `infra/` subdirectories to exist. So directory scope is justified by necessity. Without members, there's nothing that requires directory expansion, and the natural reading of a declaration in a file is "this file is the thing."
+| Path syntax | Example | Resolves to | Constraints apply to |
+|-------------|---------|-------------|---------------------|
+| No extension | `'.'`, `'./ordering'` | Directory | All `.ts`/`.tsx` files recursively |
+| `.ts` / `.tsx` extension | `'./Button.tsx'` | Single file | That file only |
+| Hash syntax | `'./handlers.ts#validate'` | Named export in file | That specific export |
 
-### Scope Summary
+### Scope Validation
 
-| Kind type | Has members? | Location resolves to | Constraints apply to |
-|-----------|-------------|---------------------|---------------------|
-| Composite (`Kind<N, { a: X; b: Y }>`) | Yes | Parent directory of declaring file | All files in directory (recursive) |
-| Leaf (`Kind<N>` or `Kind<N, {}>`) | No | The declaring file itself | Only that single file |
+Kinds can declare their expected instance scope using the `scope` property in `Kind`'s 4th type parameter (`_Config`):
 
-The detection is structural — the parser checks whether the Kind definition has any member properties in its second type parameter. If it does, directory scope. If not, file scope.
+```typescript
+type KindConfig = { wraps?: unknown; scope?: 'folder' | 'file' };
+```
+
+When a Kind declares a scope, the compiler validates that instance locations match:
+
+```typescript
+// This Kind expects instances to point at folders
+type PureModule = Kind<"PureModule", {}, { pure: true }, { scope: "folder" }>;
+
+// Valid — '.' resolves to a directory
+export const m = {} satisfies Instance<PureModule, '.'>;
+
+// Violation (KS70005) — './module.ts' is a file, not a folder
+export const m = {} satisfies Instance<PureModule, './module.ts'>;
+```
+
+The scope plugin generates a `Scope` contract during the bind stage and validates it during the check stage. If the instance's resolved location doesn't match the declared scope, a `KS70005: Scope mismatch` diagnostic is produced.
+
+| Declared scope | Instance path must resolve to |
+|---------------|------------------------------|
+| `"folder"` | A directory (no `.ts`/`.tsx` extension) |
+| `"file"` | A file (`.ts` or `.tsx` extension) |
+| Not declared | No scope validation (any path is accepted) |
 
 ### Nested Members
 
@@ -200,13 +248,13 @@ src/
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<OrderingContext>;
+} satisfies Instance<OrderingContext, '.'>;
 
 // src/billing/billing.ts
 export const billing = {
   domain: {},
   adapters: {},
-} satisfies Instance<BillingContext>;
+} satisfies Instance<BillingContext, '.'>;
 ```
 
 Each instance is checked independently. Contracts on `OrderingContext` only apply to files under `src/ordering/`. Contracts on `BillingContext` only apply to files under `src/billing/`.
@@ -236,34 +284,121 @@ KindScript does not use file extensions, config files, or naming conventions to 
 
 ## MemberMap
 
-`MemberMap<T>` is the internal type projection used by `Instance<T>` — it transforms a Kind into the object shape you write with `satisfies`. Users typically use `Instance<T>` directly and never reference `MemberMap<T>` themselves.
+`MemberMap<T>` is the internal type projection used by `Instance<T, Path>` — it transforms a Kind into the object shape you write with `satisfies`. Users typically use `Instance<T, Path>` directly and never reference `MemberMap<T>` themselves.
 
-The `MemberMap<T>` type transforms a Kind type into its instance shape — the object type used with `satisfies Instance<T>`:
+The `MemberMap<T>` type transforms a Kind type into its instance shape — the object type used with `satisfies Instance<T, Path>`:
 
 ```typescript
-type MemberMap<T extends Kind> = {
-  [K in keyof T as K extends 'kind' | 'location' ? never : K]:
-    T[K] extends Kind
+type MemberMap<T extends KindRef> = {
+  [K in keyof T as K extends 'kind' | 'location' | '__kindscript_ref' | '__kindscript_brand' ? never : K]:
+    T[K] extends KindRef
       ? MemberMap<T[K]> | Record<string, never>
       : never;
 };
 ```
 
-It strips the `kind` and `location` properties (which are derived automatically), keeps member names, and recursively applies to child Kinds. Each member value is either a nested `MemberMap` (for Kinds with sub-members) or an empty object `{}` (for leaf Kinds).
+It strips the `kind`, `location`, and internal phantom properties (which are derived automatically), keeps member names, and recursively applies to child Kinds. Each member value is either a nested `MemberMap` (for Kinds with sub-members) or an empty object `{}` (for leaf Kinds). `KindRef` is a shared phantom marker type that both wrapped and structural Kinds satisfy.
 
 Member names must be valid TypeScript identifiers. They double as directory names for location derivation. This is by design — the member name `domain` implies the relative path `./domain`.
 
 ---
 
+## TypeKind — Type-Wrapped Kinds
+
+TypeKind is ergonomic sugar for Kind with `wraps`. Where a plain Kind classifies **places** (directories and files), a wrapped Kind (TypeKind) classifies **types** (individual exported declarations via their type annotations).
+
+At the type level, `TypeKind<N, T, C>` is literally `Kind<N, {}, C, { wraps: T }>`. Both forms are interchangeable.
+
+### Defining a TypeKind
+
+```typescript
+import type { TypeKind } from 'kindscript';
+
+type DeciderFn = (command: Command) => readonly Event[];
+type Decider = TypeKind<"Decider", DeciderFn>;
+
+// With constraints (3rd parameter):
+type PureDecider = TypeKind<"PureDecider", DeciderFn, { pure: true }>;
+
+// Or equivalently, using Kind directly:
+type PureDecider = Kind<"PureDecider", {}, { pure: true }, { wraps: DeciderFn }>;
+```
+
+TypeKind takes up to three type parameters:
+- `N` — the kind name (string literal)
+- `T` — the wrapped TypeScript type
+- `C` — optional constraints (same as Kind's 3rd parameter)
+
+The implementation uses a phantom brand: `T & { readonly __kindscript_brand?: N }`. The brand is optional, so any value of type `T` satisfies `TypeKind<N, T>` — zero assignability impact.
+
+### TypeKind Instances
+
+The type annotation IS the instance declaration — no `satisfies`, no `register()`, no companion const:
+
+```typescript
+// These are TypeKind instances (type annotation names a TypeKind):
+export const validateOrder: Decider = (cmd) => { ... };
+export const applyDiscount: Decider = (cmd) => { ... };
+
+// This is NOT an instance (DeciderFn is not a TypeKind):
+export const helper: DeciderFn = (cmd) => { ... };
+
+// This is NOT an instance (no explicit type annotation):
+export const inline = (cmd: Command): Event[] => { ... };
+```
+
+Discovery is **syntactic** — the scanner checks whether the type annotation explicitly names a TypeKind, not whether the value structurally matches. The developer's choice of type name is the opt-in signal.
+
+### Composability with Kind
+
+TypeKind members can be used inside filesystem Kinds, enabling cross-scope constraints:
+
+```typescript
+type Decider = TypeKind<"Decider", DeciderFn>;
+type Effector = TypeKind<"Effector", EffectorFn>;
+
+type OrderModule = Kind<"OrderModule", {
+  deciders: Decider;
+  effectors: Effector;
+}, {
+  noDependency: [["deciders", "effectors"]];
+}>;
+
+export const order = {
+  deciders: {},
+  effectors: {},
+} satisfies Instance<OrderModule, '.'>;
+```
+
+This means: "within the OrderModule directory, collect all Decider-typed exports into one group and all Effector-typed exports into another. No file containing a Decider may import from a file containing an Effector."
+
+The binder resolves TypeKind members by scanning typed exports within the parent Kind's scope. Existing constraints (`noDependency`, `noCycles`, etc.) work unchanged — they operate on the `resolvedFiles` map, which the binder populates for both filesystem and TypeKind members.
+
+### TypeKind vs Kind
+
+| Aspect | Kind | TypeKind |
+|--------|------|----------|
+| Classifies | Places (directories, files) | Types (exported declarations) |
+| Scope | Directory or file | Individual declaration |
+| Instance mechanism | `satisfies Instance<T, Path>` | Type annotation |
+| Resolution | Filesystem paths (binder) | Typed-export collection within scope (binder) |
+| Members | Subdirectories | As Kind members (composability) |
+| Standalone constraints | All 3 constraint types | All 3 constraint types (via 3rd parameter) |
+| Underlying type | `Kind<N, Members, C, Config>` | `Kind<N, {}, C, { wraps: T }>` (sugar alias) |
+
+---
+
 ## Public API
 
-KindScript exports four types from `src/types/index.ts`:
+KindScript exports six types from `src/types/index.ts`:
 
 | Type | Purpose |
 |------|---------|
-| `Kind<N, Members?, Constraints?>` | Define an architectural pattern |
-| `Instance<T>` | Declare where a Kind is instantiated (used with `satisfies`) |
+| `Kind<N, Members?, Constraints?, Config?>` | Define an architectural pattern (conditional type) |
+| `TypeKind<N, T, C?>` | Sugar for `Kind<N, {}, C, { wraps: T }>` — declaration-level enforcement |
+| `Instance<T, Path>` | Declare where a Kind is instantiated (used with `satisfies`) |
 | `Constraints<Members>` | Type for the constraints parameter (usually inlined) |
-| `MemberMap` | Alias for the members object type |
+| `KindConfig` | `{ wraps?: T; scope?: 'folder' \| 'file' }` — Kind behavior configuration |
+| `KindRef` | Phantom marker type — shared by both wrapped and structural Kinds |
 
 All exports are `export type` — zero runtime footprint.

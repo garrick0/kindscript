@@ -26,11 +26,7 @@ type OrderingContext = Kind<"OrderingContext", {
     ["domain", "infrastructure"],   // domain cannot import from infrastructure
     ["domain", "application"],      // domain cannot import from application
   ];
-  mustImplement: [["domain", "infrastructure"]];  // every port has an adapter
   noCycles: ["domain", "application", "infrastructure"];
-  filesystem: {
-    exists: ["domain", "application", "infrastructure"];
-  };
 }>;
 
 // Instance — root derived from this file's directory
@@ -38,7 +34,7 @@ export const ordering = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies Instance<OrderingContext>;
+} satisfies Instance<OrderingContext, '.'>;
 ```
 
 **Filesystem:**
@@ -57,9 +53,7 @@ src/
 **What KindScript checks:**
 - `domain/` files cannot import from `infrastructure/` or `application/` (KS70001)
 - The `domain/` layer is pure — no `fs`, `http`, or other Node.js built-in imports (KS70003)
-- Every interface exported from `domain/` has a class implementing it in `infrastructure/` (KS70002)
 - No circular import chains between the three layers (KS70004)
-- All three member directories exist on disk (KS70010)
 
 ---
 
@@ -76,7 +70,7 @@ export const ordering = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies Instance<CleanContext>;
+} satisfies Instance<CleanContext, '.'>;
 
 // src/billing/billing.ts
 import type { Instance } from 'kindscript';
@@ -86,7 +80,7 @@ export const billing = {
   domain: {},
   application: {},
   infrastructure: {},
-} satisfies Instance<CleanContext>;
+} satisfies Instance<CleanContext, '.'>;
 ```
 
 **Filesystem:**
@@ -143,7 +137,7 @@ export const ui = {
   molecules: {},
   organisms: {},
   pages: {},
-} satisfies Instance<DesignSystem>;
+} satisfies Instance<DesignSystem, '.'>;
 ```
 
 **Filesystem:**
@@ -169,7 +163,7 @@ src/
 - An atom importing from an organism → KS70001 (`atoms -> organisms`)
 - A molecule importing from a page → KS70001 (`molecules -> pages`)
 
-Atomic Design dependency rules typically live in documentation and PR review. KindScript moves them to the compiler. You can extend this further with additional members (e.g., `core`, `mocks`) and constraints like `filesystem.exists` as your design system grows.
+Atomic Design dependency rules typically live in documentation and PR review. KindScript moves them to the compiler. You can extend this further with additional members (e.g., `core`, `mocks`) and additional `noDependency` pairs as your design system grows.
 
 ---
 
@@ -211,45 +205,6 @@ This enforces the flow `ui -> domain -> data -> types` within a single page.
 
 ---
 
-## Test-Code Mirroring
-
-Ensure every component has a corresponding test file:
-
-```typescript
-type SourceLayer = Kind<"SourceLayer">;
-type TestLayer = Kind<"TestLayer">;
-
-type TestedProject = Kind<"TestedProject", {
-  components: SourceLayer;
-  tests: TestLayer;
-}, {
-  filesystem: {
-    mirrors: [["components", "tests"]];
-  };
-}>;
-
-export const project = {
-  components: {},
-  tests: {},
-} satisfies Instance<TestedProject>;
-```
-
-**Filesystem:**
-```
-src/
-  context.ts
-  components/
-    Button.tsx
-    Input.tsx
-    Card.tsx
-  tests/
-    Button.test.tsx     ✓ mirrors Button.tsx
-    Input.test.tsx      ✓ mirrors Input.tsx
-                        ✗ Card.test.tsx missing → KS70005
-```
-
----
-
 ## Full-System Modeling (Monorepo)
 
 For a monorepo with multiple applications, define separate Kinds for each app and shared packages:
@@ -284,28 +239,17 @@ Each application's architectural rules are independent — the frontend's depend
 
 KindScript supports gradual adoption. Start with one contract and expand:
 
-**Step 1 — Start with existence checking:**
-```typescript
-type MyApp = Kind<"MyApp", {
-  domain: DomainLayer;
-  infrastructure: InfrastructureLayer;
-}, {
-  filesystem: { exists: ["domain", "infrastructure"] };
-}>;
-```
-
-**Step 2 — Add dependency rules:**
+**Step 1 — Start with dependency rules:**
 ```typescript
 type MyApp = Kind<"MyApp", {
   domain: DomainLayer;
   infrastructure: InfrastructureLayer;
 }, {
   noDependency: [["domain", "infrastructure"]];
-  filesystem: { exists: ["domain", "infrastructure"] };
 }>;
 ```
 
-**Step 3 — Add purity and port/adapter completeness:**
+**Step 2 — Add purity to the domain:**
 ```typescript
 type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 
@@ -314,8 +258,20 @@ type MyApp = Kind<"MyApp", {
   infrastructure: InfrastructureLayer;
 }, {
   noDependency: [["domain", "infrastructure"]];
-  mustImplement: [["domain", "infrastructure"]];
-  filesystem: { exists: ["domain", "infrastructure"] };
+}>;
+```
+
+**Step 3 — Add TypeKind-level enforcement:**
+```typescript
+type DeciderFn = (command: unknown) => unknown[];
+type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
+
+type MyApp = Kind<"MyApp", {
+  domain: DomainLayer;
+  deciders: Decider;
+  infrastructure: InfrastructureLayer;
+}, {
+  noDependency: [["domain", "infrastructure"], ["deciders", "infrastructure"]];
 }>;
 ```
 
