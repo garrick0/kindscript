@@ -36,27 +36,28 @@ src/
 ├── types/index.ts                              # Public API (zero-runtime)
 ├── domain/                                     # (pure, zero dependencies)
 │   ├── entities/                               # ArchSymbol, Contract, Diagnostic, Program
-│   ├── value-objects/                           # ImportEdge, ContractReference
+│   ├── value-objects/                           # ContractReference, SourceRef
 │   ├── types/                                  # ArchSymbolKind, ContractType, CompilerOptions
 │   ├── constants/                              # DiagnosticCode, NodeBuiltins
-│   └── utils/                                  # cycle-detection, path-matching
+│   └── utils/                                  # cycle-detection
 ├── application/
 │   ├── ports/                                  # 4 driven ports (typescript, filesystem, config, ast)
 │   ├── pipeline/                               # Four-stage compiler pipeline
 │   │   ├── scan/                               # Stage 1: AST → raw views (KindDefinitionView, InstanceDeclarationView)
 │   │   │   ├── scan.types.ts                   # ScanRequest, ScanResult, ScanUseCase
 │   │   │   └── scan.service.ts                 # ScanService (uses ASTViewPort)
-│   │   ├── parse/                              # Stage 2: views → ArchSymbol trees + file resolution
+│   │   ├── parse/                              # Stage 2: views → ArchSymbol trees (pure structural)
 │   │   │   ├── parse.types.ts                  # ParseResult, ParseUseCase
-│   │   │   └── parse.service.ts                # ParseService (uses FileSystemPort)
-│   │   ├── bind/                               # Stage 3: constraint trees → Contract[]
+│   │   │   └── parse.service.ts                # ParseService (no dependencies)
+│   │   ├── bind/                               # Stage 3: resolution + constraint trees → Contract[]
 │   │   │   ├── bind.types.ts                   # BindResult, BindUseCase
-│   │   │   └── bind.service.ts                 # BindService (uses ConstraintProvider plugins)
+│   │   │   └── bind.service.ts                 # BindService (uses FileSystemPort + ConstraintProvider plugins)
 │   │   ├── check/                              # Stage 4: contracts × files → Diagnostic[]
 │   │   │   ├── checker.service.ts              # CheckerService (dispatcher)
 │   │   │   ├── checker.use-case.ts             # CheckerUseCase interface
 │   │   │   ├── checker.request.ts              # CheckerRequest
-│   │   │   └── checker.response.ts             # CheckerResponse
+│   │   │   ├── checker.response.ts             # CheckerResponse
+│   │   │   └── import-edge.ts                  # ImportEdge value object
 │   │   ├── plugins/                            # Contract plugin system (shared by bind + check)
 │   │   │   ├── constraint-provider.ts          # ConstraintProvider interface + GeneratorResult
 │   │   │   ├── contract-plugin.ts              # ContractPlugin interface + helpers
@@ -65,9 +66,7 @@ src/
 │   │   │   ├── no-dependency/                  # noDependencyPlugin
 │   │   │   ├── no-cycles/                      # noCyclesPlugin
 │   │   │   ├── purity/                         # purityPlugin
-│   │   │   ├── must-implement/                 # mustImplementPlugin
-│   │   │   ├── exists/                         # existsPlugin
-│   │   │   └── mirrors/                        # mirrorsPlugin
+│   │   │   └── scope/                          # scopePlugin
 │   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
 │   │   ├── program.ts                          # ProgramPort, ProgramFactory, ProgramSetup
 │   │   ├── pipeline.types.ts                   # PipelineRequest, PipelineResponse, PipelineUseCase
@@ -78,6 +77,7 @@ src/
 │   ├── filesystem/filesystem.adapter.ts
 │   ├── config/config.adapter.ts
 │   ├── ast/ast.adapter.ts
+│   ├── path/path-utils.ts                      # Pure path utilities (isFileInSymbol, joinPath, resolvePath, etc.)
 │   └── engine-factory.ts                       # createEngine() — wires shared services
 └── apps/
     ├── cli/
@@ -98,7 +98,7 @@ src/
 
 ## Test Suite Organization
 
-**Current Stats:** 29 test files, 284 tests, 100% passing
+**Current Stats:** 28 test files, 298 tests, 100% passing
 
 ### Test Layers
 
@@ -108,16 +108,16 @@ tests/
 │   ├── factories.ts                 # Test object builders
 │   ├── fixtures.ts                  # Fixture path constants
 │   ├── test-pipeline.ts             # Integration test pipeline helper
-│   └── mocks/                       # 4 mock adapters (moved from src/)
+│   └── mocks/                       # 3 mock adapters (moved from src/)
 │
 ├── domain/                          # 5 files - Domain entity tests
 │   ├── arch-symbol.test.ts
 │   ├── contract.test.ts
 │   ├── diagnostic.test.ts
 │   ├── domain-coverage.test.ts
-│   └── path-matching.test.ts
+│   └── source-ref.test.ts
 │
-├── application/                     # 11 files - Application layer tests
+├── application/                     # 9 files - Application layer tests
 │   ├── classify-ast-kind-parsing.test.ts
 │   ├── classify-ast-contracts.test.ts
 │   ├── classify-ast-locate.test.ts
@@ -126,13 +126,12 @@ tests/
 │   ├── no-dependency.plugin.test.ts
 │   ├── no-cycles.plugin.test.ts
 │   ├── purity.plugin.test.ts
-│   ├── must-implement.plugin.test.ts
-│   ├── exists.plugin.test.ts
-│   └── mirrors.plugin.test.ts
+│   └── scope.plugin.test.ts
 │
-├── infrastructure/                  # 2 files - Adapter tests
+├── infrastructure/                  # 3 files - Adapter tests
 │   ├── ast.adapter.test.ts
-│   └── config-adapter.test.ts
+│   ├── config-adapter.test.ts
+│   └── path-utils.test.ts
 │
 ├── cli/
 │   ├── unit/                        # 2 files
@@ -150,7 +149,7 @@ tests/
 │       ├── diagnostic-converter.test.ts
 │       └── language-service-proxy.test.ts
 │
-└── integration/                     # 3 test files + 19 fixture dirs
+└── integration/                     # 3 test files + 22 fixture dirs
     ├── check-contracts.integration.test.ts
     ├── tier2-contracts.integration.test.ts
     ├── tier2-locate.integration.test.ts
@@ -161,16 +160,14 @@ tests/
 
 **classify-ast** tests (3 files in `tests/application/`):
 - `classify-ast-kind-parsing.test.ts` - Kind definition parsing
-- `classify-ast-contracts.test.ts` - Type-level contract parsing (filesystem.exists, filesystem.mirrors) + multi-instance
-- `classify-ast-locate.test.ts` - Instance<T>, multi-file, file-scoped leaf instances
+- `classify-ast-contracts.test.ts` - Constraint parsing + multi-instance
+- `classify-ast-locate.test.ts` - Instance<T, Path>, multi-file, explicit path resolution, file-scoped instances
 
-**Per-contract plugin tests** (6 files in `tests/application/` + 1 dispatcher):
+**Per-contract plugin tests** (4 files in `tests/application/` + 1 dispatcher):
 - `no-dependency.plugin.test.ts` (15 tests) - noDependencyPlugin (check + generate + validate)
 - `no-cycles.plugin.test.ts` (12 tests) - noCyclesPlugin (check + generate + validate)
 - `purity.plugin.test.ts` (15 tests) - purityPlugin (check + intrinsic + validate)
-- `must-implement.plugin.test.ts` (14 tests) - mustImplementPlugin (check + generate + validate)
-- `exists.plugin.test.ts` (8 tests) - existsPlugin (check + generate + validate)
-- `mirrors.plugin.test.ts` (11 tests) - mirrorsPlugin (check + generate + validate)
+- `scope.plugin.test.ts` (10 tests) - scopePlugin (check + validate)
 - `check-contracts-service.test.ts` (3 tests) - Dispatcher validation + aggregation
 
 **E2E tests** consolidated into 1 file:
@@ -186,7 +183,7 @@ tests/
 - Debugging tips
 
 **FIXTURES:** [tests/integration/fixtures/README.md](tests/integration/fixtures/README.md) - Fixture catalog
-- All 19 fixtures documented
+- All 20 fixtures documented
 - Purpose and contents
 - Usage matrix
 - Adding new fixtures
@@ -367,22 +364,19 @@ it('checks contracts', () => {
 
 ## Recent Changes
 
-**Date:** 2026-02-08
+**Date:** 2026-02-10
 
-**Summary:** File-scoped leaf instances (D14)
-- Leaf Kind instances (no members) now resolve to the declaring file, not its parent directory
-- Composite Kind instances (has members) continue to resolve to the parent directory (unchanged)
-- Added `fileExists` to `FileSystemPort` + both adapters
-- `resolveSymbolFiles` handles file locations (single-file resolution) alongside directories
-- 5 new tests in `classify-ast-locate.test.ts` — 284 total, 100% passing
+**Summary:** Explicit instance location — `Instance<T, Path>` replaces convention-based derivation
+- `Instance<T>` now requires a second type param: `Instance<App, './src'>` — path relative to declaration file
+- Path granularity: folder (`'./src'`), file (`'./Button.tsx'`), sub-file (`'./file.ts#exportName'`)
+- `ArchSymbol.exportName` field added for sub-file hash syntax instances
+- Parser uses `resolvePath()` for explicit path resolution (no more convention-based derivation)
+- New `ContractType.Scope` + `DiagnosticCode.ScopeMismatch: 70005` for scope validation
+- New `scopePlugin` — validates instance location matches Kind's declared scope (folder vs file)
+- AST adapter: empty `{}` as constraints type param treated as "no constraints" (not an error)
+- 28 test files, 298 tests, 100% passing
 
-**Previous:** Pipeline cleanup — separation of concerns + slim Engine
-- Extracted view DTOs (`TypeNodeView`, `KindDefinitionView`, etc.) from `ast.port.ts` into `pipeline/views.ts`
-- Moved contract plugins from `bind/` and `check/` into neutral `pipeline/plugins/` directory
-- Added use-case interfaces (`ScanUseCase`, `ParseUseCase`, `BindUseCase`) — all stages depend on interfaces
-- Extracted `ProgramFactory` from `PipelineService` behind `ProgramPort` interface
-- Slimmed `Engine` interface from `{ pipeline, plugins, fs, ts }` to `{ pipeline, plugins }`
-- `PipelineService` constructor now takes interfaces: `ProgramPort`, `FileSystemPort`, `ScanUseCase`, `ParseUseCase`, `BindUseCase`, `CheckerUseCase`
+**Previous:** Internal semantic model cleanup — remove filesystem path knowledge from domain layer
 
 **Key entities:**
 - `Engine` interface: `{ pipeline, plugins }` — minimal surface for app composition roots
@@ -390,10 +384,12 @@ it('checks contracts', () => {
 - `PipelineService`: orchestrates scan → parse → bind → check with caching (delegates program setup to ProgramPort)
 - `ContractPlugin` interface: `{ type, constraintName, diagnosticCode, validate, check, generate?, intrinsic?, codeFix? }`
 - `ConstraintProvider` interface: `{ constraintName, generate?, intrinsic? }` — narrow type used by Binder
-- `Diagnostic` entity: has `scope?: string` field for structural violations (file is empty string)
+- `SourceRef` value object: `{ file, line, column, scope? }` — `at()` for file-scoped, `structural()` for project-wide
+- `Diagnostic` entity: constructor takes `(message, code, source: SourceRef, relatedContract?)` — backward-compat getters for `.file`, `.line`, `.column`, `.scope`
 - `ASTExtractionResult<T>`: `{ data: T, errors: string[] }` — wraps AST port results
-
-**Previous:** Pipeline alignment (4-stage), TypeScript piggybacking (dropped .k.ts), A+Apps+Features restructure
+- `TypeKindDefinitionView`: `{ typeName, kindNameLiteral, wrappedTypeName?, constraints? }` — scanner output for TypeKind definitions
+- `TypeKindInstanceView`: `{ exportName, kindTypeName }` — scanner output for typed exports
+- `ScannedTypeKindInstance`: `{ view: TypeKindInstanceView, sourceFileName: string }` — file-paired TypeKind instance
 
 ---
 
@@ -401,11 +397,11 @@ it('checks contracts', () => {
 
 ### Source Code
 
-- `src/types/index.ts` - Public API (Kind, Constraints, Instance, MemberMap)
+- `src/types/index.ts` - Public API (Kind, TypeKind, Constraints, Instance<T, Path>, MemberMap, KindConfig, KindRef)
 - `src/domain/entities/arch-symbol.ts` - Core domain entity
 - `src/application/pipeline/scan/scan.service.ts` - Stage 1: AST extraction
-- `src/application/pipeline/parse/parse.service.ts` - Stage 2: ArchSymbol tree building
-- `src/application/pipeline/bind/bind.service.ts` - Stage 3: Contract generation
+- `src/application/pipeline/parse/parse.service.ts` - Stage 2: ArchSymbol tree building (pure structural, no I/O)
+- `src/application/pipeline/bind/bind.service.ts` - Stage 3: Member resolution + contract generation
 - `src/application/pipeline/plugins/constraint-provider.ts` - ConstraintProvider interface
 - `src/application/pipeline/check/checker.service.ts` - Stage 4: Contract checking (dispatcher)
 - `src/application/pipeline/plugins/contract-plugin.ts` - ContractPlugin interface + helpers
@@ -437,16 +433,17 @@ See the [Documentation](#documentation-organization) section below for the full 
 
 ## Documentation Organization
 
-Documentation is organized as 5 maintained chapter files (checked in) plus a gitignored scratchpad for active explorations:
+Documentation is organized as 6 maintained chapter files (checked in) plus a gitignored scratchpad for active explorations:
 
 ```
 docs/                                # Source of truth (checked in)
 ├── README.md                        # Index + reading order (start here)
 ├── 01-architecture.md               # System overview, pipeline, layers, data flow
-├── 02-kind-system.md                # Kind syntax, instances, location derivation, discovery
-├── 03-constraints.md                # All 6 constraint types, plugin architecture
+├── 02-kind-system.md                # Kind syntax, TypeKind, instances, location resolution, scope validation, discovery
+├── 03-constraints.md                # All 3 constraint types, plugin architecture
 ├── 04-decisions.md                  # Key decisions log (Build/Wrap/Skip, etc.)
 ├── 05-examples.md                   # Real-world modeling examples
+├── 06-tutorial.md                   # Progressive tutorial (static walkthrough + real-world narrative)
 └── archive/                         # Historical — do not use for implementation
 
 .working/                            # Working docs (gitignored, NOT checked in)
@@ -463,6 +460,7 @@ docs/                                # Source of truth (checked in)
 | Understand constraints or add a new one | `docs/03-constraints.md` |
 | Understand why a decision was made | `docs/04-decisions.md` |
 | See real-world modeling examples | `docs/05-examples.md` |
+| Walk through KindScript step by step | `docs/06-tutorial.md` |
 | Look at old architecture versions | `docs/archive/architecture/` |
 
 ### When Making Documentation Changes
@@ -476,7 +474,7 @@ docs/                                # Source of truth (checked in)
 
 ### Rules
 
-- **Chapters are the source of truth.** The 5 chapter files in `docs/` are the authoritative documentation.
+- **Chapters are the source of truth.** The 6 chapter files in `docs/` are the authoritative documentation.
 - **Working docs are scratchpads.** `.working/` is gitignored and never the source of truth. Once a design is decided, reflect it in the chapter files.
 - **Never reference archived docs for implementation decisions.** They contain outdated information.
 - **Update this CLAUDE.md** if you add or move documentation files, so paths stay correct.
@@ -564,5 +562,5 @@ If still unclear, ask the user for clarification rather than guessing.
 
 ---
 
-**Last Updated:** 2026-02-08
-**Test Suite Status:** 29 files, 284 tests, 100% passing
+**Last Updated:** 2026-02-10
+**Test Suite Status:** 26 files, 263 tests, 100% passing

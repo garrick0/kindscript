@@ -1,6 +1,6 @@
 # The Kind System
 
-> Kind definitions, instances, location derivation, and discovery.
+> Kind definitions, instances, location resolution, and discovery.
 
 ---
 
@@ -299,7 +299,7 @@ type MemberMap<T extends KindRef> = {
 
 It strips the `kind`, `location`, and internal phantom properties (which are derived automatically), keeps member names, and recursively applies to child Kinds. Each member value is either a nested `MemberMap` (for Kinds with sub-members) or an empty object `{}` (for leaf Kinds). `KindRef` is a shared phantom marker type that both wrapped and structural Kinds satisfy.
 
-Member names must be valid TypeScript identifiers. They double as directory names for location derivation. This is by design — the member name `domain` implies the relative path `./domain`.
+Member names must be valid TypeScript identifiers. They double as directory names for location resolution. This is by design — the member name `domain` implies the relative path `./domain`.
 
 ---
 

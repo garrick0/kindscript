@@ -8,7 +8,7 @@ Define architectural patterns as types. Enforce them at compile time.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.8.0--m8-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/tests-284%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-298%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org/)
 
 [Documentation](docs/) · [Notebooks](notebooks/) · [Examples](docs/05-examples.md)
@@ -31,7 +31,7 @@ TypeScript checks if values match types. KindScript checks if codebases match ar
    const user: User = {             export const app = {
      name: "Alice",                   domain: {},
      age: 30,                         infra: {},
-   }                                } satisfies Instance<App>
+   }                                } satisfies Instance<App, '.'>
 
    "does this value                 "does this codebase
     match the type?"                 match the architecture?"
@@ -41,7 +41,7 @@ TypeScript checks if values match types. KindScript checks if codebases match ar
 
 **Before KindScript:** A new developer imports a database client from the domain layer. It ships. Someone catches it in a PR review three days later -- or nobody catches it, and the architecture quietly erodes.
 
-**After KindScript:** The import gets a red squiggly the moment it's typed. `KS70001: Forbidden dependency: domain -> infra`. It never reaches code review. The architecture is enforced by the same compiler that checks your types.
+**After KindScript:** The import gets a red squiggly the moment it's typed. `KS70001: Forbidden dependency: domain → infra`. It never reaches code review. The architecture is enforced by the same compiler that checks your types.
 
 - **New developers can't accidentally break architecture** -- violations surface in the IDE, not in code review
 - **Restructuring is safe** -- rename or move a layer and the compiler shows you every violation
@@ -66,7 +66,7 @@ type App = Kind<"App", {
   noDependency: [["domain", "infra"]];  // domain cannot import from infra
 }>;
 
-export const app = { domain: {}, infra: {} } satisfies Instance<App>;
+export const app = { domain: {}, infra: {} } satisfies Instance<App, '.'>;
 ```
 
 That's it. `domain/` maps to `src/domain/`, `infra/` maps to `src/infra/`. The compiler now enforces that nothing in `domain/` imports from `infra/`.
@@ -75,7 +75,7 @@ That's it. `domain/` maps to `src/domain/`, `infra/` maps to `src/infra/`. The c
 
 ```bash
 $ ksc check
-src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain -> infra
+src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain → infra (src/domain/service.ts → src/infra/database.ts)
 
   12 import { Db } from '../infra/database';
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,7 +103,7 @@ Violations appear inline in VS Code, Vim, Emacs, WebStorm -- any editor using ts
 noDependency: [["domain", "infra"]]
 ```
 ```
-src/domain/service.ts:3:1 - error KS70001: Forbidden dependency: domain -> infra
+src/domain/service.ts:3:1 - error KS70001: Forbidden dependency: domain → infra (src/domain/service.ts → src/infra/database.ts)
 ```
 
 **Purity** -- mark a layer side-effect-free (no `fs`, `http`, `crypto`, etc.):
@@ -112,29 +112,36 @@ src/domain/service.ts:3:1 - error KS70001: Forbidden dependency: domain -> infra
 type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 ```
 ```
-src/domain/service.ts:1:1 - error KS70003: Impure import in pure layer: 'fs'
+src/domain/service.ts:1:1 - error KS70003: Impure import in 'domain': 'fs'
 ```
 
-**Port/adapter completeness** -- every interface in A must have an implementation in B:
-
-```typescript
-mustImplement: [["domain", "infra"]]
-```
-```
-src/domain/ports/user-repo.ts:3:1 - error KS70002: Missing implementation: UserRepository
-```
-
-**Cycle detection**, **directory existence**, and **file mirroring** (e.g. every component has a test):
+**Cycle detection** -- no circular dependencies between layers:
 
 ```typescript
 noCycles: ["domain", "application", "infra"];
-filesystem: {
-  exists: ["domain", "infra"];
-  mirrors: [["components", "tests"]];
-};
+```
+```
+error KS70004: Circular dependency detected: domain → infra → domain
 ```
 
-Six constraint types total. See [Constraints documentation](docs/03-constraints.md) for full details.
+**TypeKind composability** -- group exports by architectural role and enforce constraints between groups:
+
+```typescript
+type Decider = TypeKind<"Decider", DeciderFn>;
+type Effector = TypeKind<"Effector", EffectorFn>;
+
+type OrderModule = Kind<"OrderModule", {
+  deciders: Decider;
+  effectors: Effector;
+}, {
+  noDependency: [["deciders", "effectors"]];
+}>;
+```
+```
+src/domain/apply-discount.ts:1:1 - error KS70001: Forbidden dependency: deciders → effectors (src/domain/apply-discount.ts → src/domain/notify-order.ts)
+```
+
+Three constraint types total. See [Constraints documentation](docs/03-constraints.md) for full details.
 
 <details>
 <summary>All diagnostic codes</summary>
@@ -142,11 +149,9 @@ Six constraint types total. See [Constraints documentation](docs/03-constraints.
 | Code | Constraint | Description |
 |------|-----------|-------------|
 | KS70001 | noDependency | Forbidden dependency |
-| KS70002 | mustImplement | Missing implementation |
 | KS70003 | purity | Impure import in pure layer |
 | KS70004 | noCycles | Circular dependency |
-| KS70005 | filesystem.mirrors | Missing counterpart file |
-| KS70010 | filesystem.exists | Member directory not found |
+| KS70005 | scope | Scope mismatch (instance location vs Kind scope) |
 
 </details>
 
@@ -158,11 +163,10 @@ Six constraint types total. See [Constraints documentation](docs/03-constraints.
 | Cycle detection | ✓ | ✓ | | |
 | IDE inline errors | ✓ | | ✓ | ✓ |
 | Behavioral rules (purity) | ✓ | | | |
-| Structural rules (exists, mirrors) | ✓ | | | |
 | TS-native definitions (no config/DSL) | ✓ | | | |
 | Works with any tsserver editor | ✓ | | | ✓ |
 
-Other tools solve pieces of this. KindScript is the only one that covers dependency, behavioral, and structural rules from a single TS-native mechanism -- with IDE support out of the box.
+Other tools solve pieces of this. KindScript is the only one that covers dependency and behavioral rules from a single TS-native mechanism -- with IDE support out of the box.
 
 ## How It Works
 
@@ -186,8 +190,8 @@ Violations appear alongside regular TypeScript errors -- same format, same tooli
 | Resource | What it covers |
 |----------|---------------|
 | [Architecture](docs/01-architecture.md) | Full pipeline walkthrough, layers, data flow |
-| [Kind System](docs/02-kind-system.md) | Kind syntax, instances, location derivation, discovery |
-| [Constraints](docs/03-constraints.md) | All 6 constraint types, plugin architecture |
+| [Kind System](docs/02-kind-system.md) | Kind syntax, instances, location resolution, discovery |
+| [Constraints](docs/03-constraints.md) | All 3 constraint types, plugin architecture |
 | [Examples](docs/05-examples.md) | Real-world modeling (Clean Architecture, Atomic Design, monorepos) |
 | [Decisions](docs/04-decisions.md) | Key architectural decisions and rationale |
 
@@ -197,16 +201,17 @@ Jupyter notebooks in `notebooks/` provide hands-on walkthroughs:
 
 | Notebook | What you'll learn |
 |----------|-------------------|
-| [01-quickstart](notebooks/01-quickstart.ipynb) | From zero to enforced architecture |
-| [02-contracts](notebooks/02-contracts.ipynb) | All 6 constraint types with examples |
-| [04-bounded-contexts](notebooks/04-bounded-contexts.ipynb) | Multi-instance Kinds for bounded contexts |
-| [05-design-system](notebooks/05-design-system.ipynb) | Real-world enforcement on a design system codebase |
+| [01-quickstart](notebooks/01-quickstart.ipynb) | Define, check, break, fix — all 3 constraint types |
+| [02-real-world](notebooks/02-real-world.ipynb) | Multi-instance bounded contexts with a real codebase |
+| [03-typekind](notebooks/03-typekind.ipynb) | TypeKind composability: declaration-level enforcement |
+
+For a static walkthrough (no Deno kernel required), see [Tutorial](docs/06-tutorial.md).
 
 ## Project Status
 
-All core functionality is implemented and tested. 29 test suites, 284 tests, 100% passing.
+All core functionality is implemented and tested. 28 test suites, 298 tests, 100% passing.
 
-**What's working:** All 6 constraint types, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
+**What's working:** All 3 constraint types, TypeKind composability, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
 
 **Roadmap:** Watch mode, incremental compilation, diagnostic `relatedInformation` linking to contract definitions.
 
