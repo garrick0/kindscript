@@ -6,7 +6,9 @@
 
 ## Overview
 
-KindScript enforces architectural rules through **constraints** — rules declared on Kind types that are evaluated against the actual codebase. Each constraint type checks a different property:
+KindScript enforces architectural rules through **constraints** — rules declared on Kind types that are evaluated against the actual codebase. Each constraint type checks a different property.
+
+> **Terminology:** Users declare *constraints* on Kind types. Internally, the compiler generates *contracts* — evaluable rules produced by `ConstraintProvider` plugins in the bind stage. The docs use "constraint" for the user-facing concept and "contract" for the internal domain entity.
 
 | Constraint | Category | What It Checks | Diagnostic Code |
 |----------|----------|----------------|-----------------|
@@ -218,6 +220,48 @@ error KS70010: Member directory not found: 'src/infrastructure' does not exist
 
 ---
 
+## Intrinsic Constraints
+
+Most constraints are declared on a parent Kind and reference its members by name (e.g., `noDependency: [["domain", "infrastructure"]]`). **Intrinsic constraints** work differently — they are declared on a member Kind itself and automatically propagate to every parent instance that uses that member.
+
+Currently only `purity` supports intrinsic propagation.
+
+### How It Works
+
+1. **Declare purity on the member Kind:**
+
+```typescript
+type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
+```
+
+2. **Use it as a member in a parent Kind:**
+
+```typescript
+type OrderingContext = Kind<"OrderingContext", {
+  domain: DomainLayer;
+  infrastructure: InfrastructureLayer;
+}>;
+```
+
+3. **The binder detects and propagates:**
+
+During the bind stage, `BindService` inspects each member Kind's constraints. When it finds `pure: true` on `DomainLayer`, it calls `purityPlugin.intrinsic.propagate()` to create a `Purity` contract targeting the `domain` member in every `OrderingContext` instance — without the parent Kind needing to declare purity explicitly.
+
+### Why Intrinsic?
+
+Some constraints are properties of the member itself, not relationships between members. Purity is inherent to `DomainLayer` — it should be pure everywhere it's used, not just in contexts that remember to declare it. Intrinsic propagation makes this automatic.
+
+### Plugin Support
+
+A plugin supports intrinsic behavior by providing an `intrinsic` object with two methods:
+
+- `detect(view: TypeNodeView): boolean` — returns true if the member Kind's constraints contain this intrinsic (e.g., has a `pure` boolean property)
+- `propagate(memberSymbol, memberName, location): Contract` — creates the contract for this member
+
+The binder deduplicates: if a parent Kind explicitly declares the same constraint, the intrinsic propagation is skipped.
+
+---
+
 ## Constraint Plugin Architecture
 
 Each constraint type is implemented as a `ContractPlugin` — a self-contained object with validation, checking, and optional generation logic.
@@ -279,6 +323,102 @@ The `CheckerService` is a thin dispatcher (~60 lines) that:
 5. Add unit tests in `tests/application/<name>.plugin.test.ts`
 6. Add integration tests and fixtures
 7. Add E2E tests in `tests/cli/e2e/cli.e2e.test.ts`
+
+### Walkthrough: Implementing a Plugin
+
+This walkthrough shows the structure of a typical plugin using `existsPlugin` as a reference — the simplest real plugin.
+
+**Step 1: Domain types**
+
+```typescript
+// src/domain/types/contract-type.ts — add to the enum
+export enum ContractType {
+  // ... existing types
+  Exists = 'Exists',
+}
+
+// src/domain/constants/diagnostic-codes.ts — add a code
+export const DiagnosticCode = {
+  // ... existing codes
+  MemberNotFound: 70010,
+} as const;
+```
+
+**Step 2: Plugin file** (`src/application/pipeline/plugins/exists/exists.plugin.ts`)
+
+Every plugin is a singleton object implementing `ContractPlugin`:
+
+```typescript
+import { ContractPlugin } from '../contract-plugin';
+import { ContractType } from '../../../../domain/types/contract-type';
+import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
+
+export const existsPlugin: ContractPlugin = {
+  type: ContractType.Exists,
+  constraintName: 'filesystem.exists',       // dotted name matching constraint tree path
+  diagnosticCode: DiagnosticCode.MemberNotFound,
+
+  // generate(): called by the Binder to create Contract[] from constraint values
+  generate: {
+    fromStringList: true,  // uses the shared generateFromStringList() helper
+  },
+
+  // validate(): called by the Checker before check(). Return null if valid.
+  validate(args) {
+    if (args.length === 0) return 'exists requires at least one symbol';
+    return null;
+  },
+
+  // check(): called by the Checker to evaluate the contract
+  check(contract, ctx) {
+    const diagnostics = [];
+    for (const symbol of contract.args) {
+      if (!ctx.resolvedFiles.has(symbol.declaredLocation)) {
+        diagnostics.push(new Diagnostic(
+          `Member directory not found: '${symbol.declaredLocation}'`,
+          DiagnosticCode.MemberNotFound,
+          '',    // empty string = structural (not file-specific)
+          0, 0,
+        ));
+      }
+    }
+    return { diagnostics, filesAnalyzed: 0 };
+  },
+};
+```
+
+**Step 3: Register** in `src/application/pipeline/plugins/plugin-registry.ts`:
+
+```typescript
+import { existsPlugin } from './exists/exists.plugin';
+
+export function createAllPlugins(): ContractPlugin[] {
+  return [
+    // ... existing plugins
+    existsPlugin,
+  ];
+}
+```
+
+**Step 4: Tests** — every plugin needs three test categories:
+
+```typescript
+// tests/application/exists.plugin.test.ts
+describe('existsPlugin', () => {
+  // 1. Validation tests
+  it('validates with at least one arg', () => { ... });
+  it('rejects empty args', () => { ... });
+
+  // 2. Check tests (with mock resolved files)
+  it('passes when directory exists', () => { ... });
+  it('reports missing directory', () => { ... });
+
+  // 3. Generate tests (contract generation from constraint values)
+  it('generates contracts from string list', () => { ... });
+});
+```
+
+All 6 existing plugins follow this exact pattern. See any plugin in `src/application/pipeline/plugins/` for a complete reference.
 
 ---
 

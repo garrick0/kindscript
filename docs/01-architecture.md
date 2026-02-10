@@ -14,7 +14,7 @@ KindScript produces standard `ts.Diagnostic` objects (error codes 70001–70005,
 
 ## Compiler Pipeline
 
-KindScript reuses TypeScript's scanner, parser, and type checker, then adds two new phases:
+KindScript reuses TypeScript's scanner, parser, and type checker, then adds four new stages for architectural analysis:
 
 ```
   .ts source files
@@ -31,19 +31,29 @@ KindScript reuses TypeScript's scanner, parser, and type checker, then adds two 
                                      |
                                ts.Diagnostic
                                      |
-  ================================== | ======   KindScript phases begin
+  ================================== | ======   KindScript stages begin
                                      |
                               +------+------+
-                              | KS Binder   |   Classify AST nodes as
-                              | (Classifier)|   Kind definitions and
-                              +------+------+   instances
+                              | KS Scanner  |   Extract Kind definitions
+                              +------+------+   and instance declarations
                                      |
-                                ArchSymbol
+                                 ScanResult
+                                     |
+                              +------+------+
+                              | KS Parser   |   Build ArchSymbol trees,
+                              +------+------+   resolve file locations
+                                     |
+                                ParseResult
+                                     |
+                              +------+------+
+                              | KS Binder   |   Generate Contracts from
+                              +------+------+   constraint trees
+                                     |
+                                 BindResult
                                      |
                               +------+------+
                               | KS Checker  |   Evaluate contracts against
-                              | (Contracts) |   resolved files and imports
-                              +------+------+
+                              +------+------+   resolved files and imports
                                      |
                                ts.Diagnostic    (same format as TS errors)
                                      |
@@ -63,9 +73,10 @@ KindScript reuses TypeScript's scanner, parser, and type checker, then adds two 
 | Module resolution | **Reuse** | TypeScript's resolver |
 | Diagnostic format | **Reuse** | `ts.Diagnostic` with codes 70001–70005, 70010, 70099 |
 | IDE integration | **Wrap** | TypeScript Language Service Plugin API |
-| KS Binder (Classifier) | **Build** | Classifies Kind definitions and instances |
-| Symbol-to-files resolution | **Build** | Maps architectural declarations to filesystem |
-| KS Checker (Contracts) | **Build** | Evaluates 6 contract types |
+| KS Scanner | **Build** | Extracts Kind definitions and instance declarations from AST |
+| KS Parser | **Build** | Builds ArchSymbol trees, resolves filesystem locations |
+| KS Binder | **Build** | Generates contracts from constraint trees |
+| KS Checker | **Build** | Evaluates 6 contract types against resolved files |
 
 ---
 
@@ -154,6 +165,12 @@ cacheKey = sourceFiles
 If the key matches the previous run, the cached result is returned immediately. This is critical for the IDE plugin, where the pipeline runs on every keystroke.
 
 **If cache hits → skip directly to output. All four stages are skipped.**
+
+#### Cache behavior
+
+- **Invalidation:** The cache is invalidated whenever any source file's modification timestamp changes, or when files are added/removed. There is no TTL — the cache is purely content-addressed.
+- **Scope:** The cache is held in-memory within a single `PipelineService` instance. The CLI creates a fresh instance per run (so caching only helps within a single invocation). The IDE plugin reuses the same instance across keystrokes, which is where caching matters most.
+- **Miss behavior:** On cache miss, all four stages run from scratch. There is no partial/incremental reuse — a future optimization opportunity.
 
 ---
 
@@ -482,7 +499,7 @@ Pure business logic with zero external dependencies — no TypeScript compiler A
 
 Use cases and port interfaces. Organized as a four-stage pipeline:
 
-- **Ports:** `CompilerPort` + `CodeAnalysisPort` (= `TypeScriptPort`), `FileSystemPort`, `ConfigPort`, `ASTViewPort` — driven port interfaces
+- **Ports:** `TypeScriptPort` (composite of `CompilerPort` + `CodeAnalysisPort`), `FileSystemPort`, `ConfigPort`, `ASTViewPort` — 4 driven port interfaces
 - **Pipeline:**
   - `ScanService` — AST extraction via `ASTViewPort`
   - `ParseService` — ArchSymbol tree construction + file resolution

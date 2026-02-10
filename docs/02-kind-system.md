@@ -148,6 +148,15 @@ Constraints on `AtomSource` (like `pure`) apply only to `Button.tsx`. Other file
 
 Members structurally require directories — `{ domain: {}, infra: {} }` needs `domain/` and `infra/` subdirectories to exist. So directory scope is justified by necessity. Without members, there's nothing that requires directory expansion, and the natural reading of a declaration in a file is "this file is the thing."
 
+### Scope Summary
+
+| Kind type | Has members? | Location resolves to | Constraints apply to |
+|-----------|-------------|---------------------|---------------------|
+| Composite (`Kind<N, { a: X; b: Y }>`) | Yes | Parent directory of declaring file | All files in directory (recursive) |
+| Leaf (`Kind<N>` or `Kind<N, {}>`) | No | The declaring file itself | Only that single file |
+
+The detection is structural — the parser checks whether the Kind definition has any member properties in its second type parameter. If it does, directory scope. If not, file scope.
+
 ### Nested Members
 
 For kinds with nested members, paths compose naturally:
@@ -226,6 +235,8 @@ KindScript does not use file extensions, config files, or naming conventions to 
 ---
 
 ## MemberMap
+
+`MemberMap<T>` is the internal type projection used by `Instance<T>` — it transforms a Kind into the object shape you write with `satisfies`. Users typically use `Instance<T>` directly and never reference `MemberMap<T>` themselves.
 
 The `MemberMap<T>` type transforms a Kind type into its instance shape — the object type used with `satisfies Instance<T>`:
 

@@ -1,135 +1,89 @@
+<div align="center">
+
 # KindScript
 
-> **TypeScript for Architecture** -- Define architectural patterns as types, enforce them at compile time.
+**TypeScript for Architecture**
 
-KindScript is an architectural enforcement tool that plugs into the TypeScript compiler. Just as TypeScript validates that values conform to types, KindScript validates that codebases conform to architectural patterns -- dependency rules, purity constraints, port/adapter completeness, and more.
+Define architectural patterns as types. Enforce them at compile time.
 
-```
-                 TypeScript                            KindScript
-          ========================             ========================
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.8.0--m8-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-284%20passing-brightgreen.svg)]()
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org/)
 
-          type User = {                        type CleanContext = Kind<
-            name: string;                          "CleanContext", {
-            age: number;                             domain: DomainLayer;
-          }                                          application: ApplicationLayer;
-                                                     infrastructure: InfrastructureLayer;
-                                                 }>
+[Documentation](docs/) · [Notebooks](notebooks/) · [Examples](docs/05-examples.md)
 
-          const user: User = {                 export const ordering = {
-            name: "Alice",                       domain: { ... },
-            age: 30,                             application: { ... },
-          }                                      infrastructure: { ... },
-                                               } satisfies Instance<CleanContext>
+</div>
 
-          TS checks: "does value                KS checks: "does codebase
-           match the type?"                      match the architecture?"
-```
+---
 
-## How It Works
-
-KindScript extends TypeScript's own compiler pipeline. It reuses the scanner, parser, and type checker, then adds four new stages for architectural analysis:
+TypeScript checks if values match types. KindScript checks if codebases match architectures. Same idea, same toolchain.
 
 ```
-  .ts source files
-       |
-  +---------+    +---------+    +---------+
-  | Scanner |===>| Parser  |===>|TS Binder|     TypeScript's own phases
-  +---------+    +---------+    +---------+     (reused as-is)
-       |              |              |
-    tokens        ts.Node AST    ts.Symbol
-                                     |
-                              +------+------+
-                              | TS Checker  |   TypeScript type checking
-                              +------+------+   (reused as-is)
-                                     |
-                               ts.Diagnostic
-                                     |
-  ================================== | ======   KindScript stages begin
-                                     |
-                              +------+------+
-                              | KS Scanner  |   Extract Kind definitions
-                              +------+------+   and instance declarations
-                                     |
-                                 ScanResult
-                                     |
-                              +------+------+
-                              | KS Parser   |   Build ArchSymbol trees,
-                              +------+------+   resolve file locations
-                                     |
-                                ParseResult
-                                     |
-                              +------+------+
-                              | KS Binder   |   Generate Contracts from
-                              +------+------+   constraint trees
-                                     |
-                                 BindResult
-                                     |
-                              +------+------+
-                              | KS Checker  |   Evaluate contracts against
-                              +------+------+   resolved files and imports
-                                     |
-                               ts.Diagnostic    (same format as TS errors)
-                                     |
-                    +----------------+----------------+
-                    |                |                |
-               CLI output      IDE squiggles    CI exit code
-               (ksc check)     (TS plugin)      (process.exit)
+          TypeScript                         KindScript
+   ─────────────────────────        ─────────────────────────────
+
+   type User = {                    type App = Kind<"App", {
+     name: string;                    domain: DomainLayer;
+     age: number;                     infra: InfraLayer;
+   }                                }>
+
+   const user: User = {             export const app = {
+     name: "Alice",                   domain: {},
+     age: 30,                         infra: {},
+   }                                } satisfies Instance<App>
+
+   "does this value                 "does this codebase
+    match the type?"                 match the architecture?"
 ```
 
-KindScript produces standard `ts.Diagnostic` objects (error codes 70001-70010), so violations appear alongside regular TypeScript errors in your editor and CI pipeline.
+## Why KindScript?
+
+**Before KindScript:** A new developer imports a database client from the domain layer. It ships. Someone catches it in a PR review three days later -- or nobody catches it, and the architecture quietly erodes.
+
+**After KindScript:** The import gets a red squiggly the moment it's typed. `KS70001: Forbidden dependency: domain -> infra`. It never reaches code review. The architecture is enforced by the same compiler that checks your types.
+
+- **New developers can't accidentally break architecture** -- violations surface in the IDE, not in code review
+- **Restructuring is safe** -- rename or move a layer and the compiler shows you every violation
+- **The architecture is always documented** -- definition files are the living source of truth
+- **Adopt incrementally** -- enforce one rule at a time on an existing codebase
+- **Nothing ships to production** -- compile-time only, zero runtime overhead
 
 ## Quick Start
 
-### 1. Install
-
-```bash
-npm install kindscript
-```
-
-### 2. Define your architecture (`src/context.ts`)
+### 1. Define your architecture (`src/context.ts`)
 
 ```typescript
-import type { Kind, Constraints, Instance, MemberMap } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
-// Define the pattern (normative -- what the architecture MUST look like)
-export type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
-export type ApplicationLayer = Kind<"ApplicationLayer">;
-export type InfrastructureLayer = Kind<"InfrastructureLayer">;
+type DomainLayer = Kind<"DomainLayer">;
+type InfraLayer  = Kind<"InfraLayer">;
 
-export type OrderingContext = Kind<"OrderingContext", {
+type App = Kind<"App", {
   domain: DomainLayer;
-  application: ApplicationLayer;
-  infrastructure: InfrastructureLayer;
+  infra: InfraLayer;
 }, {
-  noDependency: [
-    ["domain", "infrastructure"],  // domain cannot import from infrastructure
-    ["domain", "application"],     // domain cannot import from application
-  ];
-  mustImplement: [["domain", "infrastructure"]];
+  noDependency: [["domain", "infra"]];  // domain cannot import from infra
 }>;
 
-// Declare the instance (descriptive -- where the code ACTUALLY lives)
-// Root is inferred from this file's directory (src/)
-export const ordering = {
-  domain: {},
-  application: {},
-  infrastructure: {},
-} satisfies Instance<OrderingContext>;
+export const app = { domain: {}, infra: {} } satisfies Instance<App>;
 ```
 
-### 3. Check contracts
+That's it. `domain/` maps to `src/domain/`, `infra/` maps to `src/infra/`. The compiler now enforces that nothing in `domain/` imports from `infra/`.
+
+### 2. Check
 
 ```bash
 $ ksc check
-src/ordering/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain -> infrastructure
+src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain -> infra
 
-  12 import { Db } from '../../infrastructure/database';
-     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  12 import { Db } from '../infra/database';
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Found 1 architectural violation.
 ```
 
-### 4. Enable the IDE plugin (`tsconfig.json`)
+### 3. IDE integration (`tsconfig.json`)
 
 ```json
 {
@@ -139,276 +93,130 @@ Found 1 architectural violation.
 }
 ```
 
-Violations now appear inline in VS Code, Vim, Emacs, WebStorm -- any editor using tsserver.
+Violations appear inline in VS Code, Vim, Emacs, WebStorm -- any editor using tsserver. Same red squiggles as a type error.
 
-## CLI Commands
+## What Can It Enforce?
 
+**Dependency direction** -- forbid imports between layers:
+
+```typescript
+noDependency: [["domain", "infra"]]
 ```
-ksc check [path]                   Check architectural contracts
 ```
-
-**`ksc check`** -- Validates all contracts against the codebase. Returns exit code 1 on violations (CI-ready).
-
-## Constraint Types
-
-KindScript enforces six constraint types, organized into dependency, behavioral, and filesystem categories:
-
-```
-  +------------------------------------------------------------+
-  | Constraint       | What it checks                          |
-  |------------------+-----------------------------------------|
-  | noDependency     | Layer A cannot import from Layer B      |
-  | mustImplement    | Every port interface has an adapter      |
-  | purity           | Layer has no side-effect imports         |
-  |                  | (no fs, http, crypto, etc.)              |
-  | noCycles         | No circular dependencies between layers  |
-  | filesystem.exists| Member directories exist on disk         |
-  | filesystem.mirrors| Related files exist in parallel dirs    |
-  |                  | (e.g. every component has a test)        |
-  +------------------------------------------------------------+
+src/domain/service.ts:3:1 - error KS70001: Forbidden dependency: domain -> infra
 ```
 
-Each constraint type produces a specific diagnostic code:
+**Purity** -- mark a layer side-effect-free (no `fs`, `http`, `crypto`, etc.):
 
+```typescript
+type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
 ```
-  KS70001  Forbidden dependency         (noDependency)
-  KS70002  Missing implementation        (mustImplement)
-  KS70003  Impure import in pure layer   (purity)
-  KS70004  Circular dependency           (noCycles)
-  KS70005  Missing counterpart file      (filesystem.mirrors)
-  KS70010  Member directory not found    (filesystem.exists)
+```
+src/domain/service.ts:1:1 - error KS70003: Impure import in pure layer: 'fs'
 ```
 
-## Architecture
+**Port/adapter completeness** -- every interface in A must have an implementation in B:
 
-KindScript itself follows strict Clean Architecture. The domain layer has zero external dependencies -- no TypeScript compiler API, no Node.js `fs`, nothing.
-
+```typescript
+mustImplement: [["domain", "infra"]]
 ```
-  +-----------------------------------------------------------------------+
-  |                                                                       |
-  |   Domain Layer (pure business logic, zero dependencies)               |
-  |   =====================================================               |
-  |                                                                       |
-  |   Entities:       ArchSymbol, Contract, Diagnostic, Program           |
-  |   Value Objects:  ImportEdge, ContractReference, ...                  |
-  |   Types:          ArchSymbolKind, ContractType                        |
-  |                                                                       |
-  +----------------------------------+------------------------------------+
-                                     |
-                                     | depends on (inward only)
-                                     |
-  +----------------------------------+------------------------------------+
-  |                                                                       |
-  |   Application Layer (use cases + port interfaces)                     |
-  |   ===================================================                 |
-  |                                                                       |
-  |   Ports (shared):                                                     |
-  |     TypeScriptPort    FileSystemPort    ConfigPort    ASTPort         |
-  |                                                                       |
-  |   Pipeline (4 stages):                                                |
-  |     Scanner → Parser → Binder → Checker (6 plugins)                  |
-  |   PipelineService (orchestrator)                                     |
-  |   Engine interface (bundles shared services)                          |
-  |                                                                       |
-  +----------------------------------+------------------------------------+
-                                     |
-                                     | implements ports
-                                     |
-  +----------------------------------+------------------------------------+
-  |                                                                       |
-  |   Infrastructure Layer (shared adapters)                              |
-  |   ======================================================              |
-  |                                                                       |
-  |   Adapters:                                                           |
-  |     TypeScriptAdapter  (wraps ts.Program, ts.TypeChecker)             |
-  |     FileSystemAdapter  (wraps Node.js fs + path)                      |
-  |     ASTAdapter         (wraps ts.Node traversal)                      |
-  |     ConfigAdapter      (reads kindscript.json / tsconfig.json)        |
-  |   Engine Factory (wires all shared adapters + services)               |
-  |                                                                       |
-  +----------------------------------+------------------------------------+
-                                     |
-                                     | used by
-                                     |
-  +----------------------------------+------------------------------------+
-  |                                                                       |
-  |   Apps (product entry points)                                         |
-  |   ======================================================              |
-  |                                                                       |
-  |   CLI (apps/cli/):                                                    |
-  |     ConsolePort, DiagnosticPort, CheckCommand                         |
-  |   Plugin (apps/plugin/):                                              |
-  |     LanguageServicePort, GetPluginDiagnostics, GetPluginCodeFixes     |
-  |                                                                       |
-  +-----------------------------------------------------------------------+
+```
+src/domain/ports/user-repo.ts:3:1 - error KS70002: Missing implementation: UserRepository
 ```
 
-### Source Layout
+**Cycle detection**, **directory existence**, and **file mirroring** (e.g. every component has a test):
 
-```
-src/
-  types/index.ts                  Public API (Kind, Constraints, Instance, MemberMap)
-
-  domain/
-    entities/                     ArchSymbol, Contract, Diagnostic, ...
-    value-objects/                ImportEdge, ContractReference, ...
-    types/                       ArchSymbolKind, ContractType, ...
-
-  application/
-    ports/                       TypeScriptPort, FileSystemPort, ConfigPort, ASTPort
-    pipeline/
-      scan/                      AST extraction (Kind defs + instances)
-      parse/                     ArchSymbol tree construction + file resolution
-      bind/                      Contract generation from constraint trees
-      check/                     Contract evaluation (dispatcher)
-      plugins/                   Contract plugin system (6 plugins, shared by bind + check)
-      views.ts                   Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
-      program.ts                 ProgramPort, ProgramFactory (config + program setup)
-      pipeline.service.ts        Orchestrator (caching + 4 stages)
-    engine.ts                    Engine interface (shared services)
-
-  infrastructure/                Shared driven adapters only
-    typescript/                  TypeScriptAdapter (wraps ts.Program)
-    filesystem/                  FileSystemAdapter (wraps fs)
-    config/                      ConfigAdapter (reads configs)
-    ast/                         ASTAdapter (wraps ts.Node traversal)
-    engine-factory.ts            Creates Engine with all shared wiring
-
-  apps/
-    cli/                         CLI entry point + commands
-      ports/                     ConsolePort, DiagnosticPort
-      adapters/                  CLIConsoleAdapter, CLIDiagnosticAdapter
-      commands/                  CheckCommand
-    plugin/                      TS language service plugin
-      ports/                     LanguageServicePort
-      adapters/                  LanguageServiceAdapter
-      use-cases/                 GetPluginDiagnostics, GetPluginCodeFixes
-
-tests/
-  domain/                        Domain entity tests (5 files)
-  application/                   Classification + enforcement tests (11 files)
-  infrastructure/                Shared adapter tests (2 files)
-  cli/unit/                      CLI command tests (2 files)
-  cli/e2e/                       CLI subprocess tests (1 file)
-  plugin/unit/                   Plugin service tests (5 files)
-  integration/                   Multi-component tests with 19 fixtures
-  helpers/                       Shared test utilities and builders
+```typescript
+noCycles: ["domain", "application", "infra"];
+filesystem: {
+  exists: ["domain", "infra"];
+  mirrors: [["components", "tests"]];
+};
 ```
 
-## Development
+Six constraint types total. See [Constraints documentation](docs/03-constraints.md) for full details.
 
-```bash
-npm install              # Install dependencies
-npm run build            # Compile TypeScript
-npm test                 # Run all tests (29 test files, 276 tests)
-npm run test:coverage    # Run with coverage report
-npm run test:watch       # Watch mode
-npm run lint             # ESLint
+<details>
+<summary>All diagnostic codes</summary>
 
-# Run specific test layers
-npm test -- tests/domain        # Domain tests only
-npm test -- tests/application   # Application tests only
-npm test -- tests/integration   # Integration tests only
-npm test -- tests/cli           # CLI tests (unit + E2E)
-npm test -- tests/plugin        # Plugin tests only
+| Code | Constraint | Description |
+|------|-----------|-------------|
+| KS70001 | noDependency | Forbidden dependency |
+| KS70002 | mustImplement | Missing implementation |
+| KS70003 | purity | Impure import in pure layer |
+| KS70004 | noCycles | Circular dependency |
+| KS70005 | filesystem.mirrors | Missing counterpart file |
+| KS70010 | filesystem.exists | Member directory not found |
 
-# Run specific test file
-npm test -- no-dependency.plugin
-```
+</details>
 
-### Testing
+## How does it compare?
 
-KindScript has a comprehensive test suite achieving **100% pass rate**:
+| Feature | KindScript | dependency-cruiser | Nx boundaries | eslint-plugin-boundaries |
+|---------|:---:|:---:|:---:|:---:|
+| Dependency rules | ✓ | ✓ | ✓ | ✓ |
+| Cycle detection | ✓ | ✓ | | |
+| IDE inline errors | ✓ | | ✓ | ✓ |
+| Behavioral rules (purity) | ✓ | | | |
+| Structural rules (exists, mirrors) | ✓ | | | |
+| TS-native definitions (no config/DSL) | ✓ | | | |
+| Works with any tsserver editor | ✓ | | | ✓ |
 
-```
-  tests/
-    domain/           5 files  - Domain entity tests
-    application/      11 files - Classification + enforcement tests
-    infrastructure/   2 files  - Shared adapter tests
-    cli/unit/         2 files  - CLI command tests
-    cli/e2e/          1 file   - CLI subprocess tests
-    plugin/unit/      5 files  - Plugin service tests
-    integration/      3 files  - Multi-component tests with 19 fixtures
-    helpers/          4 files  - Shared test utilities and builders
-```
+Other tools solve pieces of this. KindScript is the only one that covers dependency, behavioral, and structural rules from a single TS-native mechanism -- with IDE support out of the box.
 
-**Test Organization:**
-- **Domain tests** - Pure domain entity tests (no external dependencies)
-- **Application tests** - Classification and enforcement service tests
-- **Infrastructure tests** - Shared adapter tests
-- **CLI tests** - CLI command unit tests + E2E subprocess tests
-- **Plugin tests** - Plugin service tests
-- **Integration tests** - Real TypeScript compiler + file system with fixture directories
+## How It Works
 
-**Coverage thresholds** are strictly enforced:
-- Domain layer: 90% lines/functions, 75% branches
-- Application layer: 95% lines, 100% functions, 85% branches
-
-See **[tests/README.md](tests/README.md)** for complete testing documentation, including how to run tests, write new tests, and use shared utilities.
-
-### Interactive Notebooks
-
-Jupyter notebooks in `notebooks/` provide interactive walkthroughs:
+KindScript piggybacks on TypeScript's own compiler -- same scanner, parser, and type checker -- then adds four stages that produce standard `ts.Diagnostic` objects:
 
 ```
-01-quickstart.ipynb          From zero to enforced architecture (define, check)
-02-contracts.ipynb           All 6 constraint types with examples
-04-bounded-contexts.ipynb    Multi-instance Kinds for bounded contexts
-05-design-system.ipynb       Real-world enforcement on a design system codebase
+TypeScript phases (reused as-is):     scan → parse → bind → check
+                                                                ↓
+KindScript stages (new):              KS scan → KS parse → KS bind → KS check
+                                                                          ↓
+                                                                    ts.Diagnostic
+                                                                    (same format)
+                                                                          ↓
+                                                            IDE / CLI / CI exit code
 ```
 
-## Why KindScript?
+Violations appear alongside regular TypeScript errors -- same format, same tooling, zero new infrastructure. See [Architecture](docs/01-architecture.md) for the full pipeline walkthrough.
 
-Architectural rules typically live in documentation, wiki pages, and senior engineers' heads. They drift. New developers violate them unknowingly. PR reviews catch some violations, after the code is already written.
+## Learn More
 
-KindScript moves architectural rules into the compiler:
+| Resource | What it covers |
+|----------|---------------|
+| [Architecture](docs/01-architecture.md) | Full pipeline walkthrough, layers, data flow |
+| [Kind System](docs/02-kind-system.md) | Kind syntax, instances, location derivation, discovery |
+| [Constraints](docs/03-constraints.md) | All 6 constraint types, plugin architecture |
+| [Examples](docs/05-examples.md) | Real-world modeling (Clean Architecture, Atomic Design, monorepos) |
+| [Decisions](docs/04-decisions.md) | Key architectural decisions and rationale |
 
-- Violations caught in the IDE, before commit
-- Refactoring-safe -- rename a layer and all violations surface
-- Self-documenting -- definition files are the source of truth
-- Gradual adoption -- works on existing codebases
-- Zero runtime overhead -- compile-time only
+### Interactive notebooks
 
-**Comparison:**
+Jupyter notebooks in `notebooks/` provide hands-on walkthroughs:
 
-```
-  +---------------------+--------------------------+---------------------------+
-  | Tool                | Approach                 | KindScript difference     |
-  |---------------------+--------------------------+---------------------------|
-  | ArchUnit (Java)     | Runtime reflection       | Compile-time, type-safe   |
-  | dependency-cruiser  | Config-based rules       | Type-safe defs, IDE       |
-  | Nx boundaries       | ESLint + tags            | TS-native, behavioral     |
-  | Madge               | Visualization only       | Enforcement + validation  |
-  +---------------------+--------------------------+---------------------------+
-```
+| Notebook | What you'll learn |
+|----------|-------------------|
+| [01-quickstart](notebooks/01-quickstart.ipynb) | From zero to enforced architecture |
+| [02-contracts](notebooks/02-contracts.ipynb) | All 6 constraint types with examples |
+| [04-bounded-contexts](notebooks/04-bounded-contexts.ipynb) | Multi-instance Kinds for bounded contexts |
+| [05-design-system](notebooks/05-design-system.ipynb) | Real-world enforcement on a design system codebase |
 
 ## Project Status
 
-**Version:** `0.8.0-m8`
+All core functionality is implemented and tested. 29 test suites, 284 tests, 100% passing.
 
-All core functionality is implemented and tested.
+**What's working:** All 6 constraint types, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
 
-**What's working:**
-- All 6 constraint types (noDependency, mustImplement, purity, noCycles, filesystem.exists, filesystem.mirrors)
-- CLI with 1 command (check)
-- TypeScript language service plugin (inline diagnostics + code fix suggestions)
-- AST classifier (Kind definitions and instances)
-- 29 test suites, 276 tests, 100% passing
+**Roadmap:** Watch mode, incremental compilation, diagnostic `relatedInformation` linking to contract definitions.
 
-**What's next:**
-- Watch mode and incremental compilation (`.ksbuildinfo` caching)
-- Plugin code fix auto-application (currently description-only)
-- Diagnostic `relatedInformation` linking to contract definitions
-- npm publishing pipeline
+## Contributing
 
-## Documentation
+```bash
+npm install && npm run build && npm test   # Clone, build, verify
+```
 
-- [Architecture](docs/01-architecture.md) -- System overview, pipeline, layers
-- [Kind System](docs/02-kind-system.md) -- Kind syntax, instances, discovery
-- [Constraints](docs/03-constraints.md) -- All 6 constraint types
-- [Decisions](docs/04-decisions.md) -- Build/Wrap/Skip rationale
-- [Examples](docs/05-examples.md) -- Real-world modeling
-- [CLAUDE.md](CLAUDE.md) -- Development guide for AI agents and contributors
+KindScript itself follows strict Clean Architecture -- the domain layer has zero external dependencies. See [Architecture](docs/01-architecture.md) for the source layout and [Testing Guide](tests/README.md) for how to write tests. [CLAUDE.md](CLAUDE.md) is the full development guide.
 
 ## License
 

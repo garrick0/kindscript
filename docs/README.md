@@ -41,6 +41,7 @@
 | Why no .k.ts extension? | [04-decisions.md](04-decisions.md) — D9 |
 | How do I model a design system? | [05-examples.md](05-examples.md) — Design System |
 | How do bounded contexts work? | [05-examples.md](05-examples.md) — Bounded Contexts |
+| How do I write tests? | [tests/README.md](../tests/README.md) — Testing guide |
 
 ---
 
