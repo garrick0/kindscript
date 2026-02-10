@@ -565,4 +565,4 @@ If still unclear, ask the user for clarification rather than guessing.
 ---
 
 **Last Updated:** 2026-02-08
-**Test Suite Status:** 29 files, 276 tests, 100% passing
+**Test Suite Status:** 29 files, 284 tests, 100% passing

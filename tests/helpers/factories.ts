@@ -24,6 +24,7 @@ export function makeSymbol(
 // Contracts
 // ---------------------------------------------------------------------------
 
+/** Creates a NoDependency contract: `from` cannot import from `to`. */
 export function noDependency(from: ArchSymbol, to: ArchSymbol, name?: string): Contract {
   return new Contract(
     ContractType.NoDependency,
@@ -32,6 +33,7 @@ export function noDependency(from: ArchSymbol, to: ArchSymbol, name?: string): C
   );
 }
 
+/** Creates a MustImplement contract: every interface in `ports` must have an implementing class in `adapters`. */
 export function mustImplement(ports: ArchSymbol, adapters: ArchSymbol, name?: string): Contract {
   return new Contract(
     ContractType.MustImplement,
@@ -40,6 +42,7 @@ export function mustImplement(ports: ArchSymbol, adapters: ArchSymbol, name?: st
   );
 }
 
+/** Creates a Purity contract: `symbol` must not import Node.js built-in modules. */
 export function purity(symbol: ArchSymbol, name?: string): Contract {
   return new Contract(
     ContractType.Purity,
@@ -48,6 +51,7 @@ export function purity(symbol: ArchSymbol, name?: string): Contract {
   );
 }
 
+/** Creates a NoCycles contract: no circular dependencies between the given `symbols`. */
 export function noCycles(symbols: ArchSymbol[], name?: string): Contract {
   return new Contract(
     ContractType.NoCycles,
@@ -56,6 +60,7 @@ export function noCycles(symbols: ArchSymbol[], name?: string): Contract {
   );
 }
 
+/** Creates an Exists contract: each symbol's derived directory must exist on disk. */
 export function exists(symbols: ArchSymbol[], name?: string): Contract {
   return new Contract(
     ContractType.Exists,
@@ -64,6 +69,7 @@ export function exists(symbols: ArchSymbol[], name?: string): Contract {
   );
 }
 
+/** Creates a Mirrors contract: every file in `primary` must have a counterpart in `related`. */
 export function mirrors(primary: ArchSymbol, related: ArchSymbol, name?: string): Contract {
   return new Contract(
     ContractType.Mirrors,
@@ -76,6 +82,7 @@ export function mirrors(primary: ArchSymbol, related: ArchSymbol, name?: string)
 // CheckContractsRequest builder
 // ---------------------------------------------------------------------------
 
+/** Builds a CheckerRequest with sensible defaults. Pass `contracts` and optionally override `program` or `resolvedFiles`. */
 export function makeCheckRequest(
   contracts: Contract[],
   program?: Program,

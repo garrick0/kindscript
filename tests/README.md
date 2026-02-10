@@ -12,7 +12,7 @@ This directory contains the complete test suite for KindScript, organized to mir
 - **Integration Tests** (`tests/integration/`) - Multi-component tests with real I/O
 - **Helpers** (`tests/helpers/`) - Shared utilities, factories, mocks
 
-**Current Stats:** 29 test files, 276 tests, 100% passing
+**Current Stats:** 29 test files, 284 tests, 100% passing
 
 ---
 
