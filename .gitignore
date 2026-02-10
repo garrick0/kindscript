@@ -43,6 +43,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# npm auth
+.npmrc
+
 # npm pack artifacts
 *.tgz
 

@@ -38,8 +38,16 @@
     "enforcement",
     "clean-architecture"
   ],
-  "author": "",
+  "author": "garrick0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/garrick0/kindscript.git"
+  },
+  "homepage": "https://github.com/garrick0/kindscript#readme",
+  "bugs": {
+    "url": "https://github.com/garrick0/kindscript/issues"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
