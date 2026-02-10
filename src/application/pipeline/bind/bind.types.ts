@@ -1,5 +1,6 @@
 import { Contract } from '../../../domain/entities/contract';
 import { ParseResult } from '../parse/parse.types';
+import { ScanResult } from '../scan/scan.types';
 
 /**
  * Output of the Binder stage.
@@ -9,9 +10,11 @@ import { ParseResult } from '../parse/parse.types';
  */
 export interface BindResult {
   contracts: Contract[];
+  /** Additional resolved files from TypeKind constraint binding */
+  resolvedFiles: Map<string, string[]>;
   errors: string[];
 }
 
 export interface BindUseCase {
-  execute(parseResult: ParseResult): BindResult;
+  execute(parseResult: ParseResult, scanResult: ScanResult): BindResult;
 }

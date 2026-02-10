@@ -25,91 +25,145 @@ export type Constraints<Members = Record<string, never>> = {
   /** Forbid dependencies from one member to another */
   noDependency?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
 
-  /** Require every port interface in one member to have an adapter in another */
-  mustImplement?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
-
   /** Forbid circular dependencies between the listed members */
   noCycles?: ReadonlyArray<keyof Members & string>;
-
-  /** Filesystem structure constraints */
-  filesystem?: {
-    /** Require that these member directories exist on disk */
-    exists?: ReadonlyArray<keyof Members & string>;
-
-    /** Require files in one member to have corresponding files in another */
-    mirrors?: ReadonlyArray<readonly [keyof Members & string, keyof Members & string]>;
-  };
 };
+
+/**
+ * Configuration for Kind behavior.
+ *
+ * @property wraps - When set, this Kind wraps a TypeScript type (declaration-level).
+ *   The Kind produces `T & { brand }` instead of `{ kind, location } & Members`.
+ * @property scope - Declare the expected instance scope: "folder" or "file". Validated by the scope contract.
+ */
+export type KindConfig = {
+  wraps?: unknown;
+  scope?: 'folder' | 'file';
+};
+
+/**
+ * Phantom marker type that both structural and wrapped Kinds satisfy.
+ * Used as the constraint for the Members parameter so that both
+ * `Kind<"Foo">` and `TypeKind<"Bar", Fn>` can be used as members.
+ */
+export type KindRef = { readonly __kindscript_ref?: string };
 
 /**
  * Base type for all architectural kind definitions.
  *
- * Users create type aliases referencing Kind to define architectural patterns.
- * All Kinds work the same way — having members is a property, not a category.
- * Constraints apply to the Kind's scope regardless of whether it has members.
+ * Kind is a conditional type: when `Config` includes `wraps`, it produces
+ * a wrapped type (`T & { brand }`) for use as a type annotation. Otherwise,
+ * it produces a structural type (`{ kind, location } & Members`) for use
+ * with `satisfies Instance<T, Path>`.
+ *
+ * `TypeKind<N, T, C>` is sugar for `Kind<N, {}, C, { wraps: T }>`.
  *
  * ```typescript
- * // Kind with no members — constraints apply to its own scope
+ * // Structural Kind — used with satisfies Instance<T, Path>
  * type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
  *
- * // Kind with members — constraints apply between members and to its scope
- * type CleanArchitecture = Kind<"CleanArchitecture", {
- *   domain: DomainLayer;
- *   infrastructure: InfrastructureLayer;
- * }, {
- *   noDependency: [["domain", "infrastructure"]];
- * }>;
+ * // Wrapped Kind — used as type annotation on exports
+ * type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
+ *
+ * // Or equivalently using the TypeKind sugar:
+ * type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
  * ```
  *
  * @typeParam N - The kind name as a string literal type
  * @typeParam Members - Child kind members (defaults to none)
- * @typeParam Constraints - Architectural constraints (defaults to none)
+ * @typeParam _Constraints - Architectural constraints (defaults to none)
+ * @typeParam _Config - Kind configuration (wraps, scope)
  */
 export type Kind<
   N extends string = string,
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  Members extends Record<string, Kind> = {},
+  Members extends Record<string, KindRef> = {},
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   _Constraints extends Constraints<Members> = {},
-> = {
-  /** Discriminant identifying this kind by name */
-  readonly kind: N;
-
-  /** Filesystem path where this architectural entity lives */
-  readonly location: string;
-} & Members;
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  _Config extends KindConfig = {},
+> = (_Config extends { wraps: infer T }
+  ? T & { readonly __kindscript_brand?: N } & KindRef
+  : {
+    /** Discriminant identifying this kind by name */
+    readonly kind: N;
+    /** Filesystem path where this architectural entity lives */
+    readonly location: string;
+  } & Members & KindRef
+);
 
 /**
  * Transforms a Kind type into a location-assignment type.
  *
- * Strips `kind` and `location` (derived automatically), keeps member
- * names, and allows either an empty object `{}` (no sub-members) or a
- * nested `MemberMap<ChildKind>` (with sub-members).
+ * Strips `kind`, `location`, and phantom markers (derived automatically),
+ * keeps member names, and allows either an empty object `{}` (no sub-members)
+ * or a nested `MemberMap<ChildKind>` (with sub-members).
  *
  * @typeParam T - A Kind type
  */
-export type MemberMap<T extends Kind> = {
-  [K in keyof T as K extends 'kind' | 'location' ? never : K]:
-    T[K] extends Kind
+export type MemberMap<T extends KindRef> = {
+  [K in keyof T as K extends 'kind' | 'location' | '__kindscript_ref' | '__kindscript_brand' ? never : K]:
+    T[K] extends KindRef
       ? MemberMap<T[K]> | Record<string, never>
       : never;
 };
 
 /**
- * Instance type for declaring a Kind instance.
+ * Instance type for declaring a Kind instance with an explicit location.
  *
- * Used with `satisfies` in regular `.ts` source files. The root directory
- * is inferred from the file's location — no explicit root needed.
+ * The second type parameter specifies where the instance lives in the
+ * codebase, relative to the declaration file (same as TypeScript imports).
  *
  * ```typescript
- * // src/architecture.ts — root is automatically "src/"
- * export const app = {
+ * // src/ordering/context.ts
+ * export const ordering = {
  *   domain: {},
- *   application: {},
  *   infrastructure: {},
- * } satisfies Instance<CleanArchitecture>;
+ * } satisfies Instance<CleanArchitecture, '.'>;
+ *
+ * // src/architecture.ts — points to a sibling directory
+ * export const ordering = {
+ *   domain: {},
+ *   infrastructure: {},
+ * } satisfies Instance<CleanArchitecture, './ordering'>;
  * ```
  *
+ * Location is required. Omitting it is a scanner error.
+ *
+ * Path syntax determines granularity:
+ * - `'./ordering'` — folder (directory tree, all .ts files recursively)
+ * - `'./helpers.ts'` — file (single source file)
+ * - `'./handlers.ts#validate'` — sub-file (specific named export)
+ *
  * @typeParam T - The Kind type this instance conforms to
+ * @typeParam _Path - Relative path to the instance location
  */
-export type Instance<T extends Kind> = MemberMap<T>;
+export type Instance<T extends KindRef, _Path extends string = string> = MemberMap<T>;
+
+/**
+ * Sugar for a wrapped Kind — a type-level architectural kind that wraps
+ * a TypeScript type.
+ *
+ * `TypeKind<N, T, C>` is exactly `Kind<N, {}, C, { wraps: T }>`.
+ *
+ * Instances are created by annotating exports with the TypeKind type.
+ * The type annotation IS the architectural declaration — zero extra syntax.
+ *
+ * ```typescript
+ * type DeciderFn = (command: Command) => readonly Event[];
+ * type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
+ *
+ * // The type annotation IS the instance:
+ * export const validateOrder: Decider = (cmd) => { ... };
+ * ```
+ *
+ * @typeParam N - The kind name as a string literal type
+ * @typeParam T - The wrapped TypeScript type
+ * @typeParam C - Optional constraints (e.g., `{ pure: true }`)
+ */
+export type TypeKind<
+  N extends string,
+  T,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  C extends Constraints = {},
+> = Kind<N, {}, C, { wraps: T }>;

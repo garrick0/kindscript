@@ -5,7 +5,7 @@ import { ContractType } from '../../../domain/types/contract-type';
 import { GeneratorResult } from './constraint-provider';
 
 /**
- * Shared generator for tuplePairs constraints (noDependency, mustImplement, mirrors).
+ * Shared generator for tuplePairs constraints (noDependency).
  *
  * Expects value.kind === 'tuplePairs' with [string, string][] values.
  * Each pair is resolved to two ArchSymbols and a Contract is created.
@@ -44,7 +44,7 @@ export function generateFromTuplePairs(
 }
 
 /**
- * Shared generator for stringList constraints (noCycles, exists).
+ * Shared generator for stringList constraints (noCycles).
  *
  * Expects value.kind === 'stringList' with string[] values.
  * All values are resolved to ArchSymbols and a single Contract is created.

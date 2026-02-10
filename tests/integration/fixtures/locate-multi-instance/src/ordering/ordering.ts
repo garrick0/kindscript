@@ -18,4 +18,4 @@ export type OrderingContext = Kind<"OrderingContext", {
 export const ordering = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<OrderingContext>;
+} satisfies Instance<OrderingContext, '.'>;

@@ -18,4 +18,4 @@ export type CleanContext = Kind<"CleanContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<CleanContext>;
+} satisfies Instance<CleanContext, '.'>;

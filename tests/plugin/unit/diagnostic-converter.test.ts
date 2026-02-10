@@ -1,5 +1,6 @@
 import { convertToTSDiagnostic, convertToCodeFixAction } from '../../../src/apps/plugin/diagnostic-converter';
 import { Diagnostic } from '../../../src/domain/entities/diagnostic';
+import { SourceRef } from '../../../src/domain/value-objects/source-ref';
 import { Program } from '../../../src/domain/entities/program';
 
 // Minimal mock of TypeScript module
@@ -46,9 +47,7 @@ describe('convertToTSDiagnostic', () => {
     const diagnostic = new Diagnostic(
       'Forbidden dependency: service.ts -> database.ts',
       70001,
-      '/project/src/domain/service.ts',
-      1,
-      0
+      SourceRef.at('/project/src/domain/service.ts', 1, 0),
     );
 
     const result = convertToTSDiagnostic(diagnostic, program, mockTypescript);
@@ -64,7 +63,7 @@ describe('convertToTSDiagnostic', () => {
     const tsProgram = createMockTsProgram(files);
     const program = new Program([sourceFile.fileName], {}, tsProgram);
 
-    const diagnostic = new Diagnostic('Test message', 70001, '/project/src/index.ts', 1, 0);
+    const diagnostic = new Diagnostic('Test message', 70001, SourceRef.at('/project/src/index.ts', 1, 0));
     const result = convertToTSDiagnostic(diagnostic, program, mockTypescript);
 
     expect(result.source).toBe('kindscript');
@@ -76,7 +75,7 @@ describe('convertToTSDiagnostic', () => {
     const tsProgram = createMockTsProgram(files);
     const program = new Program([sourceFile.fileName], {}, tsProgram);
 
-    const diagnostic = new Diagnostic('Test', 70001, '/project/src/index.ts', 0, 0);
+    const diagnostic = new Diagnostic('Test', 70001, SourceRef.at('/project/src/index.ts', 0, 0));
     const result = convertToTSDiagnostic(diagnostic, program, mockTypescript);
 
     expect(result.category).toBe(mockTypescript.DiagnosticCategory.Error);
@@ -90,7 +89,7 @@ describe('convertToTSDiagnostic', () => {
     const program = new Program([sourceFile.fileName], {}, tsProgram);
 
     // Line 2 (1-indexed), column 3 (0-indexed)
-    const diagnostic = new Diagnostic('Test', 70001, '/project/src/index.ts', 2, 3);
+    const diagnostic = new Diagnostic('Test', 70001, SourceRef.at('/project/src/index.ts', 2, 3));
     const result = convertToTSDiagnostic(diagnostic, program, mockTypescript);
 
     // Line 2 starts at offset 7 ("line 1\n"), column 3 -> offset 10
@@ -103,7 +102,7 @@ describe('convertToTSDiagnostic', () => {
     const tsProgram = createMockTsProgram(files);
     const program = new Program([], {}, tsProgram);
 
-    const diagnostic = new Diagnostic('Test', 70001, '/nonexistent.ts', 1, 0);
+    const diagnostic = new Diagnostic('Test', 70001, SourceRef.at('/nonexistent.ts', 1, 0));
     const result = convertToTSDiagnostic(diagnostic, program, mockTypescript);
 
     expect(result.start).toBeUndefined();
@@ -118,8 +117,8 @@ describe('convertToTSDiagnostic', () => {
     const tsProgram = createMockTsProgram(files);
     const program = new Program([sourceFile.fileName], {}, tsProgram);
 
-    const diag1 = new Diagnostic('Forbidden', 70001, '/project/src/index.ts', 0, 0);
-    const diag3 = new Diagnostic('Impure', 70003, '/project/src/index.ts', 0, 0);
+    const diag1 = new Diagnostic('Forbidden', 70001, SourceRef.at('/project/src/index.ts', 0, 0));
+    const diag3 = new Diagnostic('Impure', 70003, SourceRef.at('/project/src/index.ts', 0, 0));
 
     expect(convertToTSDiagnostic(diag1, program, mockTypescript).code).toBe(70001);
     expect(convertToTSDiagnostic(diag3, program, mockTypescript).code).toBe(70003);

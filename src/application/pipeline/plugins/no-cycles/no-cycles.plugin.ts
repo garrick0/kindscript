@@ -1,8 +1,9 @@
 import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin';
 import { Diagnostic } from '../../../../domain/entities/diagnostic';
+import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { isFileInSymbol } from '../../../../domain/utils/path-matching';
+import { isFileInSymbol } from '../../../../infrastructure/path/path-utils';
 import { findCycles } from '../../../../domain/utils/cycle-detection';
 import { generateFromStringList } from '../generator-helpers';
 
@@ -29,8 +30,8 @@ export const noCyclesPlugin: ContractPlugin = {
 
     const symbolFiles = new Map<string, string[]>();
     for (const sym of symbols) {
-      if (sym.declaredLocation) {
-        symbolFiles.set(sym.name, ctx.resolvedFiles.get(sym.declaredLocation) ?? []);
+      if (sym.id) {
+        symbolFiles.set(sym.name, ctx.resolvedFiles.get(sym.id) ?? []);
       } else {
         symbolFiles.set(sym.name, []);
       }
@@ -51,7 +52,7 @@ export const noCyclesPlugin: ContractPlugin = {
         for (const imp of imports) {
           for (const targetSym of symbols) {
             if (targetSym.name === sym.name) continue;
-            const targetLocation = targetSym.declaredLocation;
+            const targetLocation = targetSym.id;
             if (!targetLocation) continue;
             const targetFiles = new Set(symbolFiles.get(targetSym.name) || []);
             if (isFileInSymbol(imp.targetFile, targetLocation, targetFiles)) {
@@ -68,11 +69,8 @@ export const noCyclesPlugin: ContractPlugin = {
       diagnostics.push(new Diagnostic(
         `Circular dependency detected: ${cycleStr}`,
         DiagnosticCode.CircularDependency,
-        '',
-        0,
-        0,
+        SourceRef.structural(cycle[0]),
         contract.toReference(),
-        cycle[0],
       ));
     }
 

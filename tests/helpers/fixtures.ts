@@ -21,11 +21,6 @@ export const FIXTURES = {
   PURITY_CLEAN: path.join(FIXTURES_BASE, 'purity-clean'),
   PURITY_VIOLATION: path.join(FIXTURES_BASE, 'purity-violation'),
   NO_CYCLES_VIOLATION: path.join(FIXTURES_BASE, 'no-cycles-violation'),
-  MUST_IMPLEMENT_CLEAN: path.join(FIXTURES_BASE, 'must-implement-clean'),
-  MUST_IMPLEMENT_VIOLATION: path.join(FIXTURES_BASE, 'must-implement-violation'),
-  MIRRORS_CLEAN: path.join(FIXTURES_BASE, 'mirrors-clean'),
-  MIRRORS_VIOLATION: path.join(FIXTURES_BASE, 'mirrors-violation'),
-
   // Instance<T> feature fixtures
   LOCATE_CLEAN_ARCH: path.join(FIXTURES_BASE, 'locate-clean-arch'),
   LOCATE_VIOLATION: path.join(FIXTURES_BASE, 'locate-violation'),
@@ -37,4 +32,21 @@ export const FIXTURES = {
   // Design system (atomic design) fixtures
   DESIGN_SYSTEM_CLEAN: path.join(FIXTURES_BASE, 'design-system-clean'),
   DESIGN_SYSTEM_VIOLATION: path.join(FIXTURES_BASE, 'design-system-violation'),
+
+  // Scope override fixtures
+  SCOPE_OVERRIDE_CLEAN: path.join(FIXTURES_BASE, 'scope-override-clean'),
+
+  // TypeKind composability fixtures
+  TYPEKIND_COMPOSABILITY_CLEAN: path.join(FIXTURES_BASE, 'typekind-composability-clean'),
+  TYPEKIND_COMPOSABILITY_VIOLATION: path.join(FIXTURES_BASE, 'typekind-composability-violation'),
+
+  // TypeKind purity fixtures (standalone TypeKind constraints)
+  TYPEKIND_PURITY_CLEAN: path.join(FIXTURES_BASE, 'typekind-purity-clean'),
+  TYPEKIND_PURITY_VIOLATION: path.join(FIXTURES_BASE, 'typekind-purity-violation'),
+
+  // Explicit location fixtures
+  EXPLICIT_LOCATION_EXTERNAL: path.join(FIXTURES_BASE, 'explicit-location-external'),
+
+  // Scope mismatch fixtures
+  SCOPE_MISMATCH_VIOLATION: path.join(FIXTURES_BASE, 'scope-mismatch-violation'),
 } as const;

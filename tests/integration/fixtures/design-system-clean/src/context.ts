@@ -31,4 +31,4 @@ export const ui = {
   molecules: {},
   organisms: {},
   pages: {},
-} satisfies Instance<DesignSystem>;
+} satisfies Instance<DesignSystem, '.'>;

@@ -100,33 +100,57 @@ describe('CLI E2E', () => {
       });
     });
 
-    describe('mustImplement contract', () => {
-      it('exits 1 when implementation is missing', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'must-implement-violation')]);
-        expect(result.exitCode).toBe(1);
-        expect(result.stderr).toContain('KS70002');
-        expect(result.stderr).toContain('RepositoryPort');
+    describe('scope validation', () => {
+      it('exits 0 for folder-scoped leaf Kind', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'scope-override-clean')]);
+        expect(result.exitCode).toBe(0);
       });
+    });
 
-      it('exits 0 when all implementations exist', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'must-implement-clean')]);
+    describe('explicit location', () => {
+      it('exits 0 when context file is outside target directory', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'explicit-location-external')]);
         expect(result.exitCode).toBe(0);
         expect(result.stderr).toContain('All architectural contracts satisfied');
       });
     });
 
-    describe('mirrors contract', () => {
-      it('exits 1 when counterpart file is missing', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'mirrors-violation')]);
+    describe('scope mismatch', () => {
+      it('exits 1 when folder scope but instance points at file', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'scope-mismatch-violation')]);
         expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain('KS70005');
-        expect(result.stderr).toContain('no counterpart');
+        expect(result.stderr).toContain('Scope mismatch');
       });
+    });
 
-      it('exits 0 when all files have counterparts', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'mirrors-clean')]);
+    describe('TypeKind standalone purity', () => {
+      it('exits 0 when TypeKind with pure constraint has no impure imports', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-purity-clean')]);
         expect(result.exitCode).toBe(0);
         expect(result.stderr).toContain('All architectural contracts satisfied');
+      });
+
+      it('exits 1 when TypeKind with pure constraint has impure imports', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-purity-violation')]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain('KS70003');
+        expect(result.stderr).toContain('Impure import');
+      });
+    });
+
+    describe('TypeKind composability', () => {
+      it('exits 0 when TypeKind constraints are satisfied', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-composability-clean')]);
+        expect(result.exitCode).toBe(0);
+        expect(result.stderr).toContain('All architectural contracts satisfied');
+      });
+
+      it('exits 1 when Decider imports from Effector', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-composability-violation')]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain('KS70001');
+        expect(result.stderr).toContain('Forbidden dependency');
       });
     });
 

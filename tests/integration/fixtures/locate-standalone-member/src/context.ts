@@ -18,4 +18,4 @@ const domainConfig = {};
 
 export const app = {
   domain: domainConfig,
-} satisfies Instance<AppContext>;
+} satisfies Instance<AppContext, '.'>;

@@ -11,7 +11,7 @@ describe('ArchSymbol', () => {
       expect(symbol.name).toBe('domain');
       expect(symbol.kind).toBe(ArchSymbolKind.Member);
       expect(symbol.members.size).toBe(0);
-      expect(symbol.declaredLocation).toBeUndefined();
+      expect(symbol.id).toBeUndefined();
     });
 
     it('creates a symbol with location', () => {
@@ -21,7 +21,7 @@ describe('ArchSymbol', () => {
         'src/domain'
       );
 
-      expect(symbol.declaredLocation).toBe('src/domain');
+      expect(symbol.id).toBe('src/domain');
     });
 
     it('creates a symbol with members', () => {

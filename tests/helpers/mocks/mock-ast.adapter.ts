@@ -1,4 +1,8 @@
-import { ASTViewPort, ASTExtractionResult, TypeNodeView, KindDefinitionView, InstanceDeclarationView } from '../../../src/application/ports/ast.port';
+import {
+  ASTViewPort, ASTExtractionResult, TypeNodeView,
+  KindDefinitionView, InstanceDeclarationView,
+  TypeKindDefinitionView, TypeKindInstanceView,
+} from '../../../src/application/ports/ast.port';
 import { SourceFile, TypeChecker } from '../../../src/application/ports/typescript.port';
 
 /**
@@ -22,6 +26,8 @@ import { SourceFile, TypeChecker } from '../../../src/application/ports/typescri
 export class MockASTAdapter implements ASTViewPort {
   private kindDefinitions = new Map<string, KindDefinitionView[]>();
   private instanceDeclarations = new Map<string, InstanceDeclarationView[]>();
+  private typeKindDefinitions = new Map<string, TypeKindDefinitionView[]>();
+  private typeKindInstances = new Map<string, TypeKindInstanceView[]>();
 
   // --- Fluent configuration API ---
 
@@ -32,10 +38,28 @@ export class MockASTAdapter implements ASTViewPort {
     return this;
   }
 
-  withInstanceDeclaration(fileName: string, view: InstanceDeclarationView): this {
+  withInstanceDeclaration(
+    fileName: string,
+    view: Omit<InstanceDeclarationView, 'declaredPath'> & { declaredPath?: string },
+  ): this {
+    const fullView: InstanceDeclarationView = { declaredPath: '.', ...view };
     const existing = this.instanceDeclarations.get(fileName) ?? [];
-    existing.push(view);
+    existing.push(fullView);
     this.instanceDeclarations.set(fileName, existing);
+    return this;
+  }
+
+  withTypeKindDefinition(fileName: string, view: TypeKindDefinitionView): this {
+    const existing = this.typeKindDefinitions.get(fileName) ?? [];
+    existing.push(view);
+    this.typeKindDefinitions.set(fileName, existing);
+    return this;
+  }
+
+  withTypeKindInstance(fileName: string, view: TypeKindInstanceView): this {
+    const existing = this.typeKindInstances.get(fileName) ?? [];
+    existing.push(view);
+    this.typeKindInstances.set(fileName, existing);
     return this;
   }
 
@@ -46,12 +70,7 @@ export class MockASTAdapter implements ASTViewPort {
   static constraintView(config: {
     pure?: boolean;
     noDependency?: [string, string][];
-    mustImplement?: [string, string][];
     noCycles?: string[];
-    filesystem?: {
-      exists?: string[];
-      mirrors?: [string, string][];
-    };
   }): TypeNodeView {
     const properties: Array<{ name: string; value: TypeNodeView }> = [];
 
@@ -61,23 +80,8 @@ export class MockASTAdapter implements ASTViewPort {
     if (config.noDependency) {
       properties.push({ name: 'noDependency', value: { kind: 'tuplePairs', values: config.noDependency } });
     }
-    if (config.mustImplement) {
-      properties.push({ name: 'mustImplement', value: { kind: 'tuplePairs', values: config.mustImplement } });
-    }
     if (config.noCycles) {
       properties.push({ name: 'noCycles', value: { kind: 'stringList', values: config.noCycles } });
-    }
-    if (config.filesystem) {
-      const fsProps: Array<{ name: string; value: TypeNodeView }> = [];
-      if (config.filesystem.exists) {
-        fsProps.push({ name: 'exists', value: { kind: 'stringList', values: config.filesystem.exists } });
-      }
-      if (config.filesystem.mirrors) {
-        fsProps.push({ name: 'mirrors', value: { kind: 'tuplePairs', values: config.filesystem.mirrors } });
-      }
-      if (fsProps.length > 0) {
-        properties.push({ name: 'filesystem', value: { kind: 'object', properties: fsProps } });
-      }
     }
 
     return { kind: 'object', properties };
@@ -86,6 +90,8 @@ export class MockASTAdapter implements ASTViewPort {
   reset(): void {
     this.kindDefinitions.clear();
     this.instanceDeclarations.clear();
+    this.typeKindDefinitions.clear();
+    this.typeKindInstances.clear();
   }
 
   // --- ASTViewPort implementation ---
@@ -96,5 +102,13 @@ export class MockASTAdapter implements ASTViewPort {
 
   getInstanceDeclarations(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<InstanceDeclarationView[]> {
     return { data: this.instanceDeclarations.get(sourceFile.fileName) ?? [], errors: [] };
+  }
+
+  getTypeKindDefinitions(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<TypeKindDefinitionView[]> {
+    return { data: this.typeKindDefinitions.get(sourceFile.fileName) ?? [], errors: [] };
+  }
+
+  getTypeKindInstances(sourceFile: SourceFile, _checker: TypeChecker, _typeKindNames: Set<string>): ASTExtractionResult<TypeKindInstanceView[]> {
+    return { data: this.typeKindInstances.get(sourceFile.fileName) ?? [], errors: [] };
   }
 }

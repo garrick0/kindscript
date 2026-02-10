@@ -1,4 +1,5 @@
 import { Diagnostic } from '../../src/domain/entities/diagnostic';
+import { SourceRef } from '../../src/domain/value-objects/source-ref';
 import { ContractType } from '../../src/domain/types/contract-type';
 
 describe('Diagnostic', () => {
@@ -7,9 +8,7 @@ describe('Diagnostic', () => {
       const diagnostic = new Diagnostic(
         'Test error message',
         70001,
-        'src/domain/entity.ts',
-        42,
-        10
+        SourceRef.at('src/domain/entity.ts', 42, 10),
       );
 
       expect(diagnostic.message).toBe('Test error message');
@@ -24,9 +23,7 @@ describe('Diagnostic', () => {
       const diagnostic = new Diagnostic(
         'Test error',
         70001,
-        'file.ts',
-        1,
-        0,
+        SourceRef.at('file.ts', 1, 0),
         {
           contractName: 'no-deps',
           contractType: ContractType.NoDependency,
@@ -47,9 +44,7 @@ describe('Diagnostic', () => {
       const diagnostic = new Diagnostic(
         'Test error message',
         70001,
-        'src/domain/entity.ts',
-        42,
-        10
+        SourceRef.at('src/domain/entity.ts', 42, 10),
       );
 
       const formatted = diagnostic.toString();

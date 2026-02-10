@@ -28,6 +28,9 @@ export interface KindDefinitionView {
   kindNameLiteral: string;
   members: Array<{ name: string; typeName?: string }>;
   constraints?: TypeNodeView;
+  scope?: 'folder' | 'file';
+  /** If the 4th type arg has `wraps`, this Kind is also a wrapped Kind (TypeKind-equivalent) */
+  wrapsTypeName?: string;
 }
 
 /**
@@ -41,12 +44,32 @@ export interface MemberValueView {
 
 /**
  * High-level view of an instance declaration extracted from
- * `const x = { ... } satisfies Instance<T>`.
+ * `const x = { ... } satisfies Instance<T, Path>`.
  */
 export interface InstanceDeclarationView {
   variableName: string;
   kindTypeName: string;
+  /** Relative path from the declaration file to the instance location */
+  declaredPath: string;
   members: MemberValueView[];
+}
+
+/**
+ * View of a TypeKind definition: type X = TypeKind<N, T, C>
+ */
+export interface TypeKindDefinitionView {
+  typeName: string;
+  kindNameLiteral: string;
+  wrappedTypeName?: string;
+  constraints?: TypeNodeView;
+}
+
+/**
+ * View of a typed export that references a TypeKind.
+ */
+export interface TypeKindInstanceView {
+  exportName: string;
+  kindTypeName: string;
 }
 
 /**

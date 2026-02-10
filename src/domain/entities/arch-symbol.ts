@@ -17,8 +17,8 @@ export class ArchSymbol {
     /** The kind of architectural entity this represents */
     public readonly kind: ArchSymbolKind,
 
-    /** Optional file system location where this symbol is declared */
-    public readonly declaredLocation?: string,
+    /** Opaque identifier for this symbol (used as a lookup key, not for path manipulation) */
+    public readonly id?: string,
 
     /** Child symbols (for hierarchical structures) */
     public readonly members: Map<string, ArchSymbol> = new Map(),
@@ -26,8 +26,8 @@ export class ArchSymbol {
     /** The Kind type name this symbol instantiates (e.g., "DomainLayer", "PortsLayer") */
     public readonly kindTypeName?: string,
 
-    /** True if this symbol's location was derived from root + member name, not explicitly declared */
-    public readonly locationDerived?: boolean,
+    /** For sub-file instances: the named export (from hash syntax, e.g., 'validateOrder') */
+    public readonly exportName?: string,
   ) {}
 
   /**
@@ -37,7 +37,7 @@ export class ArchSymbol {
     return (
       this.name === other.name &&
       this.kind === other.kind &&
-      this.declaredLocation === other.declaredLocation
+      this.id === other.id
     );
   }
 
@@ -84,6 +84,6 @@ export class ArchSymbol {
    * Human-readable representation of this symbol.
    */
   toString(): string {
-    return `${this.kind}:${this.name}${this.declaredLocation ? ` @ ${this.declaredLocation}` : ''}`;
+    return `${this.kind}:${this.name}${this.id ? ` @ ${this.id}` : ''}`;
   }
 }

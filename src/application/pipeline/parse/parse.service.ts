@@ -1,10 +1,9 @@
 import { ParseResult, ParseUseCase } from './parse.types';
 import { ScanResult } from '../scan/scan.types';
 import { KindDefinitionView, MemberValueView } from '../views';
-import { FileSystemPort } from '../../ports/filesystem.port';
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
-import { joinPath, dirnamePath } from '../../../domain/utils/path-matching';
+import { joinPath, dirnamePath, resolvePath } from '../../../infrastructure/path/path-utils';
 
 /**
  * KindScript Parser — builds the ArchSymbol tree from scanner output.
@@ -13,14 +12,15 @@ import { joinPath, dirnamePath } from '../../../domain/utils/path-matching';
  * the Scanner and builds the structured domain representation:
  * - ArchSymbol hierarchies (Instance → Members)
  * - Kind-type ArchSymbols
- * - Resolved file locations
+ *
+ * The parser is purely structural — it builds the tree and computes
+ * `id` paths, but does NOT resolve those paths to actual
+ * files. Name resolution (resolvedFiles) is the Binder's responsibility.
  *
  * Analogous to TypeScript's Parser which takes tokens and builds
- * an AST of Nodes.
+ * an AST of Nodes (no semantic info, no symbol table).
  */
 export class ParseService implements ParseUseCase {
-  constructor(private readonly fsPort: FileSystemPort) {}
-
   execute(scanResult: ScanResult): ParseResult {
     const symbols: ArchSymbol[] = [];
     const errors: string[] = [];
@@ -35,12 +35,20 @@ export class ParseService implements ParseUseCase {
         continue;
       }
 
-      // Composite Kinds (with members) → root is the directory (members need subdirectories)
-      // Leaf Kinds (no members) → root is the file itself (the file IS the entity)
-      const hasMembers = kindDef.members.length > 0;
-      const resolvedRoot = hasMembers
-        ? dirnamePath(sourceFileName)
-        : sourceFileName;
+      // Resolve instance location from declared path (relative to declaration file)
+      const baseDir = dirnamePath(sourceFileName);
+      let resolvedRoot: string;
+      let exportName: string | undefined;
+
+      const hashIndex = view.declaredPath.indexOf('#');
+      if (hashIndex !== -1) {
+        // Sub-file path: ./file.ts#exportName
+        const filePart = view.declaredPath.substring(0, hashIndex);
+        exportName = view.declaredPath.substring(hashIndex + 1);
+        resolvedRoot = resolvePath(baseDir, filePart);
+      } else {
+        resolvedRoot = resolvePath(baseDir, view.declaredPath);
+      }
 
       // Build member tree from Kind definition + instance member values
       const members = this.buildMemberTree(kindDef, resolvedRoot, view.members, scanResult.kindDefs);
@@ -51,6 +59,7 @@ export class ParseService implements ParseUseCase {
         resolvedRoot,
         members,
         view.kindTypeName,
+        exportName,
       );
 
       symbols.push(symbol);
@@ -66,15 +75,12 @@ export class ParseService implements ParseUseCase {
       symbols.push(new ArchSymbol(name, ArchSymbolKind.Kind, undefined));
     }
 
-    // Resolve symbol locations to files
-    const resolvedFiles = this.resolveSymbolFiles(symbols);
-
     return {
       symbols,
       kindDefs: scanResult.kindDefs,
       instanceSymbols,
-      resolvedFiles,
       instanceTypeNames,
+      typeKindDefs: scanResult.typeKindDefs,
       errors,
     };
   }
@@ -117,38 +123,10 @@ export class ParseService implements ParseUseCase {
         memberPath,
         childMembers,
         memberKindTypeName,
-        true, // locationDerived
       );
       members.set(memberName, memberSymbol);
     }
 
     return members;
-  }
-
-  /**
-   * Pre-resolve all symbol locations to their file listings.
-   *
-   * Walks the symbol tree and builds a map from each symbol's
-   * declaredLocation to the files it contains. Only locations that
-   * exist on disk are included.
-   */
-  private resolveSymbolFiles(symbols: ArchSymbol[]): Map<string, string[]> {
-    const resolved = new Map<string, string[]>();
-    for (const symbol of symbols) {
-      for (const s of [symbol, ...symbol.descendants()]) {
-        if (s.declaredLocation && !resolved.has(s.declaredLocation)) {
-          if (this.fsPort.directoryExists(s.declaredLocation)) {
-            resolved.set(
-              s.declaredLocation,
-              this.fsPort.readDirectory(s.declaredLocation, true),
-            );
-          } else if (this.fsPort.fileExists(s.declaredLocation)) {
-            // File-scoped location: the location IS the single file
-            resolved.set(s.declaredLocation, [s.declaredLocation]);
-          }
-        }
-      }
-    }
-    return resolved;
   }
 }

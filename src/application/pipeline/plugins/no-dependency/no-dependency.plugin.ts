@@ -1,8 +1,9 @@
 import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin';
 import { Diagnostic } from '../../../../domain/entities/diagnostic';
+import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { isFileInSymbol } from '../../../../domain/utils/path-matching';
+import { isFileInSymbol } from '../../../../infrastructure/path/path-utils';
 import { generateFromTuplePairs } from '../generator-helpers';
 
 export const noDependencyPlugin: ContractPlugin = {
@@ -29,8 +30,8 @@ export const noDependencyPlugin: ContractPlugin = {
     const [fromSymbol, toSymbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
-    const fromLocation = fromSymbol.declaredLocation;
-    const toLocation = toSymbol.declaredLocation;
+    const fromLocation = fromSymbol.id;
+    const toLocation = toSymbol.id;
     if (!fromLocation || !toLocation) {
       return { diagnostics, filesAnalyzed: 0 };
     }
@@ -44,11 +45,9 @@ export const noDependencyPlugin: ContractPlugin = {
       for (const imp of imports) {
         if (isFileInSymbol(imp.targetFile, toLocation, toFiles)) {
           diagnostics.push(new Diagnostic(
-            `Forbidden dependency: ${imp.sourceFile} → ${imp.targetFile}`,
+            `Forbidden dependency: ${fromSymbol.name} → ${toSymbol.name} (${imp.sourceFile} → ${imp.targetFile})`,
             DiagnosticCode.ForbiddenDependency,
-            imp.sourceFile,
-            imp.line,
-            imp.column,
+            SourceRef.at(imp.sourceFile, imp.line, imp.column),
             contract.toReference(),
           ));
         }

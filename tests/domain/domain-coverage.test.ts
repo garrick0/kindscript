@@ -3,8 +3,8 @@
  * Covers: NODE_BUILTINS, isFileInSymbol, ImportEdge, Program
  */
 import { NODE_BUILTINS } from '../../src/domain/constants/node-builtins';
-import { isFileInSymbol } from '../../src/domain/utils/path-matching';
-import { ImportEdge } from '../../src/domain/value-objects/import-edge';
+import { isFileInSymbol } from '../../src/infrastructure/path/path-utils';
+import { ImportEdge } from '../../src/application/pipeline/check/import-edge';
 import { Program } from '../../src/domain/entities/program';
 
 describe('NODE_BUILTINS', () => {

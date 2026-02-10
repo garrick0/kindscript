@@ -14,4 +14,4 @@ export type AppContext = Kind<"AppContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<AppContext>;
+} satisfies Instance<AppContext, '.'>;

@@ -16,8 +16,8 @@ export type CleanContext = Kind<"CleanContext", {
   noDependency: [["domain", "infrastructure"]];
 }>;
 
-// Instance declaration using satisfies Instance<T>
+// Instance declaration using satisfies Instance<T, '.'>
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<CleanContext>;
+} satisfies Instance<CleanContext, '.'>;

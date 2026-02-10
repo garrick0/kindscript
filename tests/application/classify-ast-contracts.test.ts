@@ -14,12 +14,12 @@ const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
 /** Helper: run scan → parse → bind and return combined result */
 function classify(mockAST: MockASTAdapter, files: SourceFile[]) {
   const scanner = new ScanService(mockAST);
-  const parser = new ParseService(new MockFileSystemAdapter());
-  const binder = new BindService(createAllPlugins());
+  const parser = new ParseService();
+  const binder = new BindService(createAllPlugins(), new MockFileSystemAdapter());
 
   const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
   const parseResult = parser.execute(scanResult);
-  const bindResult = binder.execute(parseResult);
+  const bindResult = binder.execute(parseResult, scanResult);
 
   return {
     symbols: parseResult.symbols,
@@ -64,31 +64,6 @@ describe('Pipeline - Contract Parsing', () => {
 
       expect(result.contracts).toHaveLength(1);
       expect(result.contracts[0].type).toBe(ContractType.NoDependency);
-    });
-
-    it('generates mustImplement contract from Kind constraints', () => {
-      mockAST.withKindDefinition('/project/src/arch.ts', {
-        typeName: 'Ctx',
-        kindNameLiteral: 'Ctx',
-        members: [
-          { name: 'ports', typeName: 'PortsLayer' },
-          { name: 'adapters', typeName: 'AdaptersLayer' },
-        ],
-        constraints: MockASTAdapter.constraintView({
-          mustImplement: [['ports', 'adapters']],
-        }),
-      });
-
-      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
-        variableName: 'app',
-        kindTypeName: 'Ctx',
-        members: [{ name: 'ports' }, { name: 'adapters' }],
-      });
-
-      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
-
-      expect(result.contracts).toHaveLength(1);
-      expect(result.contracts[0].type).toBe(ContractType.MustImplement);
     });
 
     it('generates noCycles contract from Kind constraints', () => {
@@ -143,60 +118,6 @@ describe('Pipeline - Contract Parsing', () => {
       expect(purityContracts[0].args[0].name).toBe('domain');
     });
 
-    it('generates exists contract from filesystem.exists', () => {
-      mockAST.withKindDefinition('/project/src/arch.ts', {
-        typeName: 'Ctx',
-        kindNameLiteral: 'Ctx',
-        members: [
-          { name: 'domain', typeName: 'DomainLayer' },
-          { name: 'infra', typeName: 'InfraLayer' },
-        ],
-        constraints: MockASTAdapter.constraintView({
-          filesystem: { exists: ['domain', 'infra'] },
-        }),
-      });
-
-      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
-        variableName: 'app',
-        kindTypeName: 'Ctx',
-        members: [{ name: 'domain' }, { name: 'infra' }],
-      });
-
-      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
-
-      const existsContracts = result.contracts.filter(c => c.type === ContractType.Exists);
-      expect(existsContracts).toHaveLength(1);
-      expect(existsContracts[0].args).toHaveLength(2);
-      expect(existsContracts[0].args[0].name).toBe('domain');
-      expect(existsContracts[0].args[1].name).toBe('infra');
-    });
-
-    it('generates mirrors contract from filesystem.mirrors', () => {
-      mockAST.withKindDefinition('/project/src/arch.ts', {
-        typeName: 'Ctx',
-        kindNameLiteral: 'Ctx',
-        members: [
-          { name: 'components', typeName: 'ComponentsLayer' },
-          { name: 'tests', typeName: 'TestsLayer' },
-        ],
-        constraints: MockASTAdapter.constraintView({
-          filesystem: { mirrors: [['components', 'tests']] },
-        }),
-      });
-
-      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
-        variableName: 'app',
-        kindTypeName: 'Ctx',
-        members: [{ name: 'components' }, { name: 'tests' }],
-      });
-
-      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
-
-      const mirrorsContracts = result.contracts.filter(c => c.type === ContractType.Mirrors);
-      expect(mirrorsContracts).toHaveLength(1);
-      expect(mirrorsContracts[0].args[0].name).toBe('components');
-      expect(mirrorsContracts[0].args[1].name).toBe('tests');
-    });
   });
 
   describe('Multi-instance contract binding (shared Kind type)', () => {
@@ -241,7 +162,7 @@ describe('Pipeline - Contract Parsing', () => {
       expect(noDeps).toHaveLength(2);
 
       // Verify contracts reference different instances' members
-      const contractLocations = noDeps.map(c => c.args[0].declaredLocation).sort();
+      const contractLocations = noDeps.map(c => c.args[0].id).sort();
       expect(contractLocations).toEqual([
         '/project/src/billing/domain',
         '/project/src/ordering/domain',
@@ -282,7 +203,7 @@ describe('Pipeline - Contract Parsing', () => {
       const purityContracts = result.contracts.filter(c => c.type === ContractType.Purity);
       expect(purityContracts).toHaveLength(2);
 
-      const purityLocations = purityContracts.map(c => c.args[0].declaredLocation).sort();
+      const purityLocations = purityContracts.map(c => c.args[0].id).sort();
       expect(purityLocations).toEqual([
         '/project/src/billing/domain',
         '/project/src/ordering/domain',

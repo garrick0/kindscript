@@ -1,5 +1,6 @@
 import { CLIDiagnosticAdapter } from '../../../src/apps/cli/adapters/cli-diagnostic.adapter';
 import { Diagnostic } from '../../../src/domain/entities/diagnostic';
+import { SourceRef } from '../../../src/domain/value-objects/source-ref';
 import { ContractType } from '../../../src/domain/types/contract-type';
 
 describe('CLIDiagnosticAdapter', () => {
@@ -16,9 +17,7 @@ describe('CLIDiagnosticAdapter', () => {
       const diag = new Diagnostic(
         'Forbidden dependency: src/domain/service.ts -> src/infrastructure/db.ts',
         70001,
-        'src/domain/service.ts',
-        5,
-        0
+        SourceRef.at('src/domain/service.ts', 5, 0),
       );
 
       const formatted = adapter.formatDiagnostic(diag);
@@ -31,9 +30,7 @@ describe('CLIDiagnosticAdapter', () => {
       const diag = new Diagnostic(
         'Forbidden dependency',
         70001,
-        'src/domain/service.ts',
-        5,
-        0,
+        SourceRef.at('src/domain/service.ts', 5, 0),
         {
           contractName: 'no-domain-to-infra',
           contractType: ContractType.NoDependency,
@@ -50,8 +47,8 @@ describe('CLIDiagnosticAdapter', () => {
   describe('reportDiagnostics', () => {
     it('writes each diagnostic to output', () => {
       const diags = [
-        new Diagnostic('Error 1', 70001, 'file1.ts', 1, 0),
-        new Diagnostic('Error 2', 70001, 'file2.ts', 3, 0),
+        new Diagnostic('Error 1', 70001, SourceRef.at('file1.ts', 1, 0)),
+        new Diagnostic('Error 2', 70001, SourceRef.at('file2.ts', 3, 0)),
       ];
 
       adapter.reportDiagnostics(diags);

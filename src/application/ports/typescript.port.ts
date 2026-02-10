@@ -1,5 +1,5 @@
 import { Program } from '../../domain/entities/program';
-import { ImportEdge } from '../../domain/value-objects/import-edge';
+import { ImportEdge } from '../pipeline/check/import-edge';
 import { CompilerOptions } from '../../domain/types/compiler-options';
 
 /**

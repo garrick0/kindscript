@@ -27,8 +27,8 @@ export function createEngine(): Engine {
 
   const programFactory = new ProgramFactory(config, fs, ts);
   const scanner = new ScanService(ast);
-  const parser = new ParseService(fs);
-  const binder = new BindService(plugins);
+  const parser = new ParseService();
+  const binder = new BindService(plugins, fs);
   const checker = new CheckerService(plugins, ts);
   const pipeline = new PipelineService(programFactory, fs, scanner, parser, binder, checker);
 

@@ -1,4 +1,5 @@
 import { Diagnostic } from '../../../src/domain/entities/diagnostic';
+import { SourceRef } from '../../../src/domain/value-objects/source-ref';
 
 /**
  * Tests for the language service proxy creation and interception logic.
@@ -133,8 +134,7 @@ describe('Language Service Proxy', () => {
     const ksDiag = new Diagnostic(
       'Forbidden dependency: a -> b',
       70001,
-      '/project/src/domain/service.ts',
-      1, 0
+      SourceRef.at('/project/src/domain/service.ts', 1, 0),
     );
     mockDiagnosticsService.execute.mockReturnValue({
       diagnostics: [ksDiag],
@@ -210,7 +210,7 @@ describe('Language Service Proxy', () => {
     mockLS.getSemanticDiagnostics.mockReturnValue(originalArray);
 
     mockDiagnosticsService.execute.mockReturnValue({
-      diagnostics: [new Diagnostic('KS error', 70001, 'test.ts', 1, 0)],
+      diagnostics: [new Diagnostic('KS error', 70001, SourceRef.at('test.ts', 1, 0))],
       elapsedMs: 0,
     });
 

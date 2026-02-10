@@ -45,55 +45,90 @@ describe('Tier 2 Contract Integration Tests', () => {
     });
   });
 
-  describe('mustImplement contract', () => {
-    it('detects missing implementation in must-implement-violation fixture', () => {
+  describe('scope validation', () => {
+    it('folder-scoped leaf Kind resolves to directory, not file', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.MUST_IMPLEMENT_VIOLATION
+        FIXTURES.SCOPE_OVERRIDE_CLEAN
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
-      expect(classifyResult.contracts[0].type).toBe(ContractType.MustImplement);
-
-      expect(checkResult.violationsFound).toBe(1);
-      expect(checkResult.diagnostics[0].code).toBe(70002);
-      expect(checkResult.diagnostics[0].message).toContain('RepositoryPort');
-    });
-
-    it('passes when implementation exists in must-implement-clean fixture', () => {
-      const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.MUST_IMPLEMENT_CLEAN
-      );
-
-      expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
+      // Purity propagation requires a parent Kind — standalone leaf Kind
+      // with { pure: true } propagates through intrinsic mechanism
       expect(checkResult.violationsFound).toBe(0);
     });
   });
 
-  describe('mirrors contract', () => {
-    it('detects missing counterpart in mirrors-violation fixture', () => {
+  describe('scope mismatch', () => {
+    it('detects folder scope with file location', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.MIRRORS_VIOLATION
+        FIXTURES.SCOPE_MISMATCH_VIOLATION
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
-      expect(classifyResult.contracts[0].type).toBe(ContractType.Mirrors);
+
+      // Should have a scope contract
+      const scopeContracts = classifyResult.contracts.filter(c => c.type === ContractType.Scope);
+      expect(scopeContracts).toHaveLength(1);
 
       expect(checkResult.violationsFound).toBe(1);
       expect(checkResult.diagnostics[0].code).toBe(70005);
-      expect(checkResult.diagnostics[0].message).toContain('form.ts');
+      expect(checkResult.diagnostics[0].message).toContain('folder scope');
     });
+  });
 
-    it('passes when all files have counterparts in mirrors-clean fixture', () => {
+  describe('TypeKind composability', () => {
+    it('passes when no Decider imports from Effector', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.MIRRORS_CLEAN
+        FIXTURES.TYPEKIND_COMPOSABILITY_CLEAN
       );
 
       expect(classifyResult.errors).toHaveLength(0);
       expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts[0].type).toBe(ContractType.NoDependency);
       expect(checkResult.violationsFound).toBe(0);
+    });
+
+    it('detects Decider importing from Effector file', () => {
+      const { classifyResult, checkResult } = runPipeline(
+        FIXTURES.TYPEKIND_COMPOSABILITY_VIOLATION
+      );
+
+      expect(classifyResult.errors).toHaveLength(0);
+      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts[0].type).toBe(ContractType.NoDependency);
+
+      expect(checkResult.violationsFound).toBe(1);
+      expect(checkResult.diagnostics[0].code).toBe(70001);
+      expect(checkResult.diagnostics[0].message).toContain('apply-discount');
+      expect(checkResult.diagnostics[0].message).toContain('notify-order');
+    });
+  });
+
+  describe('TypeKind standalone purity', () => {
+    it('passes when TypeKind with pure constraint has no impure imports', () => {
+      const { classifyResult, checkResult } = runPipeline(
+        FIXTURES.TYPEKIND_PURITY_CLEAN
+      );
+
+      expect(classifyResult.errors).toHaveLength(0);
+      // Should have purity contracts from TypeKind constraints
+      const purityContracts = classifyResult.contracts.filter(c => c.type === ContractType.Purity);
+      expect(purityContracts.length).toBeGreaterThan(0);
+      expect(checkResult.violationsFound).toBe(0);
+    });
+
+    it('detects impure import in TypeKind with pure constraint', () => {
+      const { classifyResult, checkResult } = runPipeline(
+        FIXTURES.TYPEKIND_PURITY_VIOLATION
+      );
+
+      expect(classifyResult.errors).toHaveLength(0);
+      const purityContracts = classifyResult.contracts.filter(c => c.type === ContractType.Purity);
+      expect(purityContracts.length).toBeGreaterThan(0);
+
+      expect(checkResult.violationsFound).toBe(1);
+      expect(checkResult.diagnostics[0].code).toBe(70003);
+      expect(checkResult.diagnostics[0].message).toContain('fs');
     });
   });
 

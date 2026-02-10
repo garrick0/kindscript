@@ -12,7 +12,7 @@ This directory contains the complete test suite for KindScript, organized to mir
 - **Integration Tests** (`tests/integration/`) - Multi-component tests with real I/O
 - **Helpers** (`tests/helpers/`) - Shared utilities, factories, mocks
 
-**Current Stats:** 29 test files, 284 tests, 100% passing
+**Current Stats:** 27 test files, 269 tests, 100% passing
 
 ---
 
@@ -24,10 +24,9 @@ tests/
 │   ├── factories.ts                 # Test data builders (symbols, contracts, etc.)
 │   ├── fixtures.ts                  # Fixture path constants
 │   ├── test-pipeline.ts             # Integration test pipeline helper
-│   └── mocks/                       # 4 mock adapters
+│   └── mocks/                       # 3 mock adapters
 │       ├── mock-typescript.adapter.ts
 │       ├── mock-filesystem.adapter.ts
-│       ├── mock-config.adapter.ts
 │       └── mock-ast.adapter.ts
 │
 ├── domain/                          # 5 files - Domain entity tests
@@ -35,9 +34,9 @@ tests/
 │   ├── contract.test.ts
 │   ├── diagnostic.test.ts
 │   ├── domain-coverage.test.ts
-│   └── path-matching.test.ts
+│   └── source-ref.test.ts
 │
-├── application/                     # 11 files - Application layer tests
+├── application/                     # 8 files - Application layer tests
 │   ├── classify-ast-kind-parsing.test.ts
 │   ├── classify-ast-contracts.test.ts
 │   ├── classify-ast-locate.test.ts
@@ -45,14 +44,12 @@ tests/
 │   ├── check-contracts-service.test.ts
 │   ├── no-dependency.plugin.test.ts
 │   ├── no-cycles.plugin.test.ts
-│   ├── purity.plugin.test.ts
-│   ├── must-implement.plugin.test.ts
-│   ├── exists.plugin.test.ts
-│   └── mirrors.plugin.test.ts
+│   └── purity.plugin.test.ts
 │
-├── infrastructure/                  # 2 files - Shared adapter tests
+├── infrastructure/                  # 3 files - Shared adapter tests
 │   ├── ast.adapter.test.ts
-│   └── config-adapter.test.ts
+│   ├── config-adapter.test.ts
+│   └── path-utils.test.ts
 │
 ├── cli/
 │   ├── unit/                        # 2 files - CLI command tests
@@ -70,7 +67,7 @@ tests/
 │       ├── diagnostic-converter.test.ts
 │       └── language-service-proxy.test.ts
 │
-└── integration/                     # 3 test files + 19 fixture dirs
+└── integration/                     # 3 test files + 22 fixture dirs
     ├── check-contracts.integration.test.ts
     ├── tier2-contracts.integration.test.ts
     ├── tier2-locate.integration.test.ts

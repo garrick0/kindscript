@@ -68,7 +68,7 @@ describe('Contract', () => {
       const to = new ArchSymbol('infrastructure', ArchSymbolKind.Member);
 
       const contract1 = new Contract(ContractType.NoDependency, 'rule1', [from, to]);
-      const contract2 = new Contract(ContractType.MustImplement, 'rule1', [from, to]);
+      const contract2 = new Contract(ContractType.Purity, 'rule1', [from, to]);
 
       expect(contract1.equals(contract2)).toBe(false);
     });

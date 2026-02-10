@@ -1,6 +1,6 @@
 # Test Fixtures Catalog
 
-This directory contains 19 fixture directories used for integration and E2E testing. Each fixture represents a complete KindScript project with specific architectural characteristics.
+This directory contains 18 fixture directories used for integration and E2E testing. Each fixture represents a complete KindScript project with specific architectural characteristics.
 
 **Convention:** Kind definitions and instances live in regular `.ts` files. Root is inferred from the file's directory — no special extension or `kindscript.json` needed.
 
@@ -56,28 +56,6 @@ Each contract type has dedicated fixtures.
 
 ---
 
-#### MustImplement Contract
-
-| Fixture | Purpose | Violation |
-|---------|---------|-----------|
-| `must-implement-clean` | All ports have adapters | None |
-| `must-implement-violation` | Port without adapter implementation | Missing implementation (KS70002) |
-
-**Used by:** tier2-contracts.integration, cli.e2e
-
----
-
-#### Mirrors Contract (filesystem.mirrors)
-
-| Fixture | Purpose | Violation |
-|---------|---------|-----------|
-| `mirrors-clean` | All components have test counterparts | None |
-| `mirrors-violation` | Component without test file | Missing counterpart (KS70005) |
-
-**Used by:** tier2-contracts.integration, cli.e2e
-
----
-
 ### Instance<T> Feature Fixtures
 Test the location derivation mechanism.
 
@@ -85,7 +63,7 @@ Test the location derivation mechanism.
 |---------|---------|-------|
 | `locate-clean-arch` | Basic Instance with derived locations | Member location derivation |
 | `locate-violation` | Instance with contract violation | noDependency on derived paths |
-| `locate-existence` | Tests existence checking for derived locations | Missing derived location diagnostic |
+| `locate-existence` | Instance with missing derived directory | No violations (directory silently omitted) |
 | `locate-nested` | Multi-level Kind tree | Nested member path derivation (src/domain/entities) |
 | `locate-standalone-member` | Standalone variable references | Variable resolution in instance members |
 | `locate-multi-instance` | Two definition files in separate directories | Multi-instance classification |
@@ -105,6 +83,29 @@ Tests the atomic design pattern with `.tsx` files.
 **Tests:** `.tsx` file discovery, multi-pair noDependency hierarchy
 
 **Used by:** tier2-contracts.integration
+
+---
+
+### Scope Validation
+Tests scope validation on leaf Kinds.
+
+| Fixture | Purpose | Violation |
+|---------|---------|-----------|
+| `scope-override-clean` | Leaf Kind with `"folder"` scope declaration | None |
+
+**Used by:** tier2-contracts.integration, cli.e2e
+
+---
+
+### TypeKind Composability
+Tests TypeKind members inside filesystem Kinds with cross-scope constraints.
+
+| Fixture | Purpose | Violation |
+|---------|---------|-----------|
+| `typekind-composability-clean` | Decider + Effector TypeKinds with noDependency satisfied | None |
+| `typekind-composability-violation` | Decider imports from Effector file | Forbidden dependency (KS70001) |
+
+**Used by:** tier2-contracts.integration, cli.e2e
 
 ---
 
@@ -170,6 +171,9 @@ design-system-clean/
 | `purity-violation` | 1 | 1 | 2 |
 | `locate-*` (6 fixtures) | 1 each | 0 | 1 each |
 | `design-system-*` (2 fixtures) | 1 each | 0 | 1 each |
+| `scope-override-clean` | 1 | 1 | 2 |
+| `typekind-composability-clean` | 1 | 1 | 2 |
+| `typekind-composability-violation` | 1 | 1 | 2 |
 | (Others) | 1-2 | 0-1 | 1-3 |
 
 Most-used fixtures: `clean-arch-violation` (6 uses), `clean-arch-valid` (5 uses)
@@ -242,11 +246,10 @@ grep -r "FIXTURES\." tests/ | sort | uniq
 | Contract Type | Clean Fixture | Violation Fixture | Error Code |
 |---------------|---------------|-------------------|------------|
 | noDependency | clean-arch-valid | clean-arch-violation | KS70001 |
-| mustImplement | must-implement-clean | must-implement-violation | KS70002 |
 | purity | purity-clean | purity-violation | KS70003 |
 | noCycles | (none) | no-cycles-violation | KS70004 |
-| filesystem.mirrors | mirrors-clean | mirrors-violation | KS70005 |
-| filesystem.exists | (none) | locate-existence | KS70010 |
+| noDependency (TypeKind) | typekind-composability-clean | typekind-composability-violation | KS70001 |
+| scope validation | scope-override-clean | scope-mismatch-violation | KS70005 |
 
 ---
 

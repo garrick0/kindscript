@@ -33,15 +33,6 @@ export function noDependency(from: ArchSymbol, to: ArchSymbol, name?: string): C
   );
 }
 
-/** Creates a MustImplement contract: every interface in `ports` must have an implementing class in `adapters`. */
-export function mustImplement(ports: ArchSymbol, adapters: ArchSymbol, name?: string): Contract {
-  return new Contract(
-    ContractType.MustImplement,
-    name ?? `mustImplement(${ports.name} -> ${adapters.name})`,
-    [ports, adapters],
-  );
-}
-
 /** Creates a Purity contract: `symbol` must not import Node.js built-in modules. */
 export function purity(symbol: ArchSymbol, name?: string): Contract {
   return new Contract(
@@ -60,21 +51,12 @@ export function noCycles(symbols: ArchSymbol[], name?: string): Contract {
   );
 }
 
-/** Creates an Exists contract: each symbol's derived directory must exist on disk. */
-export function exists(symbols: ArchSymbol[], name?: string): Contract {
+/** Creates a Scope contract: `symbol` must match the expected scope (folder or file). */
+export function scope(symbol: ArchSymbol, expectedScope: 'folder' | 'file', name?: string): Contract {
   return new Contract(
-    ContractType.Exists,
-    name ?? `exists(${symbols.map(s => s.name).join(', ')})`,
-    symbols,
-  );
-}
-
-/** Creates a Mirrors contract: every file in `primary` must have a counterpart in `related`. */
-export function mirrors(primary: ArchSymbol, related: ArchSymbol, name?: string): Contract {
-  return new Contract(
-    ContractType.Mirrors,
-    name ?? `mirrors(${primary.name} -> ${related.name})`,
-    [primary, related],
+    ContractType.Scope,
+    name ?? `scope:${expectedScope}(${symbol.name})`,
+    [symbol],
   );
 }
 

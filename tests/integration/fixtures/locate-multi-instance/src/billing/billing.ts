@@ -18,4 +18,4 @@ export type BillingContext = Kind<"BillingContext", {
 export const billing = {
   domain: {},
   adapters: {},
-} satisfies Instance<BillingContext>;
+} satisfies Instance<BillingContext, '.'>;

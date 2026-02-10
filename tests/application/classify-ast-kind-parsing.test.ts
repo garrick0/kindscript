@@ -13,12 +13,12 @@ const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
 /** Helper: run scan → parse → bind and return combined result */
 function classify(mockAST: MockASTAdapter, files: SourceFile[]) {
   const scanner = new ScanService(mockAST);
-  const parser = new ParseService(new MockFileSystemAdapter());
-  const binder = new BindService(createAllPlugins());
+  const parser = new ParseService();
+  const binder = new BindService(createAllPlugins(), new MockFileSystemAdapter());
 
   const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
   const parseResult = parser.execute(scanResult);
-  const bindResult = binder.execute(parseResult);
+  const bindResult = binder.execute(parseResult, scanResult);
 
   return {
     symbols: parseResult.symbols,
@@ -274,6 +274,28 @@ describe('Pipeline - Kind Definition Parsing', () => {
       expect(result.contracts).toHaveLength(2);
       expect(result.contracts.some(c => c.type === ContractType.NoDependency)).toBe(true);
       expect(result.contracts.some(c => c.type === ContractType.Purity)).toBe(true);
+    });
+
+    it('scope field on Kind does not affect path resolution', () => {
+      mockAST.withKindDefinition('/project/src/arch.ts', {
+        typeName: 'PureModule',
+        kindNameLiteral: 'PureModule',
+        members: [],
+        scope: 'folder',
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
+        variableName: 'utils',
+        kindTypeName: 'PureModule',
+        members: [],
+      });
+
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
+
+      // Resolution is from declaredPath (default '.'), not from scope
+      const instance = result.symbols.find(s => s.name === 'utils');
+      expect(instance).toBeDefined();
+      expect(instance!.id).toBe('/project/src');
     });
 
     it('extracts mixed constraints from Kind type', () => {

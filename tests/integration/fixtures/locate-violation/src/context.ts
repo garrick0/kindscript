@@ -1,5 +1,5 @@
 /**
- * Architectural kind definitions using satisfies Instance<T> syntax -- with a violation.
+ * Architectural kind definitions using satisfies Instance<T, '.'> syntax -- with a violation.
  */
 
 import type { Kind, Instance } from 'kindscript';
@@ -18,4 +18,4 @@ export type CleanContext = Kind<"CleanContext", {
 export const app = {
   domain: {},
   infrastructure: {},
-} satisfies Instance<CleanContext>;
+} satisfies Instance<CleanContext, '.'>;

@@ -97,12 +97,13 @@ describe('ASTAdapter', () => {
         const app = {
           domain: {},
           infra: {},
-        } satisfies Instance<Ctx>;
+        } satisfies Instance<Ctx, '.'>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls).toHaveLength(1);
       expect(decls[0].variableName).toBe('app');
       expect(decls[0].kindTypeName).toBe('Ctx');
+      expect(decls[0].declaredPath).toBe('.');
       expect(decls[0].members).toHaveLength(2);
       expect(decls[0].members[0].name).toBe('domain');
       expect(decls[0].members[1].name).toBe('infra');
@@ -113,7 +114,7 @@ describe('ASTAdapter', () => {
         const domain = { entities: {}, ports: {} };
         const app = {
           domain: domain,
-        } satisfies Instance<Ctx>;
+        } satisfies Instance<Ctx, '.'>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls).toHaveLength(1);
@@ -130,7 +131,7 @@ describe('ASTAdapter', () => {
             entities: {},
             ports: {},
           },
-        } satisfies Instance<Ctx>;
+        } satisfies Instance<Ctx, '.'>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls[0].members[0].children).toHaveLength(2);
@@ -148,13 +149,15 @@ describe('ASTAdapter', () => {
 
     it('handles multiple instance declarations', () => {
       const sf = parseSource('test.ts', `
-        const ordering = { domain: {} } satisfies Instance<Ctx>;
-        const billing = { domain: {} } satisfies Instance<Ctx>;
+        const ordering = { domain: {} } satisfies Instance<Ctx, './ordering'>;
+        const billing = { domain: {} } satisfies Instance<Ctx, './billing'>;
       `);
       const decls = adapter.getInstanceDeclarations(sf, mockChecker).data;
       expect(decls).toHaveLength(2);
       expect(decls[0].variableName).toBe('ordering');
+      expect(decls[0].declaredPath).toBe('./ordering');
       expect(decls[1].variableName).toBe('billing');
+      expect(decls[1].declaredPath).toBe('./billing');
     });
 
     it('skips instance with no type argument and reports error', () => {
@@ -165,6 +168,16 @@ describe('ASTAdapter', () => {
       expect(result.data).toHaveLength(0);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('missing a type argument');
+    });
+
+    it('skips instance with no location path and reports error', () => {
+      const sf = parseSource('test.ts', `
+        const app = { domain: {} } satisfies Instance<Ctx>;
+      `);
+      const result = adapter.getInstanceDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('missing a location path');
     });
   });
 
@@ -211,7 +224,7 @@ describe('ASTAdapter', () => {
         const sf = parseSource('test.ts', `
           const app = {
             domain: externalVar,
-          } satisfies Instance<Ctx>;
+          } satisfies Instance<Ctx, '.'>;
         `);
         const result = adapter.getInstanceDeclarations(sf, mockChecker);
         expect(result.data).toHaveLength(1);
@@ -222,7 +235,7 @@ describe('ASTAdapter', () => {
         const sf = parseSource('test.ts', `
           const app = {
             domain,
-          } satisfies Instance<Ctx>;
+          } satisfies Instance<Ctx, '.'>;
         `);
         const result = adapter.getInstanceDeclarations(sf, mockChecker);
         expect(result.data).toHaveLength(1);

@@ -1,13 +1,15 @@
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { KindDefinitionView } from '../views';
+import { KindDefinitionView, TypeKindDefinitionView } from '../views';
 import { ScanResult } from '../scan/scan.types';
 
 /**
  * Output of the Parser stage.
  *
- * A structured domain model (ArchSymbol tree + resolved files)
- * built from the scanner's raw views. This is KindScript's
- * equivalent of an AST.
+ * A structural domain model (ArchSymbol tree) built from the scanner's
+ * raw views. This is KindScript's equivalent of an AST — pure structure,
+ * no resolved files or semantic bindings.
+ *
+ * Name resolution (resolvedFiles) is the Binder's responsibility.
  */
 export interface ParseResult {
   /** All architectural symbols (Kind + Instance + Member) */
@@ -19,11 +21,11 @@ export interface ParseResult {
   /** Maps kindName → instance ArchSymbols (for Binder) */
   instanceSymbols: Map<string, ArchSymbol[]>;
 
-  /** Pre-resolved mapping from symbol location → files on disk */
-  resolvedFiles: Map<string, string[]>;
-
   /** Maps instance variable name → Kind type name */
   instanceTypeNames: Map<string, string>;
+
+  /** TypeKind definitions, passed through for downstream visibility */
+  typeKindDefs: Map<string, TypeKindDefinitionView>;
 
   /** Errors encountered during parsing */
   errors: string[];

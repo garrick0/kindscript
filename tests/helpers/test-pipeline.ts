@@ -35,8 +35,8 @@ export function createTestPipeline(): TestPipeline {
   const configAdapter = new ConfigAdapter(fsAdapter);
   const plugins = createAllPlugins();
   const scanService = new ScanService(astAdapter);
-  const parseService = new ParseService(fsAdapter);
-  const bindService = new BindService(plugins);
+  const parseService = new ParseService();
+  const bindService = new BindService(plugins, fsAdapter);
   const checkService = new CheckerService(plugins, tsAdapter);
 
   return {
@@ -64,9 +64,6 @@ export interface FullPipelineResult {
 
 /**
  * Run the full scan → parse → bind → check pipeline on a fixture.
- *
- * This is the classify + check result combined, matching the old
- * runFullPipeline return shape for backward compatibility.
  */
 export function runFullPipeline(
   pipeline: TestPipeline,
@@ -95,8 +92,8 @@ export function runFullPipeline(
   // Stage 2: Parse
   const parseResult = pipeline.parseService.execute(scanResult);
 
-  // Stage 3: Bind
-  const bindResult = pipeline.bindService.execute(parseResult);
+  // Stage 3: Bind (includes name resolution + contract generation)
+  const bindResult = pipeline.bindService.execute(parseResult, scanResult);
 
   // Combined classify result (convenience shape for test assertions)
   const classifyResult = {
@@ -112,7 +109,7 @@ export function runFullPipeline(
     contracts: bindResult.contracts,
     config: {},
     program,
-    resolvedFiles: parseResult.resolvedFiles,
+    resolvedFiles: bindResult.resolvedFiles,
   });
 
   return { classifyResult, checkResult };

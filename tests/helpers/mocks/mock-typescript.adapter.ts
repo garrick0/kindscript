@@ -4,7 +4,7 @@ import {
   TypeChecker,
 } from '../../../src/application/ports/typescript.port';
 import { Program } from '../../../src/domain/entities/program';
-import { ImportEdge } from '../../../src/domain/value-objects/import-edge';
+import { ImportEdge } from '../../../src/application/pipeline/check/import-edge';
 import { CompilerOptions } from '../../../src/domain/types/compiler-options';
 
 /**

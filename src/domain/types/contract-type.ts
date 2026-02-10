@@ -8,18 +8,12 @@ export enum ContractType {
   /** Forbids dependencies from one symbol to another */
   NoDependency = 'noDependency',
 
-  /** Requires that every entity in first symbol has a corresponding entity in second */
-  MustImplement = 'mustImplement',
-
   /** Requires that a symbol has no side effects (no I/O, no mutations) */
   Purity = 'purity',
 
   /** Forbids circular dependencies within or between symbols */
   NoCycles = 'noCycles',
 
-  /** Requires that listed member directories exist on disk */
-  Exists = 'exists',
-
-  /** Requires that files in one member have corresponding files in another */
-  Mirrors = 'mirrors',
+  /** Validates that an instance's resolved location matches the Kind's scope (folder or file) */
+  Scope = 'scope',
 }

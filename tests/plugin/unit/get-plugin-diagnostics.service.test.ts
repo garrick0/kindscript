@@ -1,13 +1,14 @@
 import { GetPluginDiagnosticsService } from '../../../src/apps/plugin/use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
 import { PipelineUseCase, PipelineResponse } from '../../../src/application/pipeline/pipeline.types';
 import { Diagnostic } from '../../../src/domain/entities/diagnostic';
+import { SourceRef } from '../../../src/domain/value-objects/source-ref';
 
 describe('GetPluginDiagnosticsService', () => {
   let mockPipeline: PipelineUseCase;
   let service: GetPluginDiagnosticsService;
 
   function makeDiagnostic(file: string, code: number, message: string): Diagnostic {
-    return new Diagnostic(message, code, file, 1, 0);
+    return new Diagnostic(message, code, SourceRef.at(file, 1, 0));
   }
 
   function makeSuccessResponse(overrides?: Partial<Extract<PipelineResponse, { ok: true }>>): PipelineResponse {

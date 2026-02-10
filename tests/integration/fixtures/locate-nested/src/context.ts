@@ -24,4 +24,4 @@ export const app = {
     entities: {},
     ports: {},
   },
-} satisfies Instance<CleanContext>;
+} satisfies Instance<CleanContext, '.'>;

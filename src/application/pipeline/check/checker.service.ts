@@ -4,6 +4,7 @@ import { CheckerResponse } from './checker.response';
 import { TypeScriptPort } from '../../ports/typescript.port';
 import { ContractPlugin, CheckContext } from '../plugins/contract-plugin';
 import { Diagnostic } from '../../../domain/entities/diagnostic';
+import { SourceRef } from '../../../domain/value-objects/source-ref';
 import { DiagnosticCode } from '../../../domain/constants/diagnostic-codes';
 import { ContractType } from '../../../domain/types/contract-type';
 
@@ -47,9 +48,7 @@ export class CheckerService implements CheckerUseCase {
         diagnostics.push(new Diagnostic(
           `Invalid contract '${contract.name}': ${validationError}`,
           DiagnosticCode.InvalidContract,
-          contract.location ?? '<config>',
-          0,
-          0
+          SourceRef.at(contract.location ?? '<config>', 0, 0),
         ));
         continue;
       }

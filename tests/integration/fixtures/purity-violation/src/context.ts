@@ -8,4 +8,4 @@ export type AppContext = Kind<"AppContext", {
 
 export const app = {
   domain: {},
-} satisfies Instance<AppContext>;
+} satisfies Instance<AppContext, '.'>;

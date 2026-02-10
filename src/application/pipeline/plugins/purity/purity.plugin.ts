@@ -1,6 +1,7 @@
 import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin';
 import { Contract } from '../../../../domain/entities/contract';
 import { Diagnostic } from '../../../../domain/entities/diagnostic';
+import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
 import { NODE_BUILTINS } from '../../../../domain/constants/node-builtins';
@@ -25,7 +26,7 @@ export const purityPlugin: ContractPlugin = {
     const [symbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
-    const location = symbol.declaredLocation;
+    const location = symbol.id;
     if (!location) {
       return { diagnostics, filesAnalyzed: 0 };
     }
@@ -37,11 +38,9 @@ export const purityPlugin: ContractPlugin = {
       for (const spec of specifiers) {
         if (NODE_BUILTINS.has(spec.moduleName)) {
           diagnostics.push(new Diagnostic(
-            `Impure import in pure layer: '${spec.moduleName}'`,
+            `Impure import in '${symbol.name}': '${spec.moduleName}'`,
             DiagnosticCode.ImpureImport,
-            file,
-            spec.line,
-            spec.column,
+            SourceRef.at(file, spec.line, spec.column),
             contract.toReference(),
           ));
         }
