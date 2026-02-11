@@ -6,18 +6,18 @@ import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
 import { Contract } from '../../../domain/entities/contract';
 import { ContractType } from '../../../domain/types/contract-type';
-import { FileSystemPort } from '../../ports/filesystem.port';
 import type { ConstraintProvider } from '../plugins/constraint-provider';
+import { carrierKey, hasTaggedAtom } from '../../../domain/types/carrier';
+import { CarrierResolver } from '../carrier/carrier-resolver';
 
 /**
- * KindScript Binder — resolves names and generates Contracts.
+ * KindScript Binder — resolves carriers and generates Contracts.
  *
  * This is the third pipeline stage. It performs two binding operations:
  *
- * 1. **Name resolution** — resolves each symbol's id to
- *    actual code files, producing `resolvedFiles`. Uses a unified
- *    resolution strategy: TypeKind members → declaration resolution,
- *    then directory → folder resolution, then file → file resolution.
+ * 1. **Carrier resolution** — resolves each symbol's carrier expression
+ *    to actual code files, producing `resolvedFiles`. Delegates to
+ *    CarrierResolver for algebraic dispatch.
  *
  * 2. **Constraint binding** — walks constraint trees and generates
  *    Contracts that connect symbols to the rules they must obey.
@@ -32,7 +32,7 @@ export class BindService implements BindUseCase {
 
   constructor(
     plugins: ConstraintProvider[],
-    private readonly fsPort: FileSystemPort,
+    private readonly resolver: CarrierResolver,
   ) {
     this.pluginsByName = new Map(plugins.map(p => [p.constraintName, p]));
     this.intrinsicPlugins = plugins.filter(p => p.intrinsic != null);
@@ -110,17 +110,14 @@ export class BindService implements BindUseCase {
     }
 
     // 4. Generate overlap contracts for sibling members within each instance
-    //    Skip folder-TypeKind pairs — they classify on orthogonal axes
+    //    Skip path-tagged pairs — they classify on orthogonal axes
     //    (location vs type annotation), so shared files are composition, not overlap.
-    const isTypeKindMember = (m: ArchSymbol) =>
-      m.kindTypeName != null && scanResult.typeKindDefs.has(m.kindTypeName);
-
     for (const [, instances] of parseResult.instanceSymbols) {
       for (const instanceSymbol of instances) {
         const members = instanceSymbol.getAllMembers();
         for (let i = 0; i < members.length; i++) {
           for (let j = i + 1; j < members.length; j++) {
-            if (isTypeKindMember(members[i]) !== isTypeKindMember(members[j])) continue;
+            if (hasTaggedAtom(members[i].carrier!) !== hasTaggedAtom(members[j].carrier!)) continue;
 
             contracts.push(new Contract(
               ContractType.Overlap,
@@ -133,24 +130,15 @@ export class BindService implements BindUseCase {
       }
     }
 
-    // 5. Generate contracts from TypeKind constraints (standalone, not inside a parent Kind)
-    this.generateTypeKindContracts(scanResult, contracts, resolvedFiles);
+    // 5. Generate contracts from wrapped Kind constraints (standalone, not inside a parent Kind)
+    this.generateWrappedKindContracts(scanResult, parseResult, contracts, resolvedFiles);
 
     return { contracts, resolvedFiles, containerFiles, declarationOwnership, errors };
   }
 
   /**
-   * Unified name resolution — resolves each symbol's id
-   * to actual code files.
-   *
-   * Resolution strategy per member:
-   * 1. TypeKind member (has entry in typeKindDefs) → declaration resolution
-   *    (collect typed exports within parent scope)
-   * 2. Directory exists at location → folder resolution
-   *    (all .ts files in that directory)
-   * 3. File exists at location → file resolution
-   *    (that single file)
-   * 4. None matched → unresolved (omitted from resolvedFiles)
+   * Unified carrier resolution — resolves each symbol's carrier expression
+   * to actual code files by delegating to CarrierResolver.
    */
   private resolveMembers(
     symbols: ArchSymbol[],
@@ -158,42 +146,15 @@ export class BindService implements BindUseCase {
   ): Map<string, string[]> {
     const resolvedFiles = new Map<string, string[]>();
 
-    // Resolve filesystem locations (directory/file)
     for (const symbol of symbols) {
       for (const s of [symbol, ...symbol.descendants()]) {
-        if (!s.id || resolvedFiles.has(s.id)) continue;
+        if (!s.carrier) continue;
+        const key = carrierKey(s.carrier);
+        if (resolvedFiles.has(key)) continue;
 
-        // Check if this is a TypeKind member — handled separately below
-        if (s.kindTypeName && scanResult.typeKindDefs.has(s.kindTypeName)) continue;
-
-        const files = this.resolvePathToFiles(s.id);
-        if (files) {
-          resolvedFiles.set(s.id, files);
-        }
-      }
-    }
-
-    // Resolve TypeKind members (typed exports within parent scope)
-    for (const instanceSymbol of symbols) {
-      if (instanceSymbol.kind !== ArchSymbolKind.Instance) continue;
-      const parentScope = instanceSymbol.id;
-      if (!parentScope) continue;
-
-      for (const member of instanceSymbol.members.values()) {
-        if (!member.kindTypeName) continue;
-        if (!scanResult.typeKindDefs.has(member.kindTypeName)) continue;
-
-        // Collect matching typed exports within parent scope
-        const matchingFiles = new Set<string>();
-        for (const tki of scanResult.typeKindInstances) {
-          if (tki.view.kindTypeName === member.kindTypeName &&
-              this.isUnderScope(tki.sourceFileName, parentScope)) {
-            matchingFiles.add(tki.sourceFileName);
-          }
-        }
-
-        if (member.id) {
-          resolvedFiles.set(member.id, Array.from(matchingFiles));
+        const files = this.resolver.resolve(s.carrier, { taggedExports: scanResult.taggedExports });
+        if (files.length > 0) {
+          resolvedFiles.set(key, files);
         }
       }
     }
@@ -210,12 +171,13 @@ export class BindService implements BindUseCase {
 
     for (const symbol of symbols) {
       if (symbol.kind !== ArchSymbolKind.Instance) continue;
-      const root = symbol.id;
-      if (!root || containerFiles.has(root)) continue;
+      if (!symbol.carrier) continue;
+      const key = carrierKey(symbol.carrier);
+      if (containerFiles.has(key)) continue;
 
-      const files = this.resolvePathToFiles(root);
-      if (files) {
-        containerFiles.set(root, files);
+      const files = this.resolver.resolve(symbol.carrier);
+      if (files.length > 0) {
+        containerFiles.set(key, files);
       }
     }
 
@@ -225,8 +187,8 @@ export class BindService implements BindUseCase {
   /**
    * Build declaration-level ownership mapping for intra-file dependency checking.
    *
-   * For each TypeKind member in each instance, maps the typed export
-   * declarations back to the member's symbol ID. This lets the checker
+   * For each wrapped Kind member in each instance, maps the tagged export
+   * declarations back to the member's carrier key. This lets the checker
    * know which declarations belong to which member when checking
    * intra-file noDependency constraints.
    */
@@ -238,19 +200,23 @@ export class BindService implements BindUseCase {
 
     for (const instanceSymbol of symbols) {
       if (instanceSymbol.kind !== ArchSymbolKind.Instance) continue;
-      const parentScope = instanceSymbol.id;
-      if (!parentScope) continue;
+      if (!instanceSymbol.carrier || instanceSymbol.carrier.type !== 'path') continue;
 
       for (const member of instanceSymbol.members.values()) {
-        if (!member.kindTypeName || !member.id) continue;
-        if (!scanResult.typeKindDefs.has(member.kindTypeName)) continue;
+        if (!member.carrier || !hasTaggedAtom(member.carrier)) continue;
+        const memberKey = carrierKey(member.carrier);
 
-        for (const tki of scanResult.typeKindInstances) {
+        // Resolve the member's carrier to get matching files
+        const memberFiles = new Set(
+          this.resolver.resolve(member.carrier, { taggedExports: scanResult.taggedExports })
+        );
+
+        for (const tki of scanResult.taggedExports) {
+          if (!memberFiles.has(tki.sourceFileName)) continue;
           if (tki.view.kindTypeName !== member.kindTypeName) continue;
-          if (!this.isUnderScope(tki.sourceFileName, parentScope)) continue;
 
           const fileMap = ownership.get(tki.sourceFileName) ?? new Map<string, string>();
-          fileMap.set(tki.view.exportName, member.id);
+          fileMap.set(tki.view.exportName, memberKey);
           ownership.set(tki.sourceFileName, fileMap);
         }
       }
@@ -260,25 +226,42 @@ export class BindService implements BindUseCase {
   }
 
   /**
-   * Generate contracts from TypeKind definitions that have their own constraints.
+   * Generate contracts from wrapped Kind definitions that have their own constraints.
    *
-   * For each TypeKind with constraints, create a synthetic ArchSymbol per file
-   * containing a matching typed export, then generate contracts via intrinsic
-   * propagation. This enables `TypeKind<"Decider", DeciderFn, { pure: true }>`
-   * to enforce purity on every file containing a Decider-typed export.
+   * For each wrapped Kind with constraints, create a synthetic ArchSymbol per file
+   * containing a matching tagged export, then generate contracts via intrinsic
+   * propagation. This enables `Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>`
+   * to enforce purity on every file containing a Decider-tagged export.
    */
-  private generateTypeKindContracts(
+  private generateWrappedKindContracts(
     scanResult: ScanResult,
+    parseResult: ParseResult,
     contracts: Contract[],
     resolvedFiles: Map<string, string[]>,
   ): void {
-    for (const [tkName, tkDef] of scanResult.typeKindDefs) {
-      if (!tkDef.constraints) continue;
+    // Collect wrapped Kind names that are used as members of a parent Kind —
+    // intrinsic propagation (step 2b) already generates contracts for these.
+    const coveredByIntrinsic = new Set<string>();
+    for (const [, kindDef] of parseResult.kindDefs) {
+      for (const prop of kindDef.members) {
+        if (prop.typeName) {
+          const memberKindDef = parseResult.kindDefs.get(prop.typeName);
+          if (memberKindDef?.wrapsTypeName && memberKindDef?.constraints) {
+            coveredByIntrinsic.add(prop.typeName);
+          }
+        }
+      }
+    }
 
-      // Collect files containing exports of this TypeKind
+    for (const [kindName, kindDef] of parseResult.kindDefs) {
+      if (!kindDef.wrapsTypeName) continue;
+      if (!kindDef.constraints) continue;
+      if (coveredByIntrinsic.has(kindName)) continue;
+
+      // Collect files containing tagged exports of this wrapped Kind
       const fileSet = new Set<string>();
-      for (const tki of scanResult.typeKindInstances) {
-        if (tki.view.kindTypeName === tkName) {
+      for (const tki of scanResult.taggedExports) {
+        if (tki.view.kindTypeName === kindName) {
           fileSet.add(tki.sourceFileName);
         }
       }
@@ -293,22 +276,22 @@ export class BindService implements BindUseCase {
         }
 
         const syntheticSymbol = new ArchSymbol(
-          tkName,
+          kindName,
           ArchSymbolKind.Member,
-          filePath,
+          { type: 'path', path: filePath },
         );
 
         for (const plugin of this.intrinsicPlugins) {
-          if (!plugin.intrinsic!.detect(tkDef.constraints!)) continue;
+          if (!plugin.intrinsic!.detect(kindDef.constraints!)) continue;
 
           const contract = plugin.intrinsic!.propagate(
-            syntheticSymbol, tkName, `typekind:${tkName}`
+            syntheticSymbol, kindName, `kind:${kindName}`
           );
           // Deduplicate
           const isDuplicate = contracts.some(c =>
             c.type === contract.type &&
             c.args.length === 1 &&
-            c.args[0].id === filePath &&
+            c.args[0].carrier && carrierKey(c.args[0].carrier) === filePath &&
             c.name === contract.name
           );
           if (!isDuplicate) {
@@ -361,19 +344,4 @@ export class BindService implements BindUseCase {
     }
   }
 
-  /** Resolve a path to its file list (directory → recursive listing, file → single-element). */
-  private resolvePathToFiles(path: string): string[] | undefined {
-    if (this.fsPort.directoryExists(path)) {
-      return this.fsPort.readDirectory(path, true);
-    }
-    if (this.fsPort.fileExists(path)) {
-      return [path];
-    }
-    return undefined;
-  }
-
-  /** Check that filePath starts with scope at a path segment boundary. */
-  private isUnderScope(filePath: string, scope: string): boolean {
-    return filePath.startsWith(scope + '/') || filePath === scope;
-  }
 }

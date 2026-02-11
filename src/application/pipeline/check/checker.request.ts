@@ -23,13 +23,13 @@ export interface CheckerRequest {
   program: Program;
 
   /**
-   * Pre-resolved mapping from symbol location → files on disk.
-   * Built by the Parser stage.
+   * Pre-resolved mapping from carrier key → files on disk.
+   * Built by the Binder stage.
    */
   resolvedFiles: Map<string, string[]>;
 
   /**
-   * Instance root → ALL files in scope (for containment checking).
+   * Instance carrier key → ALL files in scope (for containment checking).
    * Built by the Binder stage.
    */
   containerFiles?: Map<string, string[]>;
@@ -41,8 +41,8 @@ export interface CheckerRequest {
   ownershipTree?: OwnershipTree;
 
   /**
-   * file → Map<declarationName, symbolId> — which member owns each typed declaration.
-   * Built by the Binder for TypeKind member resolution.
+   * file → Map<declarationName, carrierKey> — which member owns each typed declaration.
+   * Built by the Binder for wrapped Kind member resolution.
    */
   declarationOwnership?: Map<string, Map<string, string>>;
 }
