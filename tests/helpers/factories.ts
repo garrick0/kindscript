@@ -60,6 +60,24 @@ export function scope(symbol: ArchSymbol, expectedScope: 'folder' | 'file', name
   );
 }
 
+/** Creates an Overlap contract: `a` and `b` must not share files. */
+export function overlap(a: ArchSymbol, b: ArchSymbol, name?: string): Contract {
+  return new Contract(
+    ContractType.Overlap,
+    name ?? `overlap:${a.name}/${b.name}`,
+    [a, b],
+  );
+}
+
+/** Creates an Exhaustiveness contract: all files in the instance's container must be assigned. */
+export function exhaustiveness(instanceSymbol: ArchSymbol, name?: string): Contract {
+  return new Contract(
+    ContractType.Exhaustiveness,
+    name ?? `exhaustive:${instanceSymbol.name}`,
+    [instanceSymbol],
+  );
+}
+
 // ---------------------------------------------------------------------------
 // CheckContractsRequest builder
 // ---------------------------------------------------------------------------

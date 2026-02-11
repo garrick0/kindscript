@@ -9,8 +9,8 @@ export type BillingDomain = Kind<"BillingDomain">;
 export type BillingAdapters = Kind<"BillingAdapters">;
 
 export type BillingContext = Kind<"BillingContext", {
-  domain: BillingDomain;
-  adapters: BillingAdapters;
+  domain: [BillingDomain, './domain'];
+  adapters: [BillingAdapters, './adapters'];
 }, {
   noDependency: [["domain", "adapters"]];
 }>;

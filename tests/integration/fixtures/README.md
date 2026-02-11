@@ -1,6 +1,6 @@
 # Test Fixtures Catalog
 
-This directory contains 18 fixture directories used for integration and E2E testing. Each fixture represents a complete KindScript project with specific architectural characteristics.
+This directory contains 24 fixture directories used for integration and E2E testing. Each fixture represents a complete KindScript project with specific architectural characteristics.
 
 **Convention:** Kind definitions and instances live in regular `.ts` files. Root is inferred from the file's directory — no special extension or `kindscript.json` needed.
 
@@ -56,6 +56,26 @@ Each contract type has dedicated fixtures.
 
 ---
 
+#### Overlap Contract
+
+| Fixture | Purpose | Violation |
+|---------|---------|-----------|
+| `overlap-violation` | Two sibling members with overlapping file sets (member `a` at `'.'` and `b` at `'./sub'`) | Member overlap (KS70006) |
+
+**Used by:** tier2-contracts.integration, cli.e2e
+
+---
+
+#### Exhaustiveness Contract
+
+| Fixture | Purpose | Violation |
+|---------|---------|-----------|
+| `exhaustiveness-violation` | Kind with `exhaustive: true` and an unassigned `orphan.ts` file | Unassigned file (KS70007) |
+
+**Used by:** tier2-contracts.integration, cli.e2e
+
+---
+
 ### Instance<T> Feature Fixtures
 Test the location derivation mechanism.
 
@@ -67,6 +87,17 @@ Test the location derivation mechanism.
 | `locate-nested` | Multi-level Kind tree | Nested member path derivation (src/domain/entities) |
 | `locate-standalone-member` | Standalone variable references | Variable resolution in instance members |
 | `locate-multi-instance` | Two definition files in separate directories | Multi-instance classification |
+
+**Used by:** tier2-locate.integration
+
+---
+
+### Explicit Location
+Tests explicit member location via tuple syntax and external paths.
+
+| Fixture | Purpose | Violation |
+|---------|---------|-----------|
+| `explicit-location-external` | Members with explicit paths pointing to directories outside the Kind definition file | None |
 
 **Used by:** tier2-locate.integration
 
@@ -92,6 +123,7 @@ Tests scope validation on leaf Kinds.
 | Fixture | Purpose | Violation |
 |---------|---------|-----------|
 | `scope-override-clean` | Leaf Kind with `"folder"` scope declaration | None |
+| `scope-mismatch-violation` | Kind with `scope: "folder"` but instance points to a file | Scope mismatch (KS70005) |
 
 **Used by:** tier2-contracts.integration, cli.e2e
 
@@ -104,6 +136,18 @@ Tests TypeKind members inside filesystem Kinds with cross-scope constraints.
 |---------|---------|-----------|
 | `typekind-composability-clean` | Decider + Effector TypeKinds with noDependency satisfied | None |
 | `typekind-composability-violation` | Decider imports from Effector file | Forbidden dependency (KS70001) |
+
+**Used by:** tier2-contracts.integration, cli.e2e
+
+---
+
+### TypeKind Standalone Constraints
+Tests standalone constraints on TypeKind definitions (e.g., purity).
+
+| Fixture | Purpose | Violation |
+|---------|---------|-----------|
+| `typekind-purity-clean` | TypeKind with `pure: true` constraint, no impure imports | None |
+| `typekind-purity-violation` | TypeKind with `pure: true` constraint, Decider file imports `fs` | Impure import (KS70003) |
 
 **Used by:** tier2-contracts.integration, cli.e2e
 
@@ -158,6 +202,7 @@ design-system-clean/
 
 - All fixtures have `.ts` definition files (no special extension or `kindscript.json` needed)
 - Root is inferred from the definition file's directory
+- Fixtures use tuple syntax for explicit member locations (e.g., `[DomainLayer, './domain']`)
 
 ---
 
@@ -170,11 +215,14 @@ design-system-clean/
 | `tier2-clean-arch` | 2 | 2 | 4 |
 | `purity-violation` | 1 | 1 | 2 |
 | `locate-*` (6 fixtures) | 1 each | 0 | 1 each |
+| `explicit-location-external` | 1 | 0 | 1 |
 | `design-system-*` (2 fixtures) | 1 each | 0 | 1 each |
 | `scope-override-clean` | 1 | 1 | 2 |
-| `typekind-composability-clean` | 1 | 1 | 2 |
-| `typekind-composability-violation` | 1 | 1 | 2 |
-| (Others) | 1-2 | 0-1 | 1-3 |
+| `scope-mismatch-violation` | 1 | 1 | 2 |
+| `typekind-composability-*` (2 fixtures) | 1 each | 1 each | 2 each |
+| `typekind-purity-*` (2 fixtures) | 1 each | 1 each | 2 each |
+| `overlap-violation` | 1 | 1 | 2 |
+| `exhaustiveness-violation` | 1 | 1 | 2 |
 
 Most-used fixtures: `clean-arch-violation` (6 uses), `clean-arch-valid` (5 uses)
 
@@ -249,7 +297,10 @@ grep -r "FIXTURES\." tests/ | sort | uniq
 | purity | purity-clean | purity-violation | KS70003 |
 | noCycles | (none) | no-cycles-violation | KS70004 |
 | noDependency (TypeKind) | typekind-composability-clean | typekind-composability-violation | KS70001 |
+| purity (TypeKind) | typekind-purity-clean | typekind-purity-violation | KS70003 |
 | scope validation | scope-override-clean | scope-mismatch-violation | KS70005 |
+| overlap | (none) | overlap-violation | KS70006 |
+| exhaustiveness | (none) | exhaustiveness-violation | KS70007 |
 
 ---
 

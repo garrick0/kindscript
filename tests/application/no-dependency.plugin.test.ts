@@ -1,7 +1,6 @@
 import { noDependencyPlugin } from '../../src/application/pipeline/plugins/no-dependency/no-dependency.plugin';
 import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
 import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
-import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, noDependency } from '../helpers/factories';
@@ -47,14 +46,6 @@ describe('noDependencyPlugin.check', () => {
     expect(result.diagnostics[0].code).toBe(70001);
     expect(result.diagnostics[0].message).toContain('src/domain/service.ts');
     expect(result.diagnostics[0].message).toContain('src/infrastructure/database.ts');
-  });
-
-  it('handles symbols with no declared location', () => {
-    const noLoc = new ArchSymbol('noLoc', ArchSymbolKind.Member);
-    const withLoc = makeSymbol('withLoc');
-
-    const result = noDependencyPlugin.check(noDependency(noLoc, withLoc), makeContext());
-    expect(result.diagnostics).toHaveLength(0);
   });
 
   it('allows permitted dependency direction', () => {
@@ -198,6 +189,226 @@ describe('noDependencyPlugin.check', () => {
     const infra = makeSymbol('infrastructure');
 
     const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
+    expect(result.diagnostics).toHaveLength(0);
+  });
+});
+
+describe('noDependencyPlugin.check (intra-file)', () => {
+  let mockTS: MockTypeScriptAdapter;
+
+  function makeContext(
+    resolvedFiles: Map<string, string[]>,
+    declarationOwnership: Map<string, Map<string, string>>,
+  ): CheckContext {
+    const program = new Program([], {});
+    return {
+      tsPort: mockTS,
+      program,
+      checker: mockTS.getTypeChecker(program),
+      resolvedFiles,
+      declarationOwnership,
+    };
+  }
+
+  beforeEach(() => {
+    mockTS = new MockTypeScriptAdapter();
+  });
+
+  afterEach(() => {
+    mockTS.reset();
+  });
+
+  it('detects forbidden intra-file reference between TypeKind members', () => {
+    const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
+    const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
+
+    mockTS
+      .withSourceFile('src/order/decider.ts', '')
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
+
+    const resolvedFiles = new Map([
+      ['src/order/deciders', ['src/order/decider.ts']],
+      ['src/order/evolvers', ['src/order/decider.ts']],
+    ]);
+
+    const declarationOwnership = new Map([
+      ['src/order/decider.ts', new Map([
+        ['decide', 'src/order/deciders'],
+        ['evolve', 'src/order/evolvers'],
+      ])],
+    ]);
+
+    const result = noDependencyPlugin.check(
+      noDependency(deciders, evolvers),
+      makeContext(resolvedFiles, declarationOwnership),
+    );
+
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0].code).toBe(70001);
+    expect(result.diagnostics[0].message).toContain('deciders');
+    expect(result.diagnostics[0].message).toContain('evolvers');
+    expect(result.diagnostics[0].message).toContain('decide');
+    expect(result.diagnostics[0].message).toContain('evolve');
+  });
+
+  it('allows intra-file reference within the same member', () => {
+    const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
+    const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
+
+    mockTS
+      .withSourceFile('src/order/decider.ts', '')
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'parseCommand', 5, 10);
+
+    const resolvedFiles = new Map([
+      ['src/order/deciders', ['src/order/decider.ts']],
+      ['src/order/evolvers', ['src/order/decider.ts']],
+    ]);
+
+    // parseCommand is not owned by any member (unassigned)
+    const declarationOwnership = new Map([
+      ['src/order/decider.ts', new Map([
+        ['decide', 'src/order/deciders'],
+        ['evolve', 'src/order/evolvers'],
+      ])],
+    ]);
+
+    const result = noDependencyPlugin.check(
+      noDependency(deciders, evolvers),
+      makeContext(resolvedFiles, declarationOwnership),
+    );
+
+    expect(result.diagnostics).toHaveLength(0);
+  });
+
+  it('allows reference to unassigned declaration', () => {
+    const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
+    const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
+
+    mockTS
+      .withSourceFile('src/order/decider.ts', '')
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'deepClone', 8, 4);
+
+    const resolvedFiles = new Map([
+      ['src/order/deciders', ['src/order/decider.ts']],
+      ['src/order/evolvers', ['src/order/decider.ts']],
+    ]);
+
+    // deepClone is unassigned (not in ownership map)
+    const declarationOwnership = new Map([
+      ['src/order/decider.ts', new Map([
+        ['decide', 'src/order/deciders'],
+        ['evolve', 'src/order/evolvers'],
+      ])],
+    ]);
+
+    const result = noDependencyPlugin.check(
+      noDependency(deciders, evolvers),
+      makeContext(resolvedFiles, declarationOwnership),
+    );
+
+    expect(result.diagnostics).toHaveLength(0);
+  });
+
+  it('detects multiple intra-file violations', () => {
+    const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
+    const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
+
+    mockTS
+      .withSourceFile('src/order/decider.ts', '')
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10)
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve2', 8, 10);
+
+    const resolvedFiles = new Map([
+      ['src/order/deciders', ['src/order/decider.ts']],
+      ['src/order/evolvers', ['src/order/decider.ts']],
+    ]);
+
+    const declarationOwnership = new Map([
+      ['src/order/decider.ts', new Map([
+        ['decide', 'src/order/deciders'],
+        ['evolve', 'src/order/evolvers'],
+        ['evolve2', 'src/order/evolvers'],
+      ])],
+    ]);
+
+    const result = noDependencyPlugin.check(
+      noDependency(deciders, evolvers),
+      makeContext(resolvedFiles, declarationOwnership),
+    );
+
+    expect(result.diagnostics).toHaveLength(2);
+  });
+
+  it('skips intra-file check when no declarationOwnership', () => {
+    const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
+    const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
+
+    mockTS
+      .withSourceFile('src/order/decider.ts', '')
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
+
+    const resolvedFiles = new Map([
+      ['src/order/deciders', ['src/order/decider.ts']],
+      ['src/order/evolvers', ['src/order/decider.ts']],
+    ]);
+
+    // No declarationOwnership → intra-file checks skipped
+    const program = new Program([], {});
+    const ctx: CheckContext = {
+      tsPort: mockTS,
+      program,
+      checker: mockTS.getTypeChecker(program),
+      resolvedFiles,
+    };
+
+    const result = noDependencyPlugin.check(noDependency(deciders, evolvers), ctx);
+    expect(result.diagnostics).toHaveLength(0);
+  });
+
+  it('skips intra-file check when file has no ownership entries', () => {
+    const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
+    const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
+
+    mockTS
+      .withSourceFile('src/order/decider.ts', '')
+      .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
+
+    const resolvedFiles = new Map([
+      ['src/order/deciders', ['src/order/decider.ts']],
+      ['src/order/evolvers', ['src/order/decider.ts']],
+    ]);
+
+    // declarationOwnership exists but has no entry for this file
+    const declarationOwnership = new Map<string, Map<string, string>>();
+
+    const result = noDependencyPlugin.check(
+      noDependency(deciders, evolvers),
+      makeContext(resolvedFiles, declarationOwnership),
+    );
+
+    expect(result.diagnostics).toHaveLength(0);
+  });
+
+  it('does not check intra-file when files do not overlap', () => {
+    const domain = makeSymbol('domain');
+    const infra = makeSymbol('infrastructure');
+
+    mockTS
+      .withSourceFile('src/domain/service.ts', '')
+      .withSourceFile('src/infrastructure/db.ts', '');
+
+    const resolvedFiles = new Map([
+      ['src/domain', ['src/domain/service.ts']],
+      ['src/infrastructure', ['src/infrastructure/db.ts']],
+    ]);
+
+    const declarationOwnership = new Map<string, Map<string, string>>();
+
+    const result = noDependencyPlugin.check(
+      noDependency(domain, infra),
+      makeContext(resolvedFiles, declarationOwnership),
+    );
+
     expect(result.diagnostics).toHaveLength(0);
   });
 });

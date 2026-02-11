@@ -5,6 +5,7 @@ import {
 } from '../../../src/application/ports/typescript.port';
 import { Program } from '../../../src/domain/entities/program';
 import { ImportEdge } from '../../../src/application/pipeline/check/import-edge';
+import { IntraFileEdge } from '../../../src/application/pipeline/check/intra-file-edge';
 import { CompilerOptions } from '../../../src/domain/types/compiler-options';
 
 /**
@@ -23,9 +24,8 @@ import { CompilerOptions } from '../../../src/domain/types/compiler-options';
 export class MockTypeScriptAdapter implements TypeScriptPort {
   private sourceFiles = new Map<string, SourceFile>();
   private imports = new Map<string, ImportEdge[]>();
+  private intraFileRefs = new Map<string, IntraFileEdge[]>();
   private moduleSpecifiers = new Map<string, Array<{ moduleName: string; line: number; column: number }>>();
-  private exportedInterfaces = new Map<string, string[]>();
-  private classImplementations = new Map<string, Set<string>>();
 
   // Fluent configuration API for tests
 
@@ -54,6 +54,22 @@ export class MockTypeScriptAdapter implements TypeScriptPort {
   }
 
   /**
+   * Add an intra-file reference between two top-level declarations.
+   */
+  withIntraFileReference(
+    fileName: string,
+    from: string,
+    to: string,
+    line: number = 1,
+    column: number = 0
+  ): this {
+    const existing = this.intraFileRefs.get(fileName) || [];
+    existing.push({ fromDeclaration: from, toDeclaration: to, line, column });
+    this.intraFileRefs.set(fileName, existing);
+    return this;
+  }
+
+  /**
    * Add an import module specifier for a file.
    */
   withModuleSpecifier(fileName: string, moduleName: string, line: number = 1, column: number = 0): this {
@@ -64,34 +80,13 @@ export class MockTypeScriptAdapter implements TypeScriptPort {
   }
 
   /**
-   * Add an exported interface name for a file.
-   */
-  withExportedInterface(fileName: string, interfaceName: string): this {
-    const existing = this.exportedInterfaces.get(fileName) || [];
-    existing.push(interfaceName);
-    this.exportedInterfaces.set(fileName, existing);
-    return this;
-  }
-
-  /**
-   * Mark that a file has a class implementing an interface.
-   */
-  withClassImplementing(fileName: string, interfaceName: string): this {
-    const existing = this.classImplementations.get(fileName) || new Set();
-    existing.add(interfaceName);
-    this.classImplementations.set(fileName, existing);
-    return this;
-  }
-
-  /**
    * Reset all mock data (for test isolation).
    */
   reset(): void {
     this.sourceFiles.clear();
     this.imports.clear();
+    this.intraFileRefs.clear();
     this.moduleSpecifiers.clear();
-    this.exportedInterfaces.clear();
-    this.classImplementations.clear();
   }
 
   // Implement TypeScriptPort interface
@@ -117,16 +112,11 @@ export class MockTypeScriptAdapter implements TypeScriptPort {
     return this.imports.get(sourceFile.fileName) || [];
   }
 
+  getIntraFileReferences(sourceFile: SourceFile, _checker: TypeChecker): IntraFileEdge[] {
+    return this.intraFileRefs.get(sourceFile.fileName) || [];
+  }
+
   getImportModuleSpecifiers(_program: Program, sourceFile: SourceFile): Array<{ moduleName: string; line: number; column: number }> {
     return this.moduleSpecifiers.get(sourceFile.fileName) || [];
-  }
-
-  getExportedInterfaceNames(_program: Program, sourceFile: SourceFile): string[] {
-    return this.exportedInterfaces.get(sourceFile.fileName) || [];
-  }
-
-  hasClassImplementing(_program: Program, sourceFile: SourceFile, interfaceName: string): boolean {
-    const impls = this.classImplementations.get(sourceFile.fileName);
-    return impls ? impls.has(interfaceName) : false;
   }
 }

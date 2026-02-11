@@ -10,8 +10,8 @@ export type DomainLayer = Kind<"DomainLayer">;
 export type InfrastructureLayer = Kind<"InfrastructureLayer">;
 
 export type CleanContext = Kind<"CleanContext", {
-  domain: DomainLayer;
-  infrastructure: InfrastructureLayer;
+  domain: [DomainLayer, './domain'];
+  infrastructure: [InfrastructureLayer, './infrastructure'];
 }, {
   noDependency: [["domain", "infrastructure"]];
   filesystem: {

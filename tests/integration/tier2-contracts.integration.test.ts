@@ -36,7 +36,7 @@ describe('Tier 2 Contract Integration Tests', () => {
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
       expect(classifyResult.contracts[0].type).toBe(ContractType.NoCycles);
 
       expect(checkResult.violationsFound).toBe(1);
@@ -83,7 +83,7 @@ describe('Tier 2 Contract Integration Tests', () => {
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
       expect(classifyResult.contracts[0].type).toBe(ContractType.NoDependency);
       expect(checkResult.violationsFound).toBe(0);
     });
@@ -94,7 +94,7 @@ describe('Tier 2 Contract Integration Tests', () => {
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
       expect(classifyResult.contracts[0].type).toBe(ContractType.NoDependency);
 
       expect(checkResult.violationsFound).toBe(1);
@@ -132,6 +132,40 @@ describe('Tier 2 Contract Integration Tests', () => {
     });
   });
 
+  describe('overlap contract', () => {
+    it('detects member overlap in overlap-violation fixture', () => {
+      const { classifyResult, checkResult } = runPipeline(
+        FIXTURES.OVERLAP_VIOLATION
+      );
+
+      expect(classifyResult.errors).toHaveLength(0);
+
+      const overlapContracts = classifyResult.contracts.filter(c => c.type === ContractType.Overlap);
+      expect(overlapContracts.length).toBeGreaterThan(0);
+
+      const overlapDiags = checkResult.diagnostics.filter(d => d.code === 70006);
+      expect(overlapDiags.length).toBeGreaterThan(0);
+      expect(overlapDiags[0].message).toContain('overlap');
+    });
+  });
+
+  describe('exhaustiveness contract', () => {
+    it('detects unassigned files in exhaustiveness-violation fixture', () => {
+      const { classifyResult, checkResult } = runPipeline(
+        FIXTURES.EXHAUSTIVENESS_VIOLATION
+      );
+
+      expect(classifyResult.errors).toHaveLength(0);
+
+      const exhaustivenessContracts = classifyResult.contracts.filter(c => c.type === ContractType.Exhaustiveness);
+      expect(exhaustivenessContracts).toHaveLength(1);
+
+      const unassignedDiags = checkResult.diagnostics.filter(d => d.code === 70007);
+      expect(unassignedDiags.length).toBeGreaterThan(0);
+      expect(unassignedDiags[0].message).toContain('orphan.ts');
+    });
+  });
+
   describe('design system (atomic design + .tsx)', () => {
     it('detects atom→organism violation in design-system-violation fixture', () => {
       const { classifyResult, checkResult } = runPipeline(
@@ -139,15 +173,15 @@ describe('Tier 2 Contract Integration Tests', () => {
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      // 6 noDependency pairs in the atomic design hierarchy
-      expect(classifyResult.contracts).toHaveLength(6);
-      expect(classifyResult.contracts.every(c => c.type === ContractType.NoDependency)).toBe(true);
+      // 6 noDependency pairs + 6 overlap pairs in the atomic design hierarchy (4 members)
+      expect(classifyResult.contracts.filter(c => c.type === ContractType.NoDependency)).toHaveLength(6);
+      expect(classifyResult.contracts.filter(c => c.type === ContractType.Overlap)).toHaveLength(6);
 
       // Should detect atoms importing from organisms
       expect(checkResult.violationsFound).toBe(1);
       expect(checkResult.diagnostics[0].code).toBe(70001);
 
-      const violationFiles = checkResult.diagnostics.map(d => d.file);
+      const violationFiles = checkResult.diagnostics.map(d => d.source.file);
       expect(violationFiles.some(f => f.includes('Button.tsx'))).toBe(true);
     });
 
@@ -157,7 +191,7 @@ describe('Tier 2 Contract Integration Tests', () => {
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(6);
+      expect(classifyResult.contracts.filter(c => c.type === ContractType.NoDependency)).toHaveLength(6);
       expect(checkResult.violationsFound).toBe(0);
     });
   });

@@ -52,59 +52,6 @@ describe('Contract', () => {
     });
   });
 
-  describe('equality', () => {
-    it('equals another contract with same properties', () => {
-      const from = new ArchSymbol('domain', ArchSymbolKind.Member);
-      const to = new ArchSymbol('infrastructure', ArchSymbolKind.Member);
-
-      const contract1 = new Contract(ContractType.NoDependency, 'rule1', [from, to]);
-      const contract2 = new Contract(ContractType.NoDependency, 'rule1', [from, to]);
-
-      expect(contract1.equals(contract2)).toBe(true);
-    });
-
-    it('does not equal contract with different type', () => {
-      const from = new ArchSymbol('domain', ArchSymbolKind.Member);
-      const to = new ArchSymbol('infrastructure', ArchSymbolKind.Member);
-
-      const contract1 = new Contract(ContractType.NoDependency, 'rule1', [from, to]);
-      const contract2 = new Contract(ContractType.Purity, 'rule1', [from, to]);
-
-      expect(contract1.equals(contract2)).toBe(false);
-    });
-
-    it('does not equal contract with different name', () => {
-      const from = new ArchSymbol('domain', ArchSymbolKind.Member);
-      const to = new ArchSymbol('infrastructure', ArchSymbolKind.Member);
-
-      const contract1 = new Contract(ContractType.NoDependency, 'rule1', [from, to]);
-      const contract2 = new Contract(ContractType.NoDependency, 'rule2', [from, to]);
-
-      expect(contract1.equals(contract2)).toBe(false);
-    });
-
-    it('does not equal contract with different arg count', () => {
-      const s1 = new ArchSymbol('s1', ArchSymbolKind.Member);
-      const s2 = new ArchSymbol('s2', ArchSymbolKind.Member);
-
-      const contract1 = new Contract(ContractType.NoCycles, 'rule1', [s1, s2]);
-      const contract2 = new Contract(ContractType.NoCycles, 'rule1', [s1]);
-
-      expect(contract1.equals(contract2)).toBe(false);
-    });
-
-    it('does not equal contract with different args', () => {
-      const from1 = new ArchSymbol('domain', ArchSymbolKind.Member);
-      const to1 = new ArchSymbol('infrastructure', ArchSymbolKind.Member);
-      const from2 = new ArchSymbol('application', ArchSymbolKind.Member);
-
-      const contract1 = new Contract(ContractType.NoDependency, 'rule1', [from1, to1]);
-      const contract2 = new Contract(ContractType.NoDependency, 'rule1', [from2, to1]);
-
-      expect(contract1.equals(contract2)).toBe(false);
-    });
-  });
-
   describe('toString', () => {
     it('formats contract with args', () => {
       const from = new ArchSymbol('domain', ArchSymbolKind.Member);

@@ -9,8 +9,8 @@ export type OrderingDomain = Kind<"OrderingDomain">;
 export type OrderingInfra = Kind<"OrderingInfra">;
 
 export type OrderingContext = Kind<"OrderingContext", {
-  domain: OrderingDomain;
-  infrastructure: OrderingInfra;
+  domain: [OrderingDomain, './domain'];
+  infrastructure: [OrderingInfra, './infrastructure'];
 }, {
   noDependency: [["domain", "infrastructure"]];
 }>;

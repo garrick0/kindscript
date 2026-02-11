@@ -1,8 +1,9 @@
+import { ASTViewPort } from '../../../src/application/ports/ast.port';
 import {
-  ASTViewPort, ASTExtractionResult, TypeNodeView,
+  ASTExtractionResult, TypeNodeView,
   KindDefinitionView, InstanceDeclarationView,
-  TypeKindDefinitionView, TypeKindInstanceView,
-} from '../../../src/application/ports/ast.port';
+  TypeKindDefinitionView, TypeKindInstanceView, DeclarationView,
+} from '../../../src/application/pipeline/views';
 import { SourceFile, TypeChecker } from '../../../src/application/ports/typescript.port';
 
 /**
@@ -28,6 +29,7 @@ export class MockASTAdapter implements ASTViewPort {
   private instanceDeclarations = new Map<string, InstanceDeclarationView[]>();
   private typeKindDefinitions = new Map<string, TypeKindDefinitionView[]>();
   private typeKindInstances = new Map<string, TypeKindInstanceView[]>();
+  private declarations = new Map<string, DeclarationView[]>();
 
   // --- Fluent configuration API ---
 
@@ -63,6 +65,11 @@ export class MockASTAdapter implements ASTViewPort {
     return this;
   }
 
+  withDeclarations(fileName: string, views: DeclarationView[]): this {
+    this.declarations.set(fileName, views);
+    return this;
+  }
+
   /**
    * Build a TypeNodeView from a plain constraint config object.
    * Converts the familiar { noDependency: [...], pure: true } format into TypeNodeView trees.
@@ -92,6 +99,7 @@ export class MockASTAdapter implements ASTViewPort {
     this.instanceDeclarations.clear();
     this.typeKindDefinitions.clear();
     this.typeKindInstances.clear();
+    this.declarations.clear();
   }
 
   // --- ASTViewPort implementation ---
@@ -110,5 +118,9 @@ export class MockASTAdapter implements ASTViewPort {
 
   getTypeKindInstances(sourceFile: SourceFile, _checker: TypeChecker, _typeKindNames: Set<string>): ASTExtractionResult<TypeKindInstanceView[]> {
     return { data: this.typeKindInstances.get(sourceFile.fileName) ?? [], errors: [] };
+  }
+
+  getTopLevelDeclarations(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<DeclarationView[]> {
+    return { data: this.declarations.get(sourceFile.fileName) ?? [], errors: [] };
   }
 }

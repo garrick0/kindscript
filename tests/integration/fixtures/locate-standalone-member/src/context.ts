@@ -8,7 +8,7 @@ import type { Kind, Instance } from 'kindscript';
 export type DomainLayer = Kind<"DomainLayer">;
 
 export type AppContext = Kind<"AppContext", {
-  domain: DomainLayer;
+  domain: [DomainLayer, './domain'];
 }, {
   noDependency: [["domain", "domain"]];
 }>;

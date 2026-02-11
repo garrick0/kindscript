@@ -35,6 +35,11 @@ describe('ConfigAdapter', () => {
       expect(result!.rootDir).toBe('src');
     });
 
+    it('throws on malformed kindscript.json', () => {
+      fs.writeFileSync(path.join(tmpDir, 'kindscript.json'), '{ invalid json }');
+      expect(() => adapter.readKindScriptConfig(tmpDir)).toThrow('invalid JSON');
+    });
+
     it('preserves all config fields', () => {
       const config = {
         rootDir: 'src',

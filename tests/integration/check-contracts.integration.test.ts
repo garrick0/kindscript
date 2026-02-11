@@ -17,7 +17,7 @@ describe('Check Contracts Integration Tests', () => {
         FIXTURES.CLEAN_ARCH_VIOLATION,
       );
 
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
       expect(classifyResult.errors).toHaveLength(0);
 
       // Should detect the domain -> infrastructure violation
@@ -26,7 +26,7 @@ describe('Check Contracts Integration Tests', () => {
       expect(checkResult.diagnostics[0].code).toBe(70001);
 
       // The violation should be in domain/service.ts
-      expect(checkResult.diagnostics[0].file).toContain(path.join('domain', 'service.ts'));
+      expect(checkResult.diagnostics[0].source.file).toContain(path.join('domain', 'service.ts'));
     });
 
     it('reports clean result for clean-arch-valid fixture', () => {
@@ -38,7 +38,7 @@ describe('Check Contracts Integration Tests', () => {
       // No violations
       expect(checkResult.violationsFound).toBe(0);
       expect(checkResult.diagnostics).toHaveLength(0);
-      expect(checkResult.contractsChecked).toBe(1);
+      expect(checkResult.contractsChecked).toBe(2);
     });
   });
 
@@ -72,7 +72,7 @@ describe('Check Contracts Integration Tests', () => {
 
       expect(result.diagnostics).toHaveLength(1);
       expect(result.diagnostics[0].code).toBe(70001);
-      expect(result.diagnostics[0].file).toContain('service.ts');
+      expect(result.diagnostics[0].source.file).toContain('service.ts');
     });
 
     it('reports no violations for clean fixture', () => {

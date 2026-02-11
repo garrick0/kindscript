@@ -110,6 +110,8 @@ export function runFullPipeline(
     config: {},
     program,
     resolvedFiles: bindResult.resolvedFiles,
+    containerFiles: bindResult.containerFiles,
+    declarationOwnership: bindResult.declarationOwnership,
   });
 
   return { classifyResult, checkResult };

@@ -5,8 +5,8 @@ export type DomainLayer = Kind<"DomainLayer">;
 export type InfrastructureLayer = Kind<"InfrastructureLayer">;
 
 export type AppContext = Kind<"AppContext", {
-  domain: DomainLayer;
-  infrastructure: InfrastructureLayer;
+  domain: [DomainLayer, './domain'];
+  infrastructure: [InfrastructureLayer, './infrastructure'];
 }, {
   noCycles: ["domain", "infrastructure"];
 }>;

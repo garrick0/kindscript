@@ -49,4 +49,10 @@ export const FIXTURES = {
 
   // Scope mismatch fixtures
   SCOPE_MISMATCH_VIOLATION: path.join(FIXTURES_BASE, 'scope-mismatch-violation'),
+
+  // Overlap fixture
+  OVERLAP_VIOLATION: path.join(FIXTURES_BASE, 'overlap-violation'),
+
+  // Exhaustiveness fixture
+  EXHAUSTIVENESS_VIOLATION: path.join(FIXTURES_BASE, 'exhaustiveness-violation'),
 } as const;

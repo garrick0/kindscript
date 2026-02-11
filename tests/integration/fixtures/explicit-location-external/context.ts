@@ -12,8 +12,8 @@ type DomainLayer = Kind<"DomainLayer">;
 type InfraLayer = Kind<"InfraLayer">;
 
 type App = Kind<"App", {
-  domain: DomainLayer;
-  infrastructure: InfraLayer;
+  domain: [DomainLayer, './domain'];
+  infrastructure: [InfraLayer, './infrastructure'];
 }, {
   noDependency: [["domain", "infrastructure"]];
 }>;

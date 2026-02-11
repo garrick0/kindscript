@@ -272,4 +272,97 @@ describe('ASTAdapter', () => {
       });
     });
   });
+
+  describe('getTopLevelDeclarations', () => {
+    it('extracts function declarations', () => {
+      const sf = parseSource('test.ts', `
+        function decide(cmd: Command) { return []; }
+        export function evolve(state: State, event: Event) { return state; }
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0]).toMatchObject({ name: 'decide', kind: 'function', exported: false });
+      expect(result.data[1]).toMatchObject({ name: 'evolve', kind: 'function', exported: true });
+    });
+
+    it('extracts const and let declarations', () => {
+      const sf = parseSource('test.ts', `
+        export const handler = () => {};
+        let counter = 0;
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0]).toMatchObject({ name: 'handler', kind: 'const', exported: true });
+      expect(result.data[1]).toMatchObject({ name: 'counter', kind: 'let', exported: false });
+    });
+
+    it('extracts class declarations', () => {
+      const sf = parseSource('test.ts', `
+        export class OrderService {}
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({ name: 'OrderService', kind: 'class', exported: true });
+    });
+
+    it('extracts interface and type declarations', () => {
+      const sf = parseSource('test.ts', `
+        interface Command {}
+        export type Event = { type: string };
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0]).toMatchObject({ name: 'Command', kind: 'interface', exported: false });
+      expect(result.data[1]).toMatchObject({ name: 'Event', kind: 'type', exported: true });
+    });
+
+    it('extracts enum declarations', () => {
+      const sf = parseSource('test.ts', `
+        export enum Status { Active, Inactive }
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({ name: 'Status', kind: 'enum', exported: true });
+    });
+
+    it('extracts multiple declarations from a single variable statement', () => {
+      const sf = parseSource('test.ts', `
+        const a = 1, b = 2;
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].name).toBe('a');
+      expect(result.data[1].name).toBe('b');
+    });
+
+    it('includes line and column information', () => {
+      const sf = parseSource('test.ts', `export const x = 1;`);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].line).toBeGreaterThan(0);
+      expect(typeof result.data[0].column).toBe('number');
+    });
+
+    it('returns empty for file with no declarations', () => {
+      const sf = parseSource('test.ts', `// just a comment`);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(0);
+    });
+
+    it('handles mixed declaration types', () => {
+      const sf = parseSource('test.ts', `
+        export const decide: Decider = (cmd) => [];
+        function parseCommand(raw: unknown) { return raw; }
+        function deepClone<T>(obj: T): T { return obj; }
+        export const evolve: Evolver = (s, e) => s;
+      `);
+      const result = adapter.getTopLevelDeclarations(sf, mockChecker);
+      expect(result.data).toHaveLength(4);
+      expect(result.data.map(d => d.name)).toEqual(['decide', 'parseCommand', 'deepClone', 'evolve']);
+      expect(result.data[0].exported).toBe(true);
+      expect(result.data[1].exported).toBe(false);
+      expect(result.data[2].exported).toBe(false);
+      expect(result.data[3].exported).toBe(true);
+    });
+  });
 });

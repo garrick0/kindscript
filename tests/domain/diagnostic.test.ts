@@ -13,9 +13,9 @@ describe('Diagnostic', () => {
 
       expect(diagnostic.message).toBe('Test error message');
       expect(diagnostic.code).toBe(70001);
-      expect(diagnostic.file).toBe('src/domain/entity.ts');
-      expect(diagnostic.line).toBe(42);
-      expect(diagnostic.column).toBe(10);
+      expect(diagnostic.source.file).toBe('src/domain/entity.ts');
+      expect(diagnostic.source.line).toBe(42);
+      expect(diagnostic.source.column).toBe(10);
       expect(diagnostic.relatedContract).toBeUndefined();
     });
 

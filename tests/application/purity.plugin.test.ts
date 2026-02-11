@@ -1,7 +1,6 @@
 import { purityPlugin } from '../../src/application/pipeline/plugins/purity/purity.plugin';
 import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
 import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
-import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { ContractType } from '../../src/domain/types/contract-type';
 import { Program } from '../../src/domain/entities/program';
@@ -26,12 +25,6 @@ describe('purityPlugin.check', () => {
 
   afterEach(() => {
     mockTS.reset();
-  });
-
-  it('handles purity symbol with no declared location', () => {
-    const noLoc = new ArchSymbol('noLoc', ArchSymbolKind.Member);
-    const result = purityPlugin.check(purity(noLoc), makeContext());
-    expect(result.diagnostics).toHaveLength(0);
   });
 
   it('detects Node.js built-in import (fs)', () => {

@@ -11,10 +11,10 @@ export type Organisms = Kind<"Organisms">;
 export type Pages = Kind<"Pages">;
 
 export type DesignSystem = Kind<"DesignSystem", {
-  atoms: Atoms;
-  molecules: Molecules;
-  organisms: Organisms;
-  pages: Pages;
+  atoms: [Atoms, './atoms'];
+  molecules: [Molecules, './molecules'];
+  organisms: [Organisms, './organisms'];
+  pages: [Pages, './pages'];
 }, {
   noDependency: [
     ["atoms", "molecules"],

@@ -59,18 +59,6 @@ describe('isFileInSymbol', () => {
 });
 
 describe('ImportEdge', () => {
-  it('equals returns true for identical edges', () => {
-    const a = new ImportEdge('src/a.ts', 'src/b.ts', 1, 0, './b');
-    const b = new ImportEdge('src/a.ts', 'src/b.ts', 1, 0, './b');
-    expect(a.equals(b)).toBe(true);
-  });
-
-  it('equals returns false for different edges', () => {
-    const a = new ImportEdge('src/a.ts', 'src/b.ts', 1, 0, './b');
-    const b = new ImportEdge('src/a.ts', 'src/c.ts', 1, 0, './c');
-    expect(a.equals(b)).toBe(false);
-  });
-
   it('toString formats as source:line -> target', () => {
     const edge = new ImportEdge('src/a.ts', 'src/b.ts', 5, 0, './b');
     expect(edge.toString()).toBe('src/a.ts:5 → src/b.ts');

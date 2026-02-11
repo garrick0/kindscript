@@ -62,7 +62,7 @@ describe('Pipeline - Contract Parsing', () => {
 
       const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
-      expect(result.contracts).toHaveLength(1);
+      expect(result.contracts).toHaveLength(2);
       expect(result.contracts[0].type).toBe(ContractType.NoDependency);
     });
 
@@ -87,7 +87,7 @@ describe('Pipeline - Contract Parsing', () => {
 
       const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
-      expect(result.contracts).toHaveLength(1);
+      expect(result.contracts).toHaveLength(2);
       expect(result.contracts[0].type).toBe(ContractType.NoCycles);
     });
 
@@ -118,6 +118,130 @@ describe('Pipeline - Contract Parsing', () => {
       expect(purityContracts[0].args[0].name).toBe('domain');
     });
 
+  });
+
+  describe('Overlap contract generation', () => {
+    it('generates overlap contracts for folder-folder sibling pairs', () => {
+      mockAST.withKindDefinition('/project/src/arch.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'infra', typeName: 'InfraLayer' },
+        ],
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }, { name: 'infra' }],
+      });
+
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
+
+      const overlapContracts = result.contracts.filter(c => c.type === ContractType.Overlap);
+      expect(overlapContracts).toHaveLength(1);
+      expect(overlapContracts[0].args[0].name).toBe('domain');
+      expect(overlapContracts[0].args[1].name).toBe('infra');
+    });
+
+    it('skips overlap contracts for folder-TypeKind pairs (orthogonal axes)', () => {
+      // TypeKind definition: classifies by type annotation
+      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+        typeName: 'Decider',
+        kindNameLiteral: 'Decider',
+        wrappedTypeName: 'DeciderFn',
+      });
+
+      // Parent Kind with a folder member and a TypeKind member
+      mockAST.withKindDefinition('/project/src/arch.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'deciders', typeName: 'Decider' },
+        ],
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }, { name: 'deciders' }],
+      });
+
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
+
+      const overlapContracts = result.contracts.filter(c => c.type === ContractType.Overlap);
+      expect(overlapContracts).toHaveLength(0);
+    });
+
+    it('generates overlap contracts for TypeKind-TypeKind pairs', () => {
+      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+        typeName: 'Decider',
+        kindNameLiteral: 'Decider',
+        wrappedTypeName: 'DeciderFn',
+      });
+
+      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+        typeName: 'Evolver',
+        kindNameLiteral: 'Evolver',
+        wrappedTypeName: 'EvolverFn',
+      });
+
+      mockAST.withKindDefinition('/project/src/arch.ts', {
+        typeName: 'DeciderFile',
+        kindNameLiteral: 'DeciderFile',
+        members: [
+          { name: 'deciders', typeName: 'Decider' },
+          { name: 'evolvers', typeName: 'Evolver' },
+        ],
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
+        variableName: 'order',
+        kindTypeName: 'DeciderFile',
+        members: [{ name: 'deciders' }, { name: 'evolvers' }],
+      });
+
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
+
+      const overlapContracts = result.contracts.filter(c => c.type === ContractType.Overlap);
+      expect(overlapContracts).toHaveLength(1);
+      expect(overlapContracts[0].args[0].name).toBe('deciders');
+      expect(overlapContracts[0].args[1].name).toBe('evolvers');
+    });
+
+    it('skips all mixed pairs in a Kind with 3 members (2 folder + 1 TypeKind)', () => {
+      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+        typeName: 'Decider',
+        kindNameLiteral: 'Decider',
+        wrappedTypeName: 'DeciderFn',
+      });
+
+      mockAST.withKindDefinition('/project/src/arch.ts', {
+        typeName: 'Ctx',
+        kindNameLiteral: 'Ctx',
+        members: [
+          { name: 'domain', typeName: 'DomainLayer' },
+          { name: 'infra', typeName: 'InfraLayer' },
+          { name: 'deciders', typeName: 'Decider' },
+        ],
+      });
+
+      mockAST.withInstanceDeclaration('/project/src/arch.ts', {
+        variableName: 'app',
+        kindTypeName: 'Ctx',
+        members: [{ name: 'domain' }, { name: 'infra' }, { name: 'deciders' }],
+      });
+
+      const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
+
+      const overlapContracts = result.contracts.filter(c => c.type === ContractType.Overlap);
+      // Only domain/infra pair (folder-folder). No domain/deciders or infra/deciders (folder-TypeKind).
+      expect(overlapContracts).toHaveLength(1);
+      expect(overlapContracts[0].args[0].name).toBe('domain');
+      expect(overlapContracts[0].args[1].name).toBe('infra');
+    });
   });
 
   describe('Multi-instance contract binding (shared Kind type)', () => {

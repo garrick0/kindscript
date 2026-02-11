@@ -115,7 +115,7 @@ describe('Pipeline - Kind Definition Parsing', () => {
 
       const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
-      expect(result.contracts).toHaveLength(1);
+      expect(result.contracts).toHaveLength(2);
       expect(result.contracts[0].type).toBe(ContractType.NoDependency);
       expect(result.contracts[0].args[0].name).toBe('domain');
       expect(result.contracts[0].args[1].name).toBe('infra');
@@ -270,8 +270,8 @@ describe('Pipeline - Kind Definition Parsing', () => {
 
       const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
-      // Should have both: noDependency from relational constraint + purity from propagation
-      expect(result.contracts).toHaveLength(2);
+      // Should have: noDependency + purity propagation + overlap
+      expect(result.contracts).toHaveLength(3);
       expect(result.contracts.some(c => c.type === ContractType.NoDependency)).toBe(true);
       expect(result.contracts.some(c => c.type === ContractType.Purity)).toBe(true);
     });
@@ -320,7 +320,7 @@ describe('Pipeline - Kind Definition Parsing', () => {
 
       const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
-      expect(result.contracts).toHaveLength(2);
+      expect(result.contracts).toHaveLength(3);
     });
   });
 });

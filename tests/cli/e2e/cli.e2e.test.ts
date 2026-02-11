@@ -48,8 +48,7 @@ describe('CLI E2E', () => {
         const fixturePath = path.join(FIXTURES_DIR, 'clean-arch-valid');
         const result = run(['check', fixturePath]);
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toBe('');
-        expect(result.stderr).toContain('All architectural contracts satisfied');
+        expect(result.stdout).toContain('All architectural contracts satisfied');
       });
 
       it('exits 1 when no TypeScript files are found', () => {
@@ -64,7 +63,7 @@ describe('CLI E2E', () => {
         const fixturePath = path.join(FIXTURES_DIR, 'tier2-clean-arch');
         const result = run(['check', fixturePath]);
         expect(result.exitCode).toBe(0);
-        expect(result.stderr).toContain('All architectural contracts satisfied');
+        expect(result.stdout).toContain('All architectural contracts satisfied');
       });
 
       it('exits 1 when kind-defined contracts are violated', () => {
@@ -87,7 +86,7 @@ describe('CLI E2E', () => {
       it('exits 0 when purity is satisfied', () => {
         const result = run(['check', path.join(FIXTURES_DIR, 'purity-clean')]);
         expect(result.exitCode).toBe(0);
-        expect(result.stderr).toContain('All architectural contracts satisfied');
+        expect(result.stdout).toContain('All architectural contracts satisfied');
       });
     });
 
@@ -111,7 +110,7 @@ describe('CLI E2E', () => {
       it('exits 0 when context file is outside target directory', () => {
         const result = run(['check', path.join(FIXTURES_DIR, 'explicit-location-external')]);
         expect(result.exitCode).toBe(0);
-        expect(result.stderr).toContain('All architectural contracts satisfied');
+        expect(result.stdout).toContain('All architectural contracts satisfied');
       });
     });
 
@@ -124,11 +123,29 @@ describe('CLI E2E', () => {
       });
     });
 
+    describe('overlap', () => {
+      it('exits 1 when sibling members share files', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'overlap-violation')]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain('KS70006');
+        expect(result.stderr).toContain('overlap');
+      });
+    });
+
+    describe('exhaustiveness', () => {
+      it('exits 1 when files are unassigned with exhaustive: true', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'exhaustiveness-violation')]);
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain('KS70007');
+        expect(result.stderr).toContain('Unassigned');
+      });
+    });
+
     describe('TypeKind standalone purity', () => {
       it('exits 0 when TypeKind with pure constraint has no impure imports', () => {
         const result = run(['check', path.join(FIXTURES_DIR, 'typekind-purity-clean')]);
         expect(result.exitCode).toBe(0);
-        expect(result.stderr).toContain('All architectural contracts satisfied');
+        expect(result.stdout).toContain('All architectural contracts satisfied');
       });
 
       it('exits 1 when TypeKind with pure constraint has impure imports', () => {
@@ -143,7 +160,7 @@ describe('CLI E2E', () => {
       it('exits 0 when TypeKind constraints are satisfied', () => {
         const result = run(['check', path.join(FIXTURES_DIR, 'typekind-composability-clean')]);
         expect(result.exitCode).toBe(0);
-        expect(result.stderr).toContain('All architectural contracts satisfied');
+        expect(result.stdout).toContain('All architectural contracts satisfied');
       });
 
       it('exits 1 when Decider imports from Effector', () => {

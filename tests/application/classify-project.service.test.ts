@@ -43,6 +43,8 @@ function makeBindResult(overrides?: Partial<BindResult>): BindResult {
   return {
     contracts: [],
     resolvedFiles: new Map(),
+    containerFiles: new Map(),
+    declarationOwnership: new Map(),
     errors: [],
     ...overrides,
   };

@@ -753,7 +753,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const result = classify(mockAST, [sourceFile('/project/src/context.ts')]);
 
-      expect(result.contracts).toHaveLength(1);
+      expect(result.contracts).toHaveLength(2);
       expect(result.contracts[0].type).toBe(ContractType.NoDependency);
       expect(result.contracts[0].args[0].name).toBe('deciders');
       expect(result.contracts[0].args[1].name).toBe('effectors');

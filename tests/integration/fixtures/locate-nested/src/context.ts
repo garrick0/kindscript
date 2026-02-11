@@ -9,12 +9,12 @@ export type EntitiesModule = Kind<"EntitiesModule">;
 export type PortsModule = Kind<"PortsModule">;
 
 export type DomainLayer = Kind<"DomainLayer", {
-  entities: EntitiesModule;
-  ports: PortsModule;
+  entities: [EntitiesModule, './entities'];
+  ports: [PortsModule, './ports'];
 }>;
 
 export type CleanContext = Kind<"CleanContext", {
-  domain: DomainLayer;
+  domain: [DomainLayer, './domain'];
 }, {
   noDependency: [["domain", "domain"]];
 }>;

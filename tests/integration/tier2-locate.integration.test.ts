@@ -34,7 +34,7 @@ describe('Tier 2 Locate Integration Tests', () => {
     it('classifies contracts from Kind type constraints', () => {
       const { classifyResult } = runPipeline(fixturePath);
 
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
       expect(classifyResult.contracts[0].type).toBe(ContractType.NoDependency);
     });
 
@@ -51,7 +51,7 @@ describe('Tier 2 Locate Integration Tests', () => {
       const { classifyResult, checkResult } = runPipeline(fixturePath);
 
       expect(classifyResult.errors).toHaveLength(0);
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
 
       expect(checkResult.violationsFound).toBe(1);
       expect(checkResult.diagnostics[0].code).toBe(DiagnosticCode.ForbiddenDependency);
@@ -151,7 +151,7 @@ describe('Tier 2 Locate Integration Tests', () => {
       const fixturePath = FIXTURES.EXPLICIT_LOCATION_EXTERNAL;
       const { classifyResult } = runPipeline(fixturePath);
 
-      expect(classifyResult.contracts).toHaveLength(1);
+      expect(classifyResult.contracts).toHaveLength(2);
       expect(classifyResult.contracts[0].type).toBe(ContractType.NoDependency);
     });
 
@@ -204,8 +204,8 @@ describe('Tier 2 Locate Integration Tests', () => {
       const fixturePath = FIXTURES.LOCATE_MULTI_INSTANCE;
       const { classifyResult } = runPipeline(fixturePath);
 
-      expect(classifyResult.contracts).toHaveLength(2);
-      expect(classifyResult.contracts.every(c => c.type === ContractType.NoDependency)).toBe(true);
+      expect(classifyResult.contracts.filter(c => c.type === ContractType.NoDependency)).toHaveLength(2);
+      expect(classifyResult.contracts.filter(c => c.type === ContractType.Overlap)).toHaveLength(2);
     });
 
     it('runs full pipeline with no violations', () => {
