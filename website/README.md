@@ -74,6 +74,37 @@ vercel --prod
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment guide.
 
+## Testing & Verification
+
+**Status:** ✅ **Verified and ready for production** (2026-02-11)
+
+The website has been comprehensively tested using Playwright browser automation:
+
+### Verification Documents
+- **[PLAYWRIGHT_VERIFICATION_SUMMARY.md](PLAYWRIGHT_VERIFICATION_SUMMARY.md)** - Complete test report with:
+  - Test methodology and coverage
+  - Detailed results for each verified page
+  - Component verification matrix
+  - Production readiness assessment
+  - Pre/post-deployment checklists
+
+- **[VERIFICATION_CHECKLIST.md](VERIFICATION_CHECKLIST.md)** - Page-by-page verification checklist
+
+### What Was Tested
+- ✅ Landing page and navigation
+- ✅ Documentation pages (Nextra framework)
+- ✅ **Interactive tutorials** - Fully functional:
+  - WebContainer boots successfully
+  - Monaco editor with syntax highlighting
+  - Terminal (xterm.js) integration
+  - File tree navigation
+  - Run Check & Show Solution buttons
+  - Lesson-to-lesson navigation
+
+### Known Issues
+- See `FIXES.md` for resolved critical bugs (WebContainer singleton, Terminal integration)
+- Minor dev server instability (development-only, not production)
+
 ## Structure
 
 ```
