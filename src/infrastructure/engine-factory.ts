@@ -6,6 +6,7 @@ import { CheckerService } from '../application/pipeline/check/checker.service';
 import { PipelineService } from '../application/pipeline/pipeline.service';
 import { ProgramFactory } from '../application/pipeline/program';
 import { createAllPlugins } from '../application/pipeline/plugins/plugin-registry';
+import { CarrierResolver } from '../application/pipeline/carrier/carrier-resolver';
 import { TypeScriptAdapter } from './typescript/typescript.adapter';
 import { FileSystemAdapter } from './filesystem/filesystem.adapter';
 import { ConfigAdapter } from './config/config.adapter';
@@ -26,9 +27,10 @@ export function createEngine(): Engine {
   const plugins = createAllPlugins();
 
   const programFactory = new ProgramFactory(config, fs, ts);
+  const carrierResolver = new CarrierResolver(fs);
   const scanner = new ScanService(ast);
   const parser = new ParseService();
-  const binder = new BindService(plugins, fs);
+  const binder = new BindService(plugins, carrierResolver);
   const checker = new CheckerService(plugins, ts);
   const pipeline = new PipelineService(programFactory, fs, scanner, parser, binder, checker);
 
