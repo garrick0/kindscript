@@ -109,8 +109,8 @@ export const lesson: Lesson = ${JSON.stringify(lesson, null, 2)};
 
     fs.writeFileSync(path.join(outputDir, lessonFileName), lessonContent);
 
-    // Write content MDX file
-    const contentMdxDir = path.join(__dirname, '../src/content/lessons');
+    // Write content MDX file to public directory (served as static asset)
+    const contentMdxDir = path.join(__dirname, '../public/lessons');
     fs.mkdirSync(contentMdxDir, { recursive: true });
     fs.writeFileSync(path.join(contentMdxDir, `${slug}.mdx`), content);
 

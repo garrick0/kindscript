@@ -67,3 +67,4 @@ website/public/_pagefind/
 # Screenshot artifacts from testing
 *.png
 console-errors.txt
+.vercel

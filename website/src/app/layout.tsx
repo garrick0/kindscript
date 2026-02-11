@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
-import { Footer, Layout, Navbar } from 'nextra-theme-docs';
-import { getPageMap } from 'nextra/page-map';
-import 'nextra-theme-docs/style.css';
+import './globals.css';
 
 export const metadata = {
   title: 'KindScript — Architecture as Types',
@@ -15,26 +13,10 @@ export const metadata = {
   },
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const pageMap = await getPageMap('/');
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <body>
-        <Layout
-          navbar={
-            <Navbar
-              logo={<b>KindScript</b>}
-              projectLink="https://github.com/kindscript/kindscript"
-            />
-          }
-          footer={<Footer>MIT {new Date().getFullYear()} KindScript</Footer>}
-          pageMap={pageMap}
-          docsRepositoryBase="https://github.com/kindscript/kindscript/tree/main/website"
-        >
-          {children}
-        </Layout>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

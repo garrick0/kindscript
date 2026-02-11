@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { WaitlistForm } from "@/components/waitlist-form";
 import { FadeIn } from "@/components/fade-in";
@@ -66,7 +65,6 @@ function HeroSection() {
       {/* Hero product demo */}
       <div className="mx-auto mt-16 max-w-5xl">
         <div className="overflow-hidden rounded-xl border border-zinc-800 shadow-2xl shadow-indigo-500/5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/agent/demo.webp"
             alt="Animated demo of the Kindscript ontology manager showing kind discovery, instance classification, and detail views"
@@ -124,7 +122,7 @@ const features = [
     headline: "Your codebase has patterns. Kindscript finds them.",
     description:
       "Scans file structure, naming conventions, AST, and imports to surface the recurring architectural concepts — entities, services, repositories, controllers, hooks — whatever patterns actually exist in your code.",
-    image: "/feature-schema.webp",
+    image: "/agent/feature-schema.webp",
     imageAlt:
       "Schema view showing discovered kinds like Aggregate, Commands, State, Events organized in a hierarchical graph",
     caption: "Schema view — discovered architectural patterns rendered as a kind hierarchy",
@@ -136,7 +134,7 @@ const features = [
     headline: "Every file gets a role.",
     description:
       "Map each file and declaration to its architectural kind. See instances grouped by containment, filter by kind, and explore relationships between components. Each classification is backed by structured evidence.",
-    image: "/feature-instances.webp",
+    image: "/agent/feature-instances.webp",
     imageAlt:
       "Instance view showing OrderAggregate and PaymentAggregate with their contained files classified by kind",
     caption: "Instance view — files classified into their architectural roles",
@@ -148,7 +146,7 @@ const features = [
     headline: "Navigate your architecture, not just your file tree.",
     description:
       "An interactive graph editor that shows how concepts relate. Hierarchical layouts, containment grouping, detail panels with relationships — click any node to see exactly where it lives in your code.",
-    image: "/feature-detail.webp",
+    image: "/agent/feature-detail.webp",
     imageAlt:
       "Detail panel showing OrderAggregate instance with its kind, location, and 5 containment relationships",
     caption: "Detail panel — drill into any node to see relationships and source locations",

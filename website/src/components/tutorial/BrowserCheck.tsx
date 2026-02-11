@@ -9,15 +9,39 @@ interface BrowserCheckProps {
 
 export function BrowserCheck({ children }: BrowserCheckProps) {
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
+  const [isDevelopmentMode, setIsDevelopmentMode] = useState(false);
+  const [countdown, setCountdown] = useState(2);
 
   useEffect(() => {
+    // Check if we're in development mode
+    const isDev = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
+    setIsDevelopmentMode(isDev);
+
     // Check for SharedArrayBuffer support (required for WebContainer)
     const supported = typeof SharedArrayBuffer !== 'undefined' && crossOriginIsolated;
-    setIsSupported(supported);
+
+    if (!supported && isDev) {
+      // In development mode, the headers might take a moment to apply
+      // Wait and then reload
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            window.location.reload();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    } else {
+      setIsSupported(supported);
+    }
   }, []);
 
   if (isSupported === null) {
-    // Loading state
+    // Loading state or development mode waiting for headers
     return (
       <div
         style={{
@@ -29,9 +53,65 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
           color: 'white',
         }}
       >
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
           <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-          <div>Checking browser compatibility...</div>
+          {isDevelopmentMode ? (
+            <>
+              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Development Mode - Loading Tutorial...</h2>
+              <p style={{ color: '#94a3b8', marginBottom: '1.5rem' }}>
+                WebContainers require cross-origin isolation headers. In development mode, these headers may take a
+                moment to apply. The tutorial will load automatically in {countdown} seconds...
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                }}
+              >
+                Load Tutorial Now
+              </button>
+              <div style={{ marginTop: '1.5rem' }}>
+                <Link href="/tutorial" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                  ← Back to Lessons
+                </Link>
+              </div>
+              <details style={{ marginTop: '2rem', textAlign: 'left', color: '#64748b' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '0.5rem' }}>
+                  Show Debug Info
+                </summary>
+                <pre
+                  style={{
+                    background: '#0f172a',
+                    padding: '1rem',
+                    borderRadius: '4px',
+                    fontSize: '0.875rem',
+                    overflow: 'auto',
+                  }}
+                >
+                  {JSON.stringify(
+                    {
+                      hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+                      crossOriginIsolated:
+                        typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : 'undefined',
+                      SharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined' ? 'available' : 'unavailable',
+                      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A',
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </details>
+            </>
+          ) : (
+            <div>Checking browser compatibility...</div>
+          )}
         </div>
       </div>
     );

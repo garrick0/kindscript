@@ -6,7 +6,7 @@ import type { Terminal as XTerm } from '@xterm/xterm';
 import { LessonFile } from '@/lib/lessons/types';
 import { templateFiles } from '@/lib/lessons/template';
 import { filesToFileSystemTree } from '@/lib/webcontainer/utils';
-import { getWebContainer, isWebContainerBooted } from '@/lib/webcontainer/singleton';
+import { getWebContainer, isWebContainerBooted, isDependenciesInstalled, markDependenciesInstalled } from '@/lib/webcontainer/singleton';
 
 type LoadingState = 'idle' | 'booting' | 'installing' | 'ready' | 'error';
 
@@ -108,13 +108,18 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
 
         // Check if already booted from a previous component mount
         const alreadyBooted = isWebContainerBooted();
+        const _depsInstalled = isDependenciesInstalled();
+
         if (alreadyBooted && !instanceRef.current) {
           console.log('WebContainer already booted, reusing instance...');
           try {
             const wc = await getWebContainer();
             instanceRef.current = wc;
+
+            // If dependencies already installed, go straight to ready
+            // This prevents showing the loading overlay on subsequent lesson navigation
             setState('ready');
-            terminal.writeln('✓ WebContainer ready (reused from previous lesson)');
+            terminal.writeln('✓ WebContainer ready (cached)');
 
             // Start shell for this terminal
             const shellProcess = await wc.spawn('jsh', {
@@ -177,27 +182,34 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
           await wc.mount(templateFiles);
           console.log('Template files mounted');
 
-          setState('installing');
-          terminal.writeln('Installing dependencies...');
-          terminal.writeln('This may take 30-60 seconds on first load...');
+          // Skip npm install if dependencies already installed
+          if (!isDependenciesInstalled()) {
+            setState('installing');
+            terminal.writeln('Installing dependencies...');
+            terminal.writeln('This may take 30-60 seconds on first load...');
 
-          const installProcess = await wc.spawn('npm', ['install']);
-          installProcess.output.pipeTo(
-            new WritableStream({
-              write(data) {
-                terminal.write(data);
-              },
-            })
-          );
+            const installProcess = await wc.spawn('npm', ['install']);
+            installProcess.output.pipeTo(
+              new WritableStream({
+                write(data) {
+                  terminal.write(data);
+                },
+              })
+            );
 
-          const exitCode = await installProcess.exit;
-          if (exitCode !== 0) {
-            terminal.writeln(`\r\n✗ npm install failed with exit code ${exitCode}`);
-            setState('error');
-            return;
+            const exitCode = await installProcess.exit;
+            if (exitCode !== 0) {
+              terminal.writeln(`\r\n✗ npm install failed with exit code ${exitCode}`);
+              setState('error');
+              return;
+            }
+
+            terminal.writeln('\r\n✓ Dependencies installed');
+            markDependenciesInstalled();
+          } else {
+            console.log('Dependencies already installed, skipping npm install');
+            terminal.writeln('✓ Dependencies already installed');
           }
-
-          terminal.writeln('\r\n✓ Dependencies installed');
 
           setState('ready');
           terminal.writeln('\r\n=== Ready! ===');

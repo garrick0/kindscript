@@ -1,5 +1,4 @@
 export default {
-  index: 'Overview',
   architecture: 'Architecture',
   'kind-system': 'Kind System',
   constraints: 'Constraints',
