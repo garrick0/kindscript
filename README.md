@@ -213,6 +213,26 @@ For a static walkthrough (no Deno kernel required), see [Tutorial](docs/06-tutor
 
 The `tutorial/` directory contains a browser-based interactive tutorial built with [TutorialKit](https://tutorialkit.dev). Edit files and run `npx ksc check .` directly in the browser. See [tutorial/README.md](tutorial/README.md) for setup.
 
+### Documentation Website
+
+The KindScript documentation site is built with Next.js 15 and Nextra 4, featuring:
+
+- Complete documentation from `docs/`
+- All 32 Architecture Decision Records (ADRs)
+- Interactive tutorial with live Monaco editor and WebContainer-powered terminal
+- Full-text search via Pagefind
+
+**Live site:** https://website-five-theta-38.vercel.app
+
+**Local development:**
+```bash
+cd website
+npm install
+npm run dev  # http://localhost:3000
+```
+
+The site is deployed automatically via GitHub Actions. See [website/README.md](website/README.md) and [website/DEPLOYMENT.md](website/DEPLOYMENT.md) for details.
+
 ## Project Status
 
 All core functionality is implemented and tested. 31 test suites, 350 tests, 100% passing.

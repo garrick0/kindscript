@@ -471,6 +471,72 @@ cd tutorial && npm install && npm start     # Dev server at localhost:4321
 
 ---
 
+## Website and Deployment
+
+The `website/` directory contains the KindScript documentation website (Next.js 15 + Nextra 4). It serves all documentation, ADRs, and an interactive tutorial with Monaco editor and WebContainer.
+
+### Key Paths
+
+- `website/README.md` - Website overview and local development
+- `website/DEPLOYMENT.md` - Complete deployment guide
+- `website/src/app/` - Next.js App Router pages (landing, docs, tutorial)
+- `website/next.config.mjs` - Next.js + Nextra configuration
+- `website/vercel.json` - Vercel deployment settings (CORS headers for tutorial)
+- `website/.nvmrc` - Node version specification (22)
+- `.github/workflows/deploy-website.yml` - Automated deployment workflow
+
+### Local Development
+
+```bash
+cd website
+npm install
+npm run dev  # http://localhost:3000
+```
+
+### Deployment
+
+The website is deployed to Vercel via GitHub Actions workflow (manual trigger).
+
+**Live site:** https://website-five-theta-38.vercel.app
+
+**Deploy via GitHub CLI:**
+```bash
+# Production deployment
+gh workflow run deploy-website.yml -f environment=production
+
+# Preview deployment
+gh workflow run deploy-website.yml -f environment=preview
+```
+
+**Deploy via GitHub UI:**
+1. Go to Actions tab → "Deploy Website to Vercel"
+2. Click "Run workflow"
+3. Choose environment (production/preview)
+4. Click "Run workflow"
+
+**GitHub Secrets (already configured):**
+- `VERCEL_TOKEN` - Vercel authentication token
+- `VERCEL_ORG_ID` - `team_ejF7ixE5qEz0KpU23ezXlAsd`
+- `VERCEL_PROJECT_ID` - `prj_aTDCrSV2cR0IKpiqNvLDFmgz2z4O`
+
+### When to Update the Website
+
+- **Changed documentation** (`docs/*.md`) - Content auto-syncs from main docs
+- **Added/updated ADR** (`docs/decisions/*.md`) - ADRs auto-sync with proper navigation
+- **Changed public API** - Update examples in landing page (`website/src/app/page.mdx`)
+- **Tutorial changes** - Update interactive tutorial lessons in `website/src/app/tutorial/`
+
+### Build Requirements
+
+The website build requires:
+- Node.js 22+ (specified in `.nvmrc`)
+- `@types/node` in devDependencies (critical for Vercel build)
+- Clean Next.js config (no invalid options like `outputFileTracing`)
+
+The build generates 44 static pages and takes ~30 seconds on Vercel.
+
+---
+
 ## Documentation Organization
 
 Documentation is organized as 6 maintained chapter files (checked in) plus a gitignored scratchpad for active explorations:

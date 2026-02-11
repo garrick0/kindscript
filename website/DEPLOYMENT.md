@@ -2,6 +2,39 @@
 
 This document explains how to deploy the KindScript documentation website to Vercel.
 
+## Pre-Deployment Verification
+
+**Status:** ✅ Playwright verification complete (2026-02-11)
+
+The website has been comprehensively tested using Playwright browser automation:
+- ✅ All critical functionality verified working
+- ✅ Interactive tutorials fully operational (WebContainer, Monaco Editor, Terminal)
+- ✅ Documentation pages render correctly
+- ✅ Navigation and UI components functional
+
+**See:**
+- `PLAYWRIGHT_VERIFICATION_SUMMARY.md` - Complete test report with results
+- `VERIFICATION_CHECKLIST.md` - Detailed page-by-page verification
+
+### Pre-Deployment Checklist
+
+Before deploying, verify:
+- [ ] Production build succeeds: `npm run build`
+- [ ] No build errors or warnings
+- [ ] All routes compile successfully
+- [ ] Check `STATUS.md` for any known issues
+
+### Post-Deployment Testing
+
+After deploying to Vercel, test:
+- [ ] Tutorial works on production URL (requires HTTPS for WebContainer)
+- [ ] CORS headers work for `/tutorial/*` routes
+- [ ] Mobile fallback message displays on mobile device
+- [ ] WebContainer SharedArrayBuffer works (requires cross-origin isolation)
+- [ ] Monitor Vercel logs for runtime errors
+
+---
+
 ## Deployment Methods
 
 ### 1. Automated via GitHub Actions (Recommended)

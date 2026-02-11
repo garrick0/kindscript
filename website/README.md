@@ -35,12 +35,44 @@ npm start
 
 ## Deployment
 
-The site is configured for Vercel deployment with proper CORS headers for WebContainer at `/tutorial/*`.
+The site is deployed to Vercel with automated GitHub Actions workflows.
 
-### Environment
+### Automated Deployment (Recommended)
 
-- Node.js 18+
-- npm 9+
+Deploy via GitHub Actions workflow:
+
+```bash
+# Via GitHub UI
+# 1. Go to Actions tab
+# 2. Select "Deploy Website to Vercel"
+# 3. Click "Run workflow"
+# 4. Choose environment (production/preview)
+
+# Via GitHub CLI
+gh workflow run deploy-website.yml -f environment=production
+```
+
+The workflow automatically:
+- Builds the Next.js site
+- Deploys to Vercel
+- Shows deployment URL in workflow summary
+
+**Live site:** https://website-five-theta-38.vercel.app
+
+### Manual Deployment
+
+```bash
+npm run build
+vercel --prod
+```
+
+### Requirements
+
+- Node.js 22+ (specified in `.nvmrc`)
+- npm 10+
+- All dependencies in `package.json` (including `@types/node`)
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment guide.
 
 ## Structure
 
