@@ -1,6 +1,6 @@
 {
   "name": "kindscript",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Architectural enforcement for TypeScript",
   "main": "dist/types/index.js",
   "types": "dist/types/index.d.ts",
@@ -21,7 +21,10 @@
   ],
   "contributes": {
     "typescriptServerPlugins": [
-      { "name": "kindscript", "enableForWorkspaceTypeScriptVersions": true }
+      {
+        "name": "kindscript",
+        "enableForWorkspaceTypeScriptVersions": true
+      }
     ]
   },
   "scripts": {
