@@ -18,7 +18,6 @@ import { lesson as lesson11 } from './5-1-molecule-source';
 import { lesson as lesson12 } from './5-2-molecule-story';
 import { lesson as lesson13 } from './5-3-molecule-version';
 import { lesson as lesson14 } from './5-4-full-molecule';
-import { lesson as lesson15 } from './6-1-full-design-system';
 
 export const lessons: Lesson[] = [
   lesson0,
@@ -36,7 +35,6 @@ export const lessons: Lesson[] = [
   lesson12,
   lesson13,
   lesson14,
-  lesson15,
 ].sort((a, b) =>
   a.partNumber === b.partNumber
     ? a.lessonNumber - b.lessonNumber
