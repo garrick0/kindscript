@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"
+    "build:search": "pagefind --site .next/server/app --output-path public/_pagefind"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7",

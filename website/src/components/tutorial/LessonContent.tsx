@@ -16,17 +16,8 @@ function parseCallouts(content: string): string {
   return content.replace(
     /:::(\w+)\n([\s\S]*?)\n:::/g,
     (_, type, text) => {
-      const colors: Record<string, string> = {
-        tip: '#10b981',
-        info: '#3b82f6',
-        warning: '#f59e0b',
-        danger: '#ef4444',
-      };
-      const color = colors[type] || '#64748b';
-      return `<div style="border-left: 4px solid ${color}; background: rgba(0,0,0,0.05); padding: 1rem; margin: 1rem 0; border-radius: 4px;">
-<div style="font-weight: 600; color: ${color}; margin-bottom: 0.5rem; text-transform: uppercase; font-size: 0.875rem;">${type}</div>
-${text}
-</div>`;
+      // Return markdown blockquote format that react-markdown can handle
+      return `> **${type.toUpperCase()}**\n>\n> ${text.trim().replace(/\n/g, '\n> ')}`;
     }
   );
 }
@@ -128,6 +119,20 @@ export function LessonContent({ lesson }: LessonContentProps) {
                 <ol style={{ marginLeft: '1.5rem', marginBottom: '1rem' }} {...props}>
                   {children}
                 </ol>
+              ),
+              blockquote: ({ children, ...props }: any) => (
+                <blockquote
+                  style={{
+                    borderLeft: '4px solid #10b981',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    padding: '1rem',
+                    margin: '1rem 0',
+                    borderRadius: '4px',
+                  }}
+                  {...props}
+                >
+                  {children}
+                </blockquote>
               ),
             }}
           >

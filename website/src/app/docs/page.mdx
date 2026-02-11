@@ -4,12 +4,12 @@
 
 | # | Chapter | What's in it |
 |---|---------|-------------|
-| 1 | [Architecture](01-architecture.md) | System overview, compiler pipeline, layers, data flow, source layout |
-| 2 | [Kind System](02-kind-system.md) | Kind syntax, TypeKind, instances, location resolution, scope validation, discovery |
-| 3 | [Constraints](03-constraints.md) | All 6 constraint types (3 user-declared + 3 structural), plugin architecture |
+| 1 | [Architecture](architecture) | System overview, compiler pipeline, layers, data flow, source layout |
+| 2 | [Kind System](kind-system) | Kind syntax, TypeKind, instances, location resolution, scope validation, discovery |
+| 3 | [Constraints](constraints) | All 6 constraint types (3 user-declared + 3 structural), plugin architecture |
 | 4 | [Decisions](decisions/) | Architecture Decision Records (32 ADRs: plugin vs LSP, drop .k.ts, unified Kind, etc.) |
-| 5 | [Examples](05-examples.md) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
-| 6 | [Tutorial](06-tutorial.md) | Progressive walkthrough: first constraint to real-world modeling |
+| 5 | [Examples](examples) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
+| 6 | [Tutorial](tutorial-guide) | Progressive walkthrough: first constraint to real-world modeling |
 
 ---
 
@@ -18,12 +18,12 @@
 **Onboarding:**
 1. [README.md](../README.md) — project overview
 2. [CLAUDE.md](../CLAUDE.md) — development guide
-3. [01-architecture.md](01-architecture.md) — system overview
-4. [06-tutorial.md](06-tutorial.md) — step-by-step walkthrough
+3. [architecture](architecture) — system overview
+4. [tutorial-guide](tutorial-guide) — step-by-step walkthrough
 
 **Implementing a feature:**
-1. [01-architecture.md](01-architecture.md) — relevant section
-2. [03-constraints.md](03-constraints.md) — if adding/modifying constraints
+1. [architecture](architecture) — relevant section
+2. [constraints](constraints) — if adding/modifying constraints
 3. [tests/README.md](../tests/README.md) — testing guide
 
 **Understanding a decision:**
@@ -35,17 +35,17 @@
 
 | Question | Chapter |
 |----------|---------|
-| How does the pipeline work? | [01-architecture.md](01-architecture.md) — Compiler Pipeline |
-| How do I define a Kind? | [02-kind-system.md](02-kind-system.md) — Kind Definitions |
-| What constraints are available? | [03-constraints.md](03-constraints.md) — Constraint Types |
-| How do I add a new constraint? | [03-constraints.md](03-constraints.md) — Adding a New Constraint Type |
+| How does the pipeline work? | [architecture](architecture) — Compiler Pipeline |
+| How do I define a Kind? | [kind-system](kind-system) — Kind Definitions |
+| What constraints are available? | [constraints](constraints) — Constraint Types |
+| How do I add a new constraint? | [constraints](constraints) — Adding a New Constraint Type |
 | Why plugin instead of LSP? | [decisions/0001-language-service-plugin-instead-of-custom-lsp.md](decisions/0001-language-service-plugin-instead-of-custom-lsp.md) |
 | Why no .k.ts extension? | [decisions/0009-drop-kts-piggyback-on-typescript-type-checker.md](decisions/0009-drop-kts-piggyback-on-typescript-type-checker.md) |
-| How do I model a design system? | [05-examples.md](05-examples.md) — Design System |
-| How do bounded contexts work? | [05-examples.md](05-examples.md) — Bounded Contexts |
-| How do I learn KindScript step by step? | [06-tutorial.md](06-tutorial.md) — Tutorial |
-| How do I use TypeKind? | [02-kind-system.md](02-kind-system.md) — TypeKind |
-| How does scope validation work? | [02-kind-system.md](02-kind-system.md) — Scope Validation |
+| How do I model a design system? | [examples](examples) — Design System |
+| How do bounded contexts work? | [examples](examples) — Bounded Contexts |
+| How do I learn KindScript step by step? | [tutorial-guide](tutorial-guide) — Tutorial |
+| How do I use TypeKind? | [kind-system](kind-system) — TypeKind |
+| How does scope validation work? | [kind-system](kind-system) — Scope Validation |
 | How do I write tests? | [tests/README.md](../tests/README.md) — Testing guide |
 
 ---
@@ -55,15 +55,15 @@
 ```
 docs/                                Source of truth (checked in)
 ├── README.md                        This file (index)
-├── 01-architecture.md               System overview + pipeline + layers
-├── 02-kind-system.md                Kind syntax + instances + discovery
-├── 03-constraints.md                All 6 constraints + plugin architecture
+├── architecture               System overview + pipeline + layers
+├── kind-system                Kind syntax + instances + discovery
+├── constraints                All 6 constraints + plugin architecture
 ├── decisions/                       Architecture Decision Records (32 ADRs)
 │   ├── README.md                    ADR index
 │   ├── 0001-*.md                    Individual ADR files
 │   └── template.md                  Template for new ADRs
-├── 05-examples.md                   Real-world modeling examples
-├── 06-tutorial.md                   Progressive walkthrough + real-world narrative
+├── examples                   Real-world modeling examples
+├── tutorial-guide                   Progressive walkthrough + real-world narrative
 └── archive/                         Historical — do not use for implementation
     ├── architecture/                V1–V4 compiler specs + design decisions
     ├── design/                      24 completed design explorations

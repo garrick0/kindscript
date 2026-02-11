@@ -7,7 +7,6 @@ import { LessonContent } from './LessonContent';
 import { LessonNav } from './LessonNav';
 import { FileTree } from './FileTree';
 import { LoadingOverlay } from './LoadingOverlay';
-import type { TerminalHandle } from './Terminal';
 import type { WebContainerHandle } from './WebContainerProvider';
 
 const CodeEditor = dynamic(() => import('./CodeEditor').then((mod) => mod.CodeEditor), {
@@ -19,7 +18,7 @@ const CodeEditor = dynamic(() => import('./CodeEditor').then((mod) => mod.CodeEd
   ),
 });
 
-const Terminal = dynamic<any>(() => import('./Terminal').then((mod) => mod.Terminal), {
+const Terminal = dynamic(() => import('./Terminal').then((mod) => ({ default: mod.Terminal })), {
   ssr: false,
   loading: () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ccc' }}>
@@ -41,8 +40,13 @@ export function TutorialLayout({ lesson }: TutorialLayoutProps) {
   const [activeFile, setActiveFile] = useState<string>(lesson.focus);
   const [showSolution, setShowSolution] = useState(false);
   const [containerState, setContainerState] = useState<'idle' | 'booting' | 'installing' | 'ready' | 'error'>('idle');
-  const terminalRef = useRef<TerminalHandle>(null);
+  const [terminal, setTerminal] = useState<any>(null);
   const webcontainerRef = useRef<WebContainerHandle>(null);
+
+  const handleTerminalReady = (term: any) => {
+    console.log('Terminal ready callback received');
+    setTerminal(term);
+  };
 
   // Reset when lesson changes
   useEffect(() => {
@@ -248,7 +252,7 @@ export function TutorialLayout({ lesson }: TutorialLayoutProps) {
               Terminal
             </div>
             <div style={{ flex: 1, background: '#1e1e1e' }}>
-              <Terminal ref={terminalRef} />
+              <Terminal onTerminalReady={handleTerminalReady} />
             </div>
           </div>
         </div>
@@ -261,7 +265,7 @@ export function TutorialLayout({ lesson }: TutorialLayoutProps) {
       <WebContainerProvider
         ref={webcontainerRef}
         files={currentFiles}
-        terminal={terminalRef.current?.terminal || null}
+        terminal={terminal}
         onStateChange={setContainerState}
       />
 

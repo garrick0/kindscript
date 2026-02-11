@@ -1,0 +1,9 @@
+Total messages: 7 (Errors: 0, Warnings: 0)
+
+[LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js:196
+[LOG] [Fast Refresh] done in 3540ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/report-hmr-latency.js:13
+[INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25630
+[LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js:196
+[LOG] [Fast Refresh] done in 11614ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/report-hmr-latency.js:13
+[LOG] WebContainer boot check: {terminal: false, hasBooted: false} @ webpack-internal:///(app-pages-browser)/./src/components/tutorial/WebContainerProvider.tsx:92
+[LOG] WebContainer boot check: {terminal: false, hasBooted: false} @ webpack-internal:///(app-pages-browser)/./src/components/tutorial/WebContainerProvider.tsx:92

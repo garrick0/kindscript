@@ -52,8 +52,18 @@ Thumbs.db
 # Working notes
 .working/
 
-# Tutorial (TutorialKit / Astro)
-tutorial/dist/
-tutorial/node_modules/
-tutorial/.astro/
-tutorial/src/templates/default/kindscript/dist/
+# Tutorial (old TutorialKit - removed)
+# tutorial/ directory has been deleted
+
+# Website build artifacts
+website/dist/
+website/node_modules/
+website/.astro/
+website/.next/
+website/.vercel/
+website/out/
+website/public/_pagefind/
+
+# Screenshot artifacts from testing
+*.png
+console-errors.txt

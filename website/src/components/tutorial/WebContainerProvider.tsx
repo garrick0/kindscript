@@ -6,6 +6,7 @@ import type { Terminal as XTerm } from '@xterm/xterm';
 import { LessonFile } from '@/lib/lessons/types';
 import { templateFiles } from '@/lib/lessons/template';
 import { filesToFileSystemTree } from '@/lib/webcontainer/utils';
+import { getWebContainer, isWebContainerBooted } from '@/lib/webcontainer/singleton';
 
 type LoadingState = 'idle' | 'booting' | 'installing' | 'ready' | 'error';
 
@@ -91,21 +92,90 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
     }));
 
     useEffect(() => {
-      if (!terminal || hasBooted.current) return;
+      // Wait for terminal to be available
+      if (!terminal) {
+        console.log('Waiting for terminal to load...');
+        return; // Will retry when terminal becomes available
+      }
+
+      console.log('Terminal ready, starting WebContainer boot...');
 
       async function boot() {
-        if (!terminal) return;
+        if (!terminal) {
+          console.error('Terminal not available for boot');
+          return;
+        }
 
+        // Check if already booted from a previous component mount
+        const alreadyBooted = isWebContainerBooted();
+        if (alreadyBooted && !instanceRef.current) {
+          console.log('WebContainer already booted, reusing instance...');
+          try {
+            const wc = await getWebContainer();
+            instanceRef.current = wc;
+            setState('ready');
+            terminal.writeln('✓ WebContainer ready (reused from previous lesson)');
+
+            // Start shell for this terminal
+            const shellProcess = await wc.spawn('jsh', {
+              terminal: {
+                cols: terminal.cols,
+                rows: terminal.rows,
+              },
+            });
+
+            shellProcess.output.pipeTo(
+              new WritableStream({
+                write(data) {
+                  terminal.write(data);
+                },
+              })
+            );
+
+            const input = shellProcess.input.getWriter();
+            terminal.onData((data) => {
+              input.write(data);
+            });
+
+            console.log('Shell started for new lesson');
+            return;
+          } catch (error) {
+            console.error('Failed to reuse WebContainer:', error);
+            setState('error');
+            return;
+          }
+        }
+
+        // Prevent double-boot in the same component instance
+        if (hasBooted.current) {
+          return;
+        }
+
+        // Mark as booted BEFORE async operations to prevent double-boot
         hasBooted.current = true;
+
+        // Check browser support
+        if (typeof SharedArrayBuffer === 'undefined' || !crossOriginIsolated) {
+          console.error('SharedArrayBuffer not available or not cross-origin isolated');
+          setState('error');
+          terminal.writeln('❌ WebContainer not supported in this browser');
+          terminal.writeln('SharedArrayBuffer: ' + (typeof SharedArrayBuffer !== 'undefined' ? 'available' : 'not available'));
+          terminal.writeln('Cross-origin isolated: ' + (crossOriginIsolated ? 'yes' : 'no'));
+          return;
+        }
+
         setState('booting');
         terminal.writeln('Booting WebContainer...');
+        console.log('Browser support confirmed, calling WebContainer.boot()...');
 
         try {
-          const wc = await WebContainer.boot();
+          const wc = await getWebContainer();
           instanceRef.current = wc;
+          console.log('WebContainer booted successfully');
 
           terminal.writeln('Mounting files...');
           await wc.mount(templateFiles);
+          console.log('Template files mounted');
 
           setState('installing');
           terminal.writeln('Installing dependencies...');
@@ -120,12 +190,19 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
             })
           );
 
-          await installProcess.exit;
+          const exitCode = await installProcess.exit;
+          if (exitCode !== 0) {
+            terminal.writeln(`\r\n✗ npm install failed with exit code ${exitCode}`);
+            setState('error');
+            return;
+          }
+
           terminal.writeln('\r\n✓ Dependencies installed');
 
           setState('ready');
           terminal.writeln('\r\n=== Ready! ===');
           terminal.writeln('Type commands or click "Run Check" to validate the architecture.\r\n');
+          console.log('WebContainer ready');
 
           // Start shell
           const shellProcess = await wc.spawn('jsh', {
@@ -147,6 +224,8 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
           terminal.onData((data) => {
             input.write(data);
           });
+
+          console.log('Shell started');
         } catch (error) {
           setState('error');
           terminal.writeln(`\r\n❌ Error: ${error}`);
@@ -161,6 +240,8 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
     useEffect(() => {
       if (!instanceRef.current || state !== 'ready') return;
 
+      console.log('Updating lesson files...');
+
       async function updateFiles() {
         const wc = instanceRef.current!;
         const lessonTree = filesToFileSystemTree(files);
@@ -170,6 +251,7 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
           if (terminal) {
             terminal.writeln('\r\n📝 Lesson files updated');
           }
+          console.log('Lesson files mounted successfully');
         } catch (error) {
           console.error('Failed to update files:', error);
         }

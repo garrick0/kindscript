@@ -12,7 +12,7 @@ export const templateFiles: FileSystemTree = {
             check: 'ksc check .',
           },
           dependencies: {
-            kindscript: 'latest',
+            kindscript: '^1.0.0',
             typescript: '~5.5.0',
           },
         },
