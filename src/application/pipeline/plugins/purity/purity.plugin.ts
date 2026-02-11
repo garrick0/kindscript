@@ -5,6 +5,7 @@ import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
 import { NODE_BUILTINS } from '../../../../domain/constants/node-builtins';
+import { carrierKey } from '../../../../domain/types/carrier';
 
 export const purityPlugin: ContractPlugin = {
   type: ContractType.Purity,
@@ -26,12 +27,12 @@ export const purityPlugin: ContractPlugin = {
     const [symbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
-    const location = symbol.id;
-    if (!location) {
+    const key = symbol.carrier ? carrierKey(symbol.carrier) : undefined;
+    if (!key) {
       return { diagnostics, filesAnalyzed: 0 };
     }
 
-    const filePaths = ctx.resolvedFiles.get(location) ?? [];
+    const filePaths = ctx.resolvedFiles.get(key) ?? [];
 
     for (const { file, sourceFile } of getSourceFilesForPaths(ctx, filePaths)) {
       const specifiers = ctx.tsPort.getImportModuleSpecifiers(ctx.program, sourceFile);
