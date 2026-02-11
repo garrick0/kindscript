@@ -79,11 +79,8 @@ export type KindRef = { readonly __kindscript_ref?: string };
  */
 export type Kind<
   N extends string = string,
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   Members extends Record<string, KindRef | readonly [KindRef, string]> = {},
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   _Constraints extends Constraints<Members> = {},
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   _Config extends KindConfig = {},
 > = (_Config extends { wraps: infer T }
   ? T & { readonly __kindscript_brand?: N } & KindRef
@@ -169,6 +166,5 @@ export type Instance<T extends KindRef, _Path extends string = string> = MemberM
 export type TypeKind<
   N extends string,
   T,
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   C extends Constraints = {},
 > = Kind<N, {}, C, { wraps: T }>;
