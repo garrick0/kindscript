@@ -3,6 +3,7 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
+import { carrierKey } from '../../../../domain/types/carrier';
 
 /**
  * Overlap plugin — detects when two sibling members within the same
@@ -26,8 +27,8 @@ export const overlapPlugin: ContractPlugin = {
 
   check(contract, ctx) {
     const [a, b] = contract.args;
-    const aFiles = new Set(ctx.resolvedFiles.get(a.id!) ?? []);
-    const bFiles = ctx.resolvedFiles.get(b.id!) ?? [];
+    const aFiles = new Set(ctx.resolvedFiles.get(carrierKey(a.carrier!)) ?? []);
+    const bFiles = ctx.resolvedFiles.get(carrierKey(b.carrier!)) ?? [];
     const overlap = bFiles.filter(f => aFiles.has(f));
 
     if (overlap.length > 0) {

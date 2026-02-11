@@ -7,6 +7,8 @@ import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-
 import { ContractType } from '../../src/domain/types/contract-type';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.port';
+import { CarrierResolver } from '../../src/application/pipeline/carrier/carrier-resolver';
+import { carrierKey } from '../../src/domain/types/carrier';
 
 const mockChecker = {} as TypeChecker;
 const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
@@ -15,7 +17,8 @@ const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
 function classify(mockAST: MockASTAdapter, files: SourceFile[]) {
   const scanner = new ScanService(mockAST);
   const parser = new ParseService();
-  const binder = new BindService(createAllPlugins(), new MockFileSystemAdapter());
+  const resolver = new CarrierResolver(new MockFileSystemAdapter());
+  const binder = new BindService(createAllPlugins(), resolver);
 
   const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
   const parseResult = parser.execute(scanResult);
@@ -145,15 +148,15 @@ describe('Pipeline - Contract Parsing', () => {
       expect(overlapContracts[0].args[1].name).toBe('infra');
     });
 
-    it('skips overlap contracts for folder-TypeKind pairs (orthogonal axes)', () => {
-      // TypeKind definition: classifies by type annotation
-      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+    it('skips overlap contracts for folder-wrapped Kind pairs (orthogonal axes)', () => {
+      // Wrapped Kind definition: classifies by type annotation
+      mockAST.withWrappedKindDefinition('/project/src/arch.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
         wrappedTypeName: 'DeciderFn',
       });
 
-      // Parent Kind with a folder member and a TypeKind member
+      // Parent Kind with a folder member and a wrapped Kind member
       mockAST.withKindDefinition('/project/src/arch.ts', {
         typeName: 'Ctx',
         kindNameLiteral: 'Ctx',
@@ -175,14 +178,14 @@ describe('Pipeline - Contract Parsing', () => {
       expect(overlapContracts).toHaveLength(0);
     });
 
-    it('generates overlap contracts for TypeKind-TypeKind pairs', () => {
-      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+    it('generates overlap contracts for wrapped Kind-wrapped Kind pairs', () => {
+      mockAST.withWrappedKindDefinition('/project/src/arch.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
         wrappedTypeName: 'DeciderFn',
       });
 
-      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+      mockAST.withWrappedKindDefinition('/project/src/arch.ts', {
         typeName: 'Evolver',
         kindNameLiteral: 'Evolver',
         wrappedTypeName: 'EvolverFn',
@@ -211,8 +214,8 @@ describe('Pipeline - Contract Parsing', () => {
       expect(overlapContracts[0].args[1].name).toBe('evolvers');
     });
 
-    it('skips all mixed pairs in a Kind with 3 members (2 folder + 1 TypeKind)', () => {
-      mockAST.withTypeKindDefinition('/project/src/arch.ts', {
+    it('skips all mixed pairs in a Kind with 3 members (2 folder + 1 wrapped Kind)', () => {
+      mockAST.withWrappedKindDefinition('/project/src/arch.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
         wrappedTypeName: 'DeciderFn',
@@ -237,7 +240,7 @@ describe('Pipeline - Contract Parsing', () => {
       const result = classify(mockAST, [sourceFile('/project/src/arch.ts')]);
 
       const overlapContracts = result.contracts.filter(c => c.type === ContractType.Overlap);
-      // Only domain/infra pair (folder-folder). No domain/deciders or infra/deciders (folder-TypeKind).
+      // Only domain/infra pair (folder-folder). No domain/deciders or infra/deciders (folder-wrapped Kind).
       expect(overlapContracts).toHaveLength(1);
       expect(overlapContracts[0].args[0].name).toBe('domain');
       expect(overlapContracts[0].args[1].name).toBe('infra');
@@ -286,7 +289,7 @@ describe('Pipeline - Contract Parsing', () => {
       expect(noDeps).toHaveLength(2);
 
       // Verify contracts reference different instances' members
-      const contractLocations = noDeps.map(c => c.args[0].id).sort();
+      const contractLocations = noDeps.map(c => carrierKey(c.args[0].carrier!)).sort();
       expect(contractLocations).toEqual([
         '/project/src/billing/domain',
         '/project/src/ordering/domain',
@@ -327,7 +330,7 @@ describe('Pipeline - Contract Parsing', () => {
       const purityContracts = result.contracts.filter(c => c.type === ContractType.Purity);
       expect(purityContracts).toHaveLength(2);
 
-      const purityLocations = purityContracts.map(c => c.args[0].id).sort();
+      const purityLocations = purityContracts.map(c => carrierKey(c.args[0].carrier!)).sort();
       expect(purityLocations).toEqual([
         '/project/src/billing/domain',
         '/project/src/ordering/domain',

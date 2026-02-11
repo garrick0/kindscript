@@ -1,9 +1,8 @@
 /**
  * Targeted tests for domain entities and utilities that lack direct unit tests.
- * Covers: NODE_BUILTINS, isFileInSymbol, ImportEdge, Program
+ * Covers: NODE_BUILTINS, ImportEdge, Program
  */
 import { NODE_BUILTINS } from '../../src/domain/constants/node-builtins';
-import { isFileInSymbol } from '../../src/infrastructure/path/path-utils';
 import { ImportEdge } from '../../src/application/pipeline/check/import-edge';
 import { Program } from '../../src/domain/entities/program';
 
@@ -28,33 +27,6 @@ describe('NODE_BUILTINS', () => {
     expect(NODE_BUILTINS.has('lodash')).toBe(false);
     expect(NODE_BUILTINS.has('express')).toBe(false);
     expect(NODE_BUILTINS.has('./local-module')).toBe(false);
-  });
-});
-
-describe('isFileInSymbol', () => {
-  it('matches file via prefix boundary', () => {
-    expect(isFileInSymbol('src/domain/entity.ts', 'src/domain')).toBe(true);
-  });
-
-  it('rejects file not in symbol location', () => {
-    expect(isFileInSymbol('src/infra/repo.ts', 'src/domain')).toBe(false);
-  });
-
-  it('rejects false prefix match without boundary', () => {
-    expect(isFileInSymbol('src/domain-extensions/foo.ts', 'src/domain')).toBe(false);
-  });
-
-  it('matches exact path', () => {
-    expect(isFileInSymbol('src/domain', 'src/domain')).toBe(true);
-  });
-
-  it('matches when location appears as absolute path segment', () => {
-    expect(isFileInSymbol('/project/src/domain/entity.ts', 'src/domain')).toBe(true);
-  });
-
-  it('uses resolvedFiles set when provided', () => {
-    const resolved = new Set(['specific-file.ts']);
-    expect(isFileInSymbol('specific-file.ts', 'other/location', resolved)).toBe(true);
   });
 });
 

@@ -51,7 +51,7 @@ export class PipelineService implements PipelineUseCase {
     const parseResult = this.parser.execute(scanResult);
 
     if (parseResult.symbols.length === 0) {
-      return { ok: false, error: 'No Kind or TypeKind definitions found in the project.' };
+      return { ok: false, error: 'No Kind definitions found in the project.' };
     }
 
     // --- Stage 3: Bind ---

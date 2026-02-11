@@ -1,4 +1,5 @@
 import { ArchSymbolKind } from '../types/arch-symbol-kind';
+import { CarrierExpr, carrierKey } from '../types/carrier';
 
 /**
  * Core domain entity representing an architectural symbol.
@@ -17,8 +18,8 @@ export class ArchSymbol {
     /** The kind of architectural entity this represents */
     public readonly kind: ArchSymbolKind,
 
-    /** Opaque identifier for this symbol (used as a lookup key, not for path manipulation) */
-    public readonly id?: string,
+    /** Carrier expression describing what code this symbol operates over */
+    public readonly carrier?: CarrierExpr,
 
     /** Child symbols (for hierarchical structures) */
     public readonly members: Map<string, ArchSymbol> = new Map(),
@@ -29,6 +30,7 @@ export class ArchSymbol {
     /** For sub-file instances: the named export (from hash syntax, e.g., 'validateOrder') */
     public readonly exportName?: string,
   ) {}
+
 
   /**
    * Find a direct child member by name.
@@ -73,6 +75,7 @@ export class ArchSymbol {
    * Human-readable representation of this symbol.
    */
   toString(): string {
-    return `${this.kind}:${this.name}${this.id ? ` @ ${this.id}` : ''}`;
+    const loc = this.carrier ? ` @ ${carrierKey(this.carrier)}` : '';
+    return `${this.kind}:${this.name}${loc}`;
   }
 }

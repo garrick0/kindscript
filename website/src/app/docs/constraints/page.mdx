@@ -334,14 +334,14 @@ CheckerService (checker)
     → return all diagnostics
 ```
 
-### TypeKind Member Resolution
+### Wrapped Kind Member Resolution
 
-When TypeKind members are used inside a filesystem Kind, the binder resolves them differently from filesystem members:
+When wrapped Kind members are used inside a filesystem Kind, the binder resolves them differently from filesystem members:
 
 - **Filesystem members:** `readDirectory()` on the derived path (folder resolution) or single file (file resolution)
-- **TypeKind members:** collect all typed exports within the parent Kind's scope that match the TypeKind name (declaration resolution)
+- **Wrapped Kind members:** collect all typed exports within the parent Kind's scope that use `InstanceOf<K>` (declaration resolution)
 
-Both resolution paths populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult`. The checker operates on this unified map — existing constraint plugins (`noDependency`, `noCycles`, etc.) work unchanged with TypeKind members.
+Both resolution paths populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult`. The checker operates on this unified map — existing constraint plugins (`noDependency`, `noCycles`, etc.) work unchanged with wrapped Kind members.
 
 ### What the Checker Receives
 

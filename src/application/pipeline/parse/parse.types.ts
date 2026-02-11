@@ -1,5 +1,5 @@
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { KindDefinitionView, TypeKindDefinitionView } from '../views';
+import { KindDefinitionView } from '../views';
 import { ScanResult } from '../scan/scan.types';
 
 /**
@@ -23,9 +23,6 @@ export interface ParseResult {
 
   /** Maps instance variable name → Kind type name */
   instanceTypeNames: Map<string, string>;
-
-  /** TypeKind definitions, passed through for downstream visibility */
-  typeKindDefs: Map<string, TypeKindDefinitionView>;
 
   /** Errors encountered during parsing */
   errors: string[];

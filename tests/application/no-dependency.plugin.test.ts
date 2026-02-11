@@ -218,7 +218,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     mockTS.reset();
   });
 
-  it('detects forbidden intra-file reference between TypeKind members', () => {
+  it('detects forbidden intra-file reference between wrapped Kind members', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 

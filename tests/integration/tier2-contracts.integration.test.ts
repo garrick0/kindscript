@@ -76,10 +76,10 @@ describe('Tier 2 Contract Integration Tests', () => {
     });
   });
 
-  describe('TypeKind composability', () => {
+  describe('Wrapped Kind composability', () => {
     it('passes when no Decider imports from Effector', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.TYPEKIND_COMPOSABILITY_CLEAN
+        FIXTURES.WRAPPED_KIND_COMPOSABILITY_CLEAN
       );
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -90,7 +90,7 @@ describe('Tier 2 Contract Integration Tests', () => {
 
     it('detects Decider importing from Effector file', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.TYPEKIND_COMPOSABILITY_VIOLATION
+        FIXTURES.WRAPPED_KIND_COMPOSABILITY_VIOLATION
       );
 
       expect(classifyResult.errors).toHaveLength(0);
@@ -104,22 +104,22 @@ describe('Tier 2 Contract Integration Tests', () => {
     });
   });
 
-  describe('TypeKind standalone purity', () => {
-    it('passes when TypeKind with pure constraint has no impure imports', () => {
+  describe('Wrapped Kind standalone purity', () => {
+    it('passes when wrapped Kind with pure constraint has no impure imports', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.TYPEKIND_PURITY_CLEAN
+        FIXTURES.WRAPPED_KIND_PURITY_CLEAN
       );
 
       expect(classifyResult.errors).toHaveLength(0);
-      // Should have purity contracts from TypeKind constraints
+      // Should have purity contracts from wrapped Kind constraints
       const purityContracts = classifyResult.contracts.filter(c => c.type === ContractType.Purity);
       expect(purityContracts.length).toBeGreaterThan(0);
       expect(checkResult.violationsFound).toBe(0);
     });
 
-    it('detects impure import in TypeKind with pure constraint', () => {
+    it('detects impure import in wrapped Kind with pure constraint', () => {
       const { classifyResult, checkResult } = runPipeline(
-        FIXTURES.TYPEKIND_PURITY_VIOLATION
+        FIXTURES.WRAPPED_KIND_PURITY_VIOLATION
       );
 
       expect(classifyResult.errors).toHaveLength(0);

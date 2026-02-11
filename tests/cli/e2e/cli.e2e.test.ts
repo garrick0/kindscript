@@ -141,30 +141,30 @@ describe('CLI E2E', () => {
       });
     });
 
-    describe('TypeKind standalone purity', () => {
-      it('exits 0 when TypeKind with pure constraint has no impure imports', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-purity-clean')]);
+    describe('Wrapped Kind standalone purity', () => {
+      it('exits 0 when wrapped Kind with pure constraint has no impure imports', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'wrapped-kind-purity-clean')]);
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('All architectural contracts satisfied');
       });
 
-      it('exits 1 when TypeKind with pure constraint has impure imports', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-purity-violation')]);
+      it('exits 1 when wrapped Kind with pure constraint has impure imports', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'wrapped-kind-purity-violation')]);
         expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain('KS70003');
         expect(result.stderr).toContain('Impure import');
       });
     });
 
-    describe('TypeKind composability', () => {
-      it('exits 0 when TypeKind constraints are satisfied', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-composability-clean')]);
+    describe('Wrapped Kind composability', () => {
+      it('exits 0 when wrapped Kind constraints are satisfied', () => {
+        const result = run(['check', path.join(FIXTURES_DIR, 'wrapped-kind-composability-clean')]);
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('All architectural contracts satisfied');
       });
 
       it('exits 1 when Decider imports from Effector', () => {
-        const result = run(['check', path.join(FIXTURES_DIR, 'typekind-composability-violation')]);
+        const result = run(['check', path.join(FIXTURES_DIR, 'wrapped-kind-composability-violation')]);
         expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain('KS70001');
         expect(result.stderr).toContain('Forbidden dependency');

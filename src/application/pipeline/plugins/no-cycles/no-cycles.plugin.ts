@@ -3,7 +3,7 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { isFileInSymbol } from '../../../../infrastructure/path/path-utils';
+import { carrierKey } from '../../../../domain/types/carrier';
 import { findCycles } from '../../../../domain/utils/cycle-detection';
 import { generateFromStringList } from '../generator-helpers';
 
@@ -30,11 +30,8 @@ export const noCyclesPlugin: ContractPlugin = {
 
     const symbolFiles = new Map<string, string[]>();
     for (const sym of symbols) {
-      if (sym.id) {
-        symbolFiles.set(sym.name, ctx.resolvedFiles.get(sym.id) ?? []);
-      } else {
-        symbolFiles.set(sym.name, []);
-      }
+      const key = sym.carrier ? carrierKey(sym.carrier) : undefined;
+      symbolFiles.set(sym.name, key ? (ctx.resolvedFiles.get(key) ?? []) : []);
     }
 
     const edges = new Map<string, Set<string>>();
@@ -52,10 +49,8 @@ export const noCyclesPlugin: ContractPlugin = {
         for (const imp of imports) {
           for (const targetSym of symbols) {
             if (targetSym.name === sym.name) continue;
-            const targetLocation = targetSym.id;
-            if (!targetLocation) continue;
             const targetFiles = new Set(symbolFiles.get(targetSym.name) || []);
-            if (isFileInSymbol(imp.targetFile, targetLocation, targetFiles)) {
+            if (targetFiles.has(imp.targetFile)) {
               edges.get(sym.name)!.add(targetSym.name);
             }
           }

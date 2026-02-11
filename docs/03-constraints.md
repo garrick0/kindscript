@@ -320,11 +320,11 @@ ParseService (parser)
     → purely structural (no I/O)
 
 BindService (binder)
-    → resolves symbol locations to files (directory/file/declaration)
+    → uses CarrierResolver to translate carrier expressions to file sets
     → walks constraint trees from Kind definitions
     → generates Contract[] via ConstraintProvider plugins
     → propagates intrinsic constraints (e.g., pure: true)
-    → produces resolvedFiles: Map<location, files[]>
+    → produces resolvedFiles: Map<carrierKey, files[]>
 
 CheckerService (checker)
     → for each Contract:
@@ -334,14 +334,16 @@ CheckerService (checker)
     → return all diagnostics
 ```
 
-### TypeKind Member Resolution
+### Carrier-Based Resolution
 
-When TypeKind members are used inside a filesystem Kind, the binder resolves them differently from filesystem members:
+The binder uses carrier expressions to represent what code each symbol operates over. Different carriers resolve to files differently:
 
-- **Filesystem members:** `readDirectory()` on the derived path (folder resolution) or single file (file resolution)
-- **TypeKind members:** collect all typed exports within the parent Kind's scope that match the TypeKind name (declaration resolution)
+- **Path carriers** (`{ type: 'path', path: '...' }`) — filesystem probing (directory listing or single file)
+- **Tagged carriers** (`{ type: 'tagged', kindTypeName: 'K' }`) — collect all files containing `InstanceOf<K>` exports
+- **Scoped tagged carriers** (`intersect(tagged, path)`) — tagged exports filtered to a specific scope
+- **Algebraic operations** (`union`, `exclude`, `intersect`) — set operations on child carrier file sets
 
-Both resolution paths populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult`. The checker operates on this unified map — existing constraint plugins (`noDependency`, `noCycles`, etc.) work unchanged with TypeKind members.
+The `CarrierResolver` service translates carrier expressions into file lists. All resolved carriers populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult` (keyed by `carrierKey()`). The checker operates on this unified map — existing constraint plugins work unchanged with all carrier types.
 
 ### What the Checker Receives
 

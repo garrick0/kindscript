@@ -2,7 +2,7 @@ import { ASTViewPort } from '../../../src/application/ports/ast.port';
 import {
   ASTExtractionResult, TypeNodeView,
   KindDefinitionView, InstanceDeclarationView,
-  TypeKindDefinitionView, TypeKindInstanceView, DeclarationView,
+  TaggedExportView, DeclarationView,
 } from '../../../src/application/pipeline/views';
 import { SourceFile, TypeChecker } from '../../../src/application/ports/typescript.port';
 
@@ -27,8 +27,7 @@ import { SourceFile, TypeChecker } from '../../../src/application/ports/typescri
 export class MockASTAdapter implements ASTViewPort {
   private kindDefinitions = new Map<string, KindDefinitionView[]>();
   private instanceDeclarations = new Map<string, InstanceDeclarationView[]>();
-  private typeKindDefinitions = new Map<string, TypeKindDefinitionView[]>();
-  private typeKindInstances = new Map<string, TypeKindInstanceView[]>();
+  private taggedExports = new Map<string, TaggedExportView[]>();
   private declarations = new Map<string, DeclarationView[]>();
 
   // --- Fluent configuration API ---
@@ -51,17 +50,29 @@ export class MockASTAdapter implements ASTViewPort {
     return this;
   }
 
-  withTypeKindDefinition(fileName: string, view: TypeKindDefinitionView): this {
-    const existing = this.typeKindDefinitions.get(fileName) ?? [];
-    existing.push(view);
-    this.typeKindDefinitions.set(fileName, existing);
-    return this;
+  /**
+   * Register a wrapped Kind definition. Convenience method that adds a
+   * KindDefinition with wrapsTypeName set.
+   */
+  withWrappedKindDefinition(fileName: string, view: {
+    typeName: string;
+    kindNameLiteral: string;
+    wrappedTypeName?: string;
+    constraints?: TypeNodeView;
+  }): this {
+    return this.withKindDefinition(fileName, {
+      typeName: view.typeName,
+      kindNameLiteral: view.kindNameLiteral,
+      members: [],
+      constraints: view.constraints,
+      wrapsTypeName: view.wrappedTypeName,
+    });
   }
 
-  withTypeKindInstance(fileName: string, view: TypeKindInstanceView): this {
-    const existing = this.typeKindInstances.get(fileName) ?? [];
+  withTaggedExport(fileName: string, view: TaggedExportView): this {
+    const existing = this.taggedExports.get(fileName) ?? [];
     existing.push(view);
-    this.typeKindInstances.set(fileName, existing);
+    this.taggedExports.set(fileName, existing);
     return this;
   }
 
@@ -97,8 +108,7 @@ export class MockASTAdapter implements ASTViewPort {
   reset(): void {
     this.kindDefinitions.clear();
     this.instanceDeclarations.clear();
-    this.typeKindDefinitions.clear();
-    this.typeKindInstances.clear();
+    this.taggedExports.clear();
     this.declarations.clear();
   }
 
@@ -112,12 +122,8 @@ export class MockASTAdapter implements ASTViewPort {
     return { data: this.instanceDeclarations.get(sourceFile.fileName) ?? [], errors: [] };
   }
 
-  getTypeKindDefinitions(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<TypeKindDefinitionView[]> {
-    return { data: this.typeKindDefinitions.get(sourceFile.fileName) ?? [], errors: [] };
-  }
-
-  getTypeKindInstances(sourceFile: SourceFile, _checker: TypeChecker, _typeKindNames: Set<string>): ASTExtractionResult<TypeKindInstanceView[]> {
-    return { data: this.typeKindInstances.get(sourceFile.fileName) ?? [], errors: [] };
+  getTaggedExports(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<TaggedExportView[]> {
+    return { data: this.taggedExports.get(sourceFile.fileName) ?? [], errors: [] };
   }
 
   getTopLevelDeclarations(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<DeclarationView[]> {

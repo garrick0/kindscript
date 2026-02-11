@@ -1,6 +1,6 @@
-import { ScanRequest, ScanResult, ScannedInstance, ScannedTypeKindInstance, ScanUseCase } from './scan.types';
+import { ScanRequest, ScanResult, ScannedInstance, ScannedTaggedExport, ScanUseCase } from './scan.types';
 import { ASTViewPort } from '../../ports/ast.port';
-import { KindDefinitionView, TypeKindDefinitionView } from '../views';
+import { KindDefinitionView } from '../views';
 
 /**
  * KindScript Scanner — reads the TypeScript AST to extract raw views.
@@ -11,8 +11,8 @@ import { KindDefinitionView, TypeKindDefinitionView } from '../views';
  * create domain entities or validate anything.
  *
  * Uses two-pass scanning:
- * - Pass 1: Kind defs, TypeKind defs, Instance declarations
- * - Pass 2: TypeKind instances (needs known TypeKind names from Pass 1)
+ * - Pass 1: Kind defs, Instance declarations
+ * - Pass 2: InstanceOf<K> tagged exports (needs known wrapped Kind names from Pass 1)
  *
  * Analogous to TypeScript's Scanner which reads source characters
  * and produces tokens.
@@ -22,26 +22,15 @@ export class ScanService implements ScanUseCase {
 
   execute(request: ScanRequest): ScanResult {
     const kindDefs = new Map<string, KindDefinitionView>();
-    const typeKindDefs = new Map<string, TypeKindDefinitionView>();
     const instances: ScannedInstance[] = [];
     const errors: string[] = [];
 
-    // Pass 1: Kind defs, TypeKind defs, Instance declarations
+    // Pass 1: Kind defs, Instance declarations
     for (const sourceFile of request.sourceFiles) {
       const kindResult = this.astPort.getKindDefinitions(sourceFile, request.checker);
       errors.push(...kindResult.errors);
       for (const view of kindResult.data) {
         kindDefs.set(view.typeName, view);
-
-        // If this Kind has `wraps` in its config, also register it as a TypeKind def
-        if (view.wrapsTypeName) {
-          typeKindDefs.set(view.typeName, {
-            typeName: view.typeName,
-            kindNameLiteral: view.kindNameLiteral,
-            wrappedTypeName: view.wrapsTypeName,
-            constraints: view.constraints,
-          });
-        }
       }
 
       const instanceResult = this.astPort.getInstanceDeclarations(sourceFile, request.checker);
@@ -49,29 +38,19 @@ export class ScanService implements ScanUseCase {
       for (const view of instanceResult.data) {
         instances.push({ view, sourceFileName: sourceFile.fileName });
       }
+    }
 
-      const tkResult = this.astPort.getTypeKindDefinitions(sourceFile, request.checker);
-      errors.push(...tkResult.errors);
-      for (const view of tkResult.data) {
-        typeKindDefs.set(view.typeName, view);
+    // Pass 2: InstanceOf<K> tagged exports
+    const taggedExports: ScannedTaggedExport[] = [];
+
+    for (const sourceFile of request.sourceFiles) {
+      const taggedResult = this.astPort.getTaggedExports(sourceFile, request.checker);
+      errors.push(...taggedResult.errors);
+      for (const tagged of taggedResult.data) {
+        taggedExports.push({ view: tagged, sourceFileName: sourceFile.fileName });
       }
     }
 
-    // Pass 2: TypeKind instances (needs known TypeKind names from Pass 1)
-    const typeKindInstances: ScannedTypeKindInstance[] = [];
-    const typeKindNames = new Set(typeKindDefs.keys());
-    if (typeKindNames.size > 0) {
-      for (const sourceFile of request.sourceFiles) {
-        const tkiResult = this.astPort.getTypeKindInstances(
-          sourceFile, request.checker, typeKindNames
-        );
-        errors.push(...tkiResult.errors);
-        for (const inst of tkiResult.data) {
-          typeKindInstances.push({ view: inst, sourceFileName: sourceFile.fileName });
-        }
-      }
-    }
-
-    return { kindDefs, instances, typeKindDefs, typeKindInstances, errors };
+    return { kindDefs, instances, taggedExports, errors };
   }
 }

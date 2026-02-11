@@ -3,6 +3,7 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
+import { carrierKey } from '../../../../domain/types/carrier';
 
 export const scopePlugin: ContractPlugin = {
   type: ContractType.Scope,
@@ -20,15 +21,17 @@ export const scopePlugin: ContractPlugin = {
     const [symbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
-    const location = symbol.id;
-    if (!location) {
+    if (!symbol.carrier || symbol.carrier.type !== 'path') {
       return { diagnostics, filesAnalyzed: 0 };
     }
+
+    const key = carrierKey(symbol.carrier);
+    const location = symbol.carrier.path;
 
     // The contract name encodes the expected scope: "scope:folder(name)" or "scope:file(name)"
     const expectedScope = contract.name.startsWith('scope:folder') ? 'folder' : 'file';
 
-    const filePaths = ctx.resolvedFiles.get(location);
+    const filePaths = ctx.resolvedFiles.get(key);
 
     if (expectedScope === 'folder') {
       // Folder scope: location should resolve to multiple files (directory listing)

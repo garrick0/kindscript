@@ -3,7 +3,7 @@ import { ASTViewPort } from '../../application/ports/ast.port';
 import {
   ASTExtractionResult, TypeNodeView,
   KindDefinitionView, MemberValueView, InstanceDeclarationView,
-  TypeKindDefinitionView, TypeKindInstanceView, DeclarationView,
+  TaggedExportView, DeclarationView,
 } from '../../application/pipeline/views';
 import { SourceFile, TypeChecker } from '../../application/ports/typescript.port';
 
@@ -206,78 +206,36 @@ export class ASTAdapter implements ASTViewPort {
     return { data: results, errors };
   }
 
-  getTypeKindDefinitions(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<TypeKindDefinitionView[]> {
+  getTaggedExports(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<TaggedExportView[]> {
     const tsSourceFile = this.toTsSourceFile(sourceFile);
     const tsChecker = checker as unknown as ts.TypeChecker;
     if (!tsSourceFile) return { data: [], errors: [] };
 
-    const results: TypeKindDefinitionView[] = [];
-    const errors: string[] = [];
-
-    for (const stmt of tsSourceFile.statements) {
-      if (!ts.isTypeAliasDeclaration(stmt)) continue;
-
-      const type = stmt.type;
-      if (!ts.isTypeReferenceNode(type)) continue;
-      if (!this.isSymbolNamed(type.typeName, 'TypeKind', tsChecker)) continue;
-
-      const typeName = stmt.name.text;
-
-      // First type arg: kind name literal
-      let kindNameLiteral = typeName;
-      if (type.typeArguments && type.typeArguments.length >= 1) {
-        const firstArg = type.typeArguments[0];
-        if (ts.isLiteralTypeNode(firstArg) && ts.isStringLiteral(firstArg.literal)) {
-          kindNameLiteral = firstArg.literal.text;
-        } else {
-          errors.push(`TypeKind '${typeName}': first type argument must be a string literal.`);
-        }
-      }
-
-      // Second type arg: wrapped type name (informational)
-      let wrappedTypeName: string | undefined;
-      if (type.typeArguments && type.typeArguments.length >= 2) {
-        const secondArg = type.typeArguments[1];
-        if (ts.isTypeReferenceNode(secondArg) && ts.isIdentifier(secondArg.typeName)) {
-          wrappedTypeName = secondArg.typeName.text;
-        }
-      }
-
-      // Third type arg: constraints (optional)
-      let constraints: TypeNodeView | undefined;
-      if (type.typeArguments && type.typeArguments.length >= 3) {
-        constraints = this.buildTypeNodeView(type.typeArguments[2], errors);
-      }
-
-      results.push({ typeName, kindNameLiteral, wrappedTypeName, constraints });
-    }
-
-    return { data: results, errors };
-  }
-
-  getTypeKindInstances(sourceFile: SourceFile, checker: TypeChecker, typeKindNames: Set<string>): ASTExtractionResult<TypeKindInstanceView[]> {
-    const tsSourceFile = this.toTsSourceFile(sourceFile);
-    const tsChecker = checker as unknown as ts.TypeChecker;
-    if (!tsSourceFile) return { data: [], errors: [] };
-
-    const results: TypeKindInstanceView[] = [];
+    const results: TaggedExportView[] = [];
     const errors: string[] = [];
 
     for (const stmt of tsSourceFile.statements) {
       if (!ts.isVariableStatement(stmt)) continue;
 
-      // Only consider exported declarations
       const isExported = stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword);
       if (!isExported) continue;
 
       for (const decl of stmt.declarationList.declarations) {
         if (!ts.isIdentifier(decl.name)) continue;
-        if (!decl.type) continue; // must have explicit type annotation
+        if (!decl.type || !ts.isTypeReferenceNode(decl.type)) continue;
 
-        // Resolve the type annotation name
-        const resolvedName = this.resolveTypeAnnotationName(decl.type, tsChecker);
-        if (resolvedName && typeKindNames.has(resolvedName)) {
-          results.push({ exportName: decl.name.text, kindTypeName: resolvedName });
+        if (!this.isSymbolNamed(decl.type.typeName, 'InstanceOf', tsChecker)) continue;
+
+        // Extract the Kind type name from the first type argument
+        if (decl.type.typeArguments && decl.type.typeArguments.length >= 1) {
+          const arg = decl.type.typeArguments[0];
+          if (ts.isTypeReferenceNode(arg) && ts.isIdentifier(arg.typeName)) {
+            results.push({ exportName: decl.name.text, kindTypeName: arg.typeName.text });
+          } else {
+            errors.push(`InstanceOf on '${decl.name.text}': type argument must be a type reference.`);
+          }
+        } else {
+          errors.push(`InstanceOf on '${decl.name.text}': missing type argument.`);
         }
       }
     }
@@ -353,36 +311,6 @@ export class ASTAdapter implements ASTViewPort {
     }
 
     return { data: declarations, errors: [] };
-  }
-
-  /**
-   * Resolve a type annotation node to the name of the referenced type.
-   * Handles aliases through the type checker.
-   */
-  private resolveTypeAnnotationName(typeNode: ts.TypeNode, checker: ts.TypeChecker): string | undefined {
-    if (!ts.isTypeReferenceNode(typeNode)) return undefined;
-    const typeName = typeNode.typeName;
-
-    // Try checker-based resolution first (alias-safe)
-    if (checker && typeof checker.getSymbolAtLocation === 'function') {
-      try {
-        const symbol = checker.getSymbolAtLocation(typeName);
-        if (symbol) {
-          if (symbol.flags & ts.SymbolFlags.Alias) {
-            try {
-              return checker.getAliasedSymbol(symbol).name;
-            } catch (_e: unknown) {
-              return symbol.name;
-            }
-          }
-          return symbol.name;
-        }
-      } catch (_e: unknown) {
-        // Fall through to string matching
-      }
-    }
-
-    return ts.isIdentifier(typeName) ? typeName.text : undefined;
   }
 
   /**

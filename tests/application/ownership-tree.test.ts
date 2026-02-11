@@ -3,10 +3,10 @@ import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { buildOwnershipTree } from '../../src/application/pipeline/ownership-tree';
 
 function makeInstance(name: string, id: string, members?: [string, string][]): ArchSymbol {
-  const symbol = new ArchSymbol(name, ArchSymbolKind.Instance, id);
+  const symbol = new ArchSymbol(name, ArchSymbolKind.Instance, { type: 'path', path: id });
   if (members) {
     for (const [mName, mId] of members) {
-      symbol.members.set(mName, new ArchSymbol(mName, ArchSymbolKind.Member, mId));
+      symbol.members.set(mName, new ArchSymbol(mName, ArchSymbolKind.Member, { type: 'path', path: mId }));
     }
   }
   return symbol;
@@ -102,7 +102,7 @@ describe('buildOwnershipTree', () => {
 
   it('ignores non-instance symbols', () => {
     const kind = new ArchSymbol('MyKind', ArchSymbolKind.Kind);
-    const member = new ArchSymbol('domain', ArchSymbolKind.Member, '/project/src/domain');
+    const member = new ArchSymbol('domain', ArchSymbolKind.Member, { type: 'path', path: '/project/src/domain' });
 
     const tree = buildOwnershipTree([kind, member]);
 

@@ -3,7 +3,7 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { isFileInSymbol } from '../../../../infrastructure/path/path-utils';
+import { carrierKey } from '../../../../domain/types/carrier';
 import { generateFromTuplePairs } from '../generator-helpers';
 
 export const noDependencyPlugin: ContractPlugin = {
@@ -30,21 +30,21 @@ export const noDependencyPlugin: ContractPlugin = {
     const [fromSymbol, toSymbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
-    const fromLocation = fromSymbol.id;
-    const toLocation = toSymbol.id;
-    if (!fromLocation || !toLocation) {
+    const fromKey = fromSymbol.carrier ? carrierKey(fromSymbol.carrier) : undefined;
+    const toKey = toSymbol.carrier ? carrierKey(toSymbol.carrier) : undefined;
+    if (!fromKey || !toKey) {
       return { diagnostics, filesAnalyzed: 0 };
     }
 
-    const fromFilePaths = ctx.resolvedFiles.get(fromLocation) ?? [];
-    const toFiles = new Set(ctx.resolvedFiles.get(toLocation) ?? []);
+    const fromFilePaths = ctx.resolvedFiles.get(fromKey) ?? [];
+    const toFiles = new Set(ctx.resolvedFiles.get(toKey) ?? []);
 
     // Cross-file import checks
     for (const { sourceFile } of getSourceFilesForPaths(ctx, fromFilePaths)) {
       const imports = ctx.tsPort.getImports(sourceFile, ctx.checker);
 
       for (const imp of imports) {
-        if (isFileInSymbol(imp.targetFile, toLocation, toFiles)) {
+        if (toFiles.has(imp.targetFile)) {
           diagnostics.push(new Diagnostic(
             `Forbidden dependency: ${fromSymbol.name} → ${toSymbol.name} (${imp.sourceFile} → ${imp.targetFile})`,
             DiagnosticCode.ForbiddenDependency,
@@ -55,7 +55,7 @@ export const noDependencyPlugin: ContractPlugin = {
       }
     }
 
-    // Intra-file reference checks (for TypeKind members sharing a file)
+    // Intra-file reference checks (for wrapped Kind members sharing a file)
     if (ctx.declarationOwnership) {
       const sharedFiles = fromFilePaths.filter(f => toFiles.has(f));
 
@@ -72,7 +72,7 @@ export const noDependencyPlugin: ContractPlugin = {
           const fromOwner = fileOwnership.get(edge.fromDeclaration);
           const toOwner = fileOwnership.get(edge.toDeclaration);
 
-          if (fromOwner === fromLocation && toOwner === toLocation) {
+          if (fromOwner === fromKey && toOwner === toKey) {
             diagnostics.push(new Diagnostic(
               `Forbidden dependency: ${fromSymbol.name} → ${toSymbol.name} (${edge.fromDeclaration} → ${edge.toDeclaration})`,
               DiagnosticCode.ForbiddenDependency,

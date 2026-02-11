@@ -8,7 +8,7 @@ import { ArchSymbolKind } from '../../domain/types/arch-symbol-kind';
  */
 export interface OwnershipNode {
   instanceSymbol: ArchSymbol;
-  /** Resolved root path (from instanceSymbol.id) */
+  /** Carrier key (path string for path-based instances) */
   scope: string;
   parent: OwnershipNode | null;
   children: OwnershipNode[];
@@ -37,15 +37,15 @@ export interface OwnershipTree {
  * containing instance as the direct parent).
  */
 export function buildOwnershipTree(symbols: ArchSymbol[]): OwnershipTree {
-  // Collect all instance symbols with resolved ids
+  // Collect all path-based instance symbols
   const instances = symbols.filter(
-    s => s.kind === ArchSymbolKind.Instance && s.id
+    s => s.kind === ArchSymbolKind.Instance && s.carrier?.type === 'path'
   );
 
   // Create nodes
   const nodes: OwnershipNode[] = instances.map(s => ({
     instanceSymbol: s,
-    scope: s.id!,
+    scope: (s.carrier as { type: 'path'; path: string }).path,
     parent: null,
     children: [],
   }));
@@ -111,8 +111,10 @@ function findContainingMember(
   childScope: string,
 ): string | undefined {
   for (const [name, member] of parentInstance.members) {
-    if (!member.id) continue;
-    if (childScope === member.id || childScope.startsWith(member.id + '/')) {
+    // Skip wrapped Kind members — they don't define filesystem containment boundaries
+    if (!member.carrier || member.carrier.type !== 'path') continue;
+    const memberPath = member.carrier.path;
+    if (childScope === memberPath || childScope.startsWith(memberPath + '/')) {
       return name;
     }
   }

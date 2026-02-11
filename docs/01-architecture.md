@@ -99,12 +99,12 @@ The pipeline is orchestrated by `PipelineService`, which runs four stages in seq
        |
        ├─ For each source file:
        │   ├─ Extract Kind definitions (type aliases referencing Kind<N>)
-       │   ├─ Extract TypeKind definitions (TypeKind<N, T, C>)
+       │   ├─ Extract wrapped Kind definitions (wrapsTypeName on KindDefinitionView)
        │   ├─ Extract Instance declarations (satisfies Instance<T>)
-       │   └─ Extract TypeKind instances (typed exports)
+       │   └─ Extract InstanceOf<K> tagged exports
        |
        ▼
-  ScanResult { kindDefs, instances, typeKindDefs, typeKindInstances, errors }
+  ScanResult { kindDefs, instances, taggedExports, errors }
        |
   Stage 2: PARSE ────────────────────────────────────────────────────
        |
@@ -119,7 +119,7 @@ The pipeline is orchestrated by `PipelineService`, which runs four stages in seq
        ├─ Resolve symbols to files (directory/file/declaration)
        ├─ Walk constraint trees → generate Contract[]
        ├─ Propagate intrinsic constraints from member Kinds
-       └─ Generate TypeKind standalone contracts
+       └─ Generate wrapped Kind standalone contracts
        |
        ▼
   BindResult { contracts, resolvedFiles, containerFiles, declarationOwnership, errors }
@@ -245,8 +245,7 @@ The adapter resolves identifier references via `varMap` — `{ domain: x }` wher
 ScanResult {
   kindDefs:          Map<string, KindDefinitionView>          // typeName → definition
   instances:         ScannedInstance[]                         // { view, sourceFileName }
-  typeKindDefs:      Map<string, TypeKindDefinitionView>      // TypeKind<N, T, C> definitions
-  typeKindInstances: ScannedTypeKindInstance[]                 // typed exports (pass 2)
+  taggedExports:     ScannedTaggedExport[]                     // InstanceOf<K> tagged exports (pass 2)
   errors:            string[]                                 // extraction errors
 }
 ```
@@ -315,17 +314,15 @@ ParseResult {
 
 #### Resolve symbol locations
 
-The binder resolves each symbol's `id` to actual code files using a unified strategy:
+The binder uses a `CarrierResolver` to translate each symbol's `carrier` expression into actual code files. The resolver interprets carrier atoms and operations:
 
-```
-For each symbol and its descendants:
-  1. TypeKind member? → Declaration resolution (typed exports within parent scope)
-  2. Directory exists? → Folder resolution (readDirectory, recursive)
-  3. File exists? → File resolution (single file)
-  4. None → Unresolved (omitted from resolvedFiles)
-```
+- **path** — resolve to directory (recursive listing) or file (single-element array)
+- **tagged** — collect all files containing `InstanceOf<K>` exports matching the Kind type name
+- **union** — files from any child carrier
+- **exclude** — files from base minus files from excluded
+- **intersect** — files common to all children (optimized for `intersect(tagged, path)` scoped tagged carrier pattern)
 
-Locations that don't exist on disk are silently omitted — `resolvedFiles` only contains locations with actual files.
+The binder passes the scan context (tagged exports) to the resolver for resolving tagged carriers. Carriers that don't resolve to actual files (e.g., paths that don't exist) produce empty file sets — `resolvedFiles` only contains carriers with actual files.
 
 #### Generate contracts from explicit constraints
 
@@ -428,9 +425,9 @@ Each plugin implements its own checking logic using the `CheckContext`. The shar
 
 | Plugin | resolvedFiles | tsPort methods | Domain utils |
 |---|---|---|---|
-| `noDependency` | Get files for both symbols | `getImports(sf, checker)`, `getIntraFileReferences(sf, checker)` | `isFileInSymbol()` — path containment |
+| `noDependency` | Get files for both symbols | `getImports(sf, checker)`, `getIntraFileReferences(sf, checker)` | Set membership on resolved files |
 | `purity` | Get files for the symbol | `getImportModuleSpecifiers(program, sf)` — raw specifier strings | `NODE_BUILTINS` set membership |
-| `noCycles` | Get files for all symbols | `getImports(sf, checker)` — build dependency graph | `findCycles()` — cycle detection |
+| `noCycles` | Get files for all symbols | `getImports(sf, checker)` — build dependency graph | `findCycles()` — cycle detection, set membership |
 | `scope` | — | — | Validates instance location vs Kind scope |
 | `overlap` | Get files for both sibling symbols | — | Set intersection of file lists |
 | `exhaustiveness` | Get member files + containerFiles | — | Set difference: container − members |
@@ -503,9 +500,9 @@ Pure business logic with zero external dependencies — no TypeScript compiler A
 
 - **Entities:** `ArchSymbol`, `Contract`, `Diagnostic`, `Program`
 - **Value Objects:** `ContractReference`, `SourceRef`
-- **Types:** `ArchSymbolKind`, `ContractType`, `CompilerOptions`
+- **Types:** `ArchSymbolKind`, `ContractType`, `CompilerOptions`, `CarrierExpr`
 - **Constants:** `DiagnosticCode`, `NodeBuiltins`
-- **Utilities:** cycle detection
+- **Utilities:** cycle detection, `carrierKey()`, `hasTaggedAtom()`
 
 ### Application Layer
 
@@ -515,7 +512,8 @@ Use cases and port interfaces. Organized as a four-stage pipeline:
 - **Pipeline:**
   - `ScanService` — AST extraction via `ASTViewPort`
   - `ParseService` — ArchSymbol tree construction (pure structural, no I/O)
-  - `BindService` — File resolution + contract generation via `ConstraintProvider` plugins
+  - `BindService` — File resolution + contract generation via `ConstraintProvider` plugins (uses `CarrierResolver`)
+  - `CarrierResolver` — translates carrier expressions to file sets via filesystem probing and tagged export filtering
   - `CheckerService` — Contract evaluation via `ContractPlugin` implementations
   - `PipelineService` — orchestrator (caching + stage chaining, delegates program setup to `ProgramFactory`)
   - `ProgramFactory` — config reading, file discovery, TS program creation (behind `ProgramPort` interface)
@@ -544,11 +542,11 @@ Product entry points, each with their own ports, adapters, and use cases:
 
 ```
 src/
-  types/index.ts                              # Public API (Kind, TypeKind, Constraints, Instance, KindConfig, KindRef)
+  types/index.ts                              # Public API (Kind, Constraints, Instance<T, Path>, InstanceOf<K>, MemberMap, KindConfig, KindRef)
   domain/                                     # Pure, zero dependencies
     entities/                                 # ArchSymbol, Contract, Diagnostic, Program
     value-objects/                            # ContractReference, SourceRef
-    types/                                    # ArchSymbolKind, ContractType
+    types/                                    # ArchSymbolKind, ContractType, CarrierExpr (+ carrierKey, hasTaggedAtom)
     constants/                                # DiagnosticCode, NodeBuiltins
     utils/                                    # cycle-detection
   application/
@@ -563,6 +561,8 @@ src/
       bind/                                   # Stage 3: Resolution + contract generation
         bind.service.ts
         bind.types.ts                         # BindResult, BindUseCase
+      carrier/                                # Carrier resolution (translates carriers → file sets)
+        carrier-resolver.ts                   # CarrierResolver service
       check/                                  # Stage 4: Contract evaluation
         checker.service.ts
         checker.use-case.ts                   # CheckerUseCase interface
@@ -592,7 +592,7 @@ src/
     filesystem/filesystem.adapter.ts
     config/config.adapter.ts
     ast/ast.adapter.ts
-    path/path-utils.ts                        # Pure path utilities (isFileInSymbol, joinPath, etc.)
+    path/path-utils.ts                        # Pure path utilities (joinPath, resolvePath, etc.)
     engine-factory.ts                         # createEngine()
   apps/
     cli/                                      # CLI entry point + commands
@@ -619,7 +619,7 @@ The core domain entity — a named architectural unit classified from the AST:
 class ArchSymbol {
   readonly name: string;                       // symbol name (e.g., "domain", "app")
   readonly kind: ArchSymbolKind;               // Kind | Instance | Member
-  readonly id?: string;                         // opaque identifier (lookup key into resolvedFiles)
+  readonly carrier?: CarrierExpr;              // carrier expression (what code this symbol operates over)
   readonly members: Map<string, ArchSymbol>;   // child symbols (hierarchical)
   readonly kindTypeName?: string;              // the Kind type this instantiates
   readonly exportName?: string;                // for sub-file instances (hash syntax)
