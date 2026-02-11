@@ -341,9 +341,9 @@ The root is inferred from the file's directory — so both the top-level design 
 
 ---
 
-## Part 5: TypeKind — Declaration-Level Enforcement
+## Part 5: Wrapped Kinds — Declaration-Level Enforcement
 
-Kind classifies **directories**. TypeKind classifies **types** — individual exported declarations within a directory.
+Structural Kinds classify **directories**. Wrapped Kinds classify **types** — individual exported declarations within a directory.
 
 ### The problem
 
@@ -355,14 +355,14 @@ Both live in the same directory. You want: "no Decider may depend on an Effector
 
 ### The solution
 
-TypeKind wraps a TypeScript type with architectural meaning:
+A wrapped Kind associates a TypeScript type with architectural meaning by using `{ wraps: T }` in the Kind's 4th parameter:
 
 ```typescript
-import type { Kind, Instance, TypeKind } from 'kindscript';
+import type { Kind, Instance, InstanceOf } from 'kindscript';
 import type { DeciderFn, EffectorFn } from './types';
 
-type Decider = TypeKind<"Decider", DeciderFn>;
-type Effector = TypeKind<"Effector", EffectorFn>;
+type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
+type Effector = Kind<"Effector", {}, {}, { wraps: EffectorFn }>;
 
 type OrderModule = Kind<"OrderModule", {
   deciders: Decider;
@@ -377,21 +377,23 @@ export const order = {
 } satisfies Instance<OrderModule, '.'>;
 ```
 
-Functions declare their role via type annotation:
+Functions declare their role via `InstanceOf` type annotation:
 
 ```typescript
-export const validateOrder: Decider = (command) => {
+import type { InstanceOf } from 'kindscript';
+
+export const validateOrder: InstanceOf<Decider> = (command) => {
   // ... pure decision logic
   return [{ type: 'OrderValidated', data: command }];
 };
 
-export const notifyOrder: Effector = (event) => {
+export const notifyOrder: InstanceOf<Effector> = (event) => {
   // ... side-effectful notification
   console.log('Notifying:', event.type);
 };
 ```
 
-The `: Decider` annotation is both the TypeScript type **and** the KindScript architectural declaration. No `satisfies`, no `register()`.
+The `: InstanceOf<Decider>` annotation is both the TypeScript type **and** the KindScript architectural declaration. No `satisfies`, no `register()`.
 
 ### Catching a violation
 
@@ -405,7 +407,7 @@ src/apply-discount.ts:3:0 - error KS70001: Forbidden dependency: deciders → ef
 Found 1 architectural violation(s).
 ```
 
-**Key insight:** The binder and checker needed zero changes to support TypeKind. The `resolvedFiles` abstraction hides whether a member is a directory or a typed-export group. Existing constraint plugins work unchanged.
+**Key insight:** The binder and checker needed zero changes to support wrapped Kinds. The `resolvedFiles` abstraction hides whether a member is a directory or a typed-export group. Existing constraint plugins work unchanged.
 
 ---
 
@@ -414,8 +416,9 @@ Found 1 architectural violation(s).
 | Concept | What it does |
 |---------|--------------|
 | `Kind<N, Members, Constraints>` | Defines an architectural pattern with named members and constraints |
-| `Instance<T, Path>` | Maps a Kind to real directories on disk (Path is the location) |
-| `TypeKind<N, T>` | Wraps a TypeScript type with architectural meaning |
+| `Kind<N, {}, C, { wraps: T }>` | Wraps a TypeScript type with architectural meaning (declaration-level) |
+| `Instance<T, Path>` | Maps a structural Kind to real directories on disk (Path is the location) |
+| `InstanceOf<K>` | Tags an export as an instance of a wrapped Kind |
 | `noDependency` | Forbids imports between members |
 | `purity` | Forbids I/O imports in pure members |
 | `noCycles` | Detects circular dependencies between members |
@@ -426,11 +429,11 @@ Found 1 architectural violation(s).
 2. **Three constraint types** — noDependency, purity, noCycles
 3. **Multi-instance** — bounded contexts sharing the same Kind type
 4. **Real-world modeling** — incremental adoption, iterative refinement
-5. **TypeKind** — declaration-level enforcement within a directory
+5. **Wrapped Kinds** — declaration-level enforcement within a directory
 
 ### Next steps
 
 - [Interactive notebooks](../notebooks/) — hands-on walkthroughs with runnable code
-- [Kind System](02-kind-system.md) — full Kind and TypeKind reference
+- [Kind System](02-kind-system.md) — full Kind reference (structural and wrapped)
 - [Constraints](03-constraints.md) — complete constraint documentation and plugin architecture
 - [Examples](05-examples.md) — more real-world modeling patterns

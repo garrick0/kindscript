@@ -37,13 +37,13 @@ src/
 ├── domain/                                     # (pure, zero dependencies)
 │   ├── entities/                               # ArchSymbol, Contract, Diagnostic, Program
 │   ├── value-objects/                           # ContractReference, SourceRef
-│   ├── types/                                  # ArchSymbolKind, ContractType, CompilerOptions
+│   ├── types/                                  # ArchSymbolKind, ContractType, CompilerOptions, CarrierExpr (+ carrierKey, hasTaggedAtom)
 │   ├── constants/                              # DiagnosticCode, NodeBuiltins
 │   └── utils/                                  # cycle-detection
 ├── application/
 │   ├── ports/                                  # 4 driven ports (typescript, filesystem, config, ast)
 │   ├── pipeline/                               # Four-stage compiler pipeline
-│   │   ├── scan/                               # Stage 1: AST → raw views (KindDefinitionView, InstanceDeclarationView)
+│   │   ├── scan/                               # Stage 1: AST → raw views (Pass 1: Kind defs + instances, Pass 2: InstanceOf<K> tagged exports)
 │   │   │   ├── scan.types.ts                   # ScanRequest, ScanResult, ScanUseCase
 │   │   │   └── scan.service.ts                 # ScanService (uses ASTViewPort)
 │   │   ├── parse/                              # Stage 2: views → ArchSymbol trees (pure structural)
@@ -52,6 +52,8 @@ src/
 │   │   ├── bind/                               # Stage 3: resolution + constraint trees → Contract[]
 │   │   │   ├── bind.types.ts                   # BindResult, BindUseCase
 │   │   │   └── bind.service.ts                 # BindService (uses FileSystemPort + ConstraintProvider plugins)
+│   │   ├── carrier/                            # Carrier resolution (translates carriers → file sets)
+│   │   │   └── carrier-resolver.ts             # CarrierResolver service
 │   │   ├── check/                              # Stage 4: contracts × files → Diagnostic[]
 │   │   │   ├── checker.service.ts              # CheckerService (dispatcher)
 │   │   │   ├── checker.use-case.ts             # CheckerUseCase interface
@@ -70,7 +72,7 @@ src/
 │   │   │   ├── scope/                          # scopePlugin
 │   │   │   ├── overlap/                        # overlapPlugin (auto-generated for siblings)
 │   │   │   └── exhaustiveness/                 # exhaustivenessPlugin (opt-in exhaustive: true)
-│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, DeclarationView, etc.)
+│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, InstanceOfView, DeclarationView, etc.)
 │   │   ├── ownership-tree.ts                   # OwnershipTree, OwnershipNode, buildOwnershipTree()
 │   │   ├── program.ts                          # ProgramPort, ProgramFactory, ProgramSetup
 │   │   ├── pipeline.types.ts                   # PipelineRequest, PipelineResponse, PipelineUseCase
@@ -81,7 +83,7 @@ src/
 │   ├── filesystem/filesystem.adapter.ts
 │   ├── config/config.adapter.ts
 │   ├── ast/ast.adapter.ts
-│   ├── path/path-utils.ts                      # Pure path utilities (isFileInSymbol, joinPath, resolvePath, etc.)
+│   ├── path/path-utils.ts                      # Pure path utilities (joinPath, resolvePath, etc.)
 │   └── engine-factory.ts                       # createEngine() — wires shared services
 └── apps/
     ├── cli/
@@ -373,18 +375,28 @@ it('checks contracts', () => {
 
 ## Recent Changes
 
-**Date:** 2026-02-10
+**Date:** 2026-02-11
 
-**Summary:** Recursive ownership model complete — all 7 phases implemented + cleanup
-- All 7 phases (0–6) complete: explicit locations, container resolution, overlap, exhaustiveness, ownership tree, declaration containment, intra-file deps
+**Summary:** Carrier-based resolution — replaced runtime path probing with algebraic carriers
+- Introduced `CarrierExpr` type and `carrierKey()` / `hasTaggedAtom()` domain functions
+- Replaced `symbol.id` with `symbol.carrier` (algebraic expression, not string)
+- Added `CarrierResolver` service for translating carriers to file sets via filesystem probing and tagged export filtering
+- Binder now uses carrier-based dispatch (no more runtime `isWrappedKind()` or `isFileInSymbol()` probing)
+- Removed `isFileInSymbol()` from path-utils (replaced by set membership on resolved files)
+- Carrier algebra: `path`, `tagged`, `union`, `exclude`, `intersect` (scoped tagged carriers expressed as `intersect(tagged, path)`)
+
+**Previous:** Unified Kind model — eliminated TypeKind in favor of `wrapsTypeName` + `InstanceOf<K>`
+- Removed `TypeKind<N, T, C>` from public API; wrapped Kinds now use `Kind<N, {}, C, { wraps: T }>`
+- Introduced `InstanceOf<K>` as the tagged export type for wrapped Kind members
+- Scanner now uses two passes: Pass 1 extracts Kind definitions + instances, Pass 2 extracts `InstanceOf<K>` tagged exports
+- Removed `TypeKindDefinitionView`, `TypeKindInstanceView`, `ScannedTypeKindInstance` view DTOs
+- Renamed fixtures: `typekind-*` to `wrapped-kind-*`, `TYPEKIND_*` to `WRAPPED_KIND_*`
+
+**Previous:** Recursive ownership model complete — all 7 phases implemented + cleanup
+- All 7 phases (0-6) complete: explicit locations, container resolution, overlap, exhaustiveness, ownership tree, declaration containment, intra-file deps
 - Removed backward-compat Diagnostic getters (`.file`, `.line`, `.column`, `.scope`) — consumers now use `.source.*` directly
 - Added `exhaustive?: true` to `Constraints` type in public API
-- Added integration/E2E tests for overlap (KS70006) and exhaustiveness (KS70007) violations
-- Fixed test-pipeline helper to pass `containerFiles` and `declarationOwnership` to checker
 - 6 registered plugins: noDependency, purity, noCycles, scope, overlap, exhaustiveness
-- 31 test files, 342 tests, 100% passing
-
-**Previous:** Explicit instance location — `Instance<T, Path>` replaces convention-based derivation
 
 **Key entities:**
 - `Engine` interface: `{ pipeline, plugins }` — minimal surface for app composition roots
@@ -395,14 +407,15 @@ it('checks contracts', () => {
 - `SourceRef` value object: `{ file, line, column, scope? }` — `at()` for file-scoped, `structural()` for project-wide
 - `Diagnostic` entity: constructor takes `(message, code, source: SourceRef, relatedContract?)` — access location via `.source.file`, `.source.line`, `.source.column`, `.source.scope`
 - `ASTExtractionResult<T>`: `{ data: T, errors: string[] }` — wraps AST port results
-- `TypeKindDefinitionView`: `{ typeName, kindNameLiteral, wrappedTypeName?, constraints? }` — scanner output for TypeKind definitions
-- `TypeKindInstanceView`: `{ exportName, kindTypeName }` — scanner output for typed exports
-- `ScannedTypeKindInstance`: `{ view: TypeKindInstanceView, sourceFileName: string }` — file-paired TypeKind instance
 - `OwnershipTree`: `{ roots, nodeByInstanceId }` — parent-child instance relationships built from scope containment
 - `OwnershipNode`: `{ instanceSymbol, scope, parent, children, memberOf? }` — tree node
 - `DeclarationView`: `{ name, kind, exported, line, column }` — top-level declaration in a source file
 - `IntraFileEdge`: `{ fromDeclaration, toDeclaration, line, column }` — reference between declarations in the same file
 - `ImportEdge`: cross-file import edge (moved from domain to application layer)
+- `CarrierExpr` type: algebraic expression describing what code a symbol operates over — atoms: `path`, `tagged`; operations: `union`, `exclude`, `intersect`
+- `carrierKey(carrier)`: deterministic string serialization of a CarrierExpr, usable as a Map key (returns raw path string for path carriers)
+- `hasTaggedAtom(carrier)`: checks if a carrier contains a tagged atom (replaces `isWrappedKind` pattern)
+- `ArchSymbol`: `carrier?: CarrierExpr` (not `id: string`) — carrier expression, not opaque identifier
 
 ---
 
@@ -410,17 +423,19 @@ it('checks contracts', () => {
 
 ### Source Code
 
-- `src/types/index.ts` - Public API (Kind, TypeKind, Constraints, Instance<T, Path>, MemberMap, KindConfig, KindRef)
+- `src/types/index.ts` - Public API (Kind, Constraints, Instance<T, Path>, InstanceOf<K>, MemberMap, KindConfig, KindRef)
 - `src/domain/entities/arch-symbol.ts` - Core domain entity
+- `src/domain/types/carrier.ts` - CarrierExpr type, carrierKey(), hasTaggedAtom()
 - `src/application/pipeline/scan/scan.service.ts` - Stage 1: AST extraction
 - `src/application/pipeline/parse/parse.service.ts` - Stage 2: ArchSymbol tree building (pure structural, no I/O)
 - `src/application/pipeline/bind/bind.service.ts` - Stage 3: Member resolution + contract generation
+- `src/application/pipeline/carrier/carrier-resolver.ts` - CarrierResolver service (translates carriers to file sets)
 - `src/application/pipeline/plugins/constraint-provider.ts` - ConstraintProvider interface
 - `src/application/pipeline/check/checker.service.ts` - Stage 4: Contract checking (dispatcher)
 - `src/application/pipeline/plugins/contract-plugin.ts` - ContractPlugin interface + helpers
 - `src/application/pipeline/plugins/generator-helpers.ts` - Shared generate() helpers
 - `src/application/pipeline/plugins/plugin-registry.ts` - createAllPlugins()
-- `src/application/pipeline/views.ts` - Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
+- `src/application/pipeline/views.ts` - Pipeline view DTOs (TypeNodeView, KindDefinitionView, InstanceOfView, etc.)
 - `src/application/pipeline/program.ts` - ProgramPort, ProgramFactory, ProgramSetup
 - `src/application/pipeline/pipeline.service.ts` - Pipeline orchestrator (caching + 4 stages)
 - `src/application/pipeline/pipeline.types.ts` - PipelineRequest/Response/UseCase
@@ -512,7 +527,7 @@ Documentation is organized as 6 maintained chapter files (checked in) plus a git
 docs/                                # Source of truth (checked in)
 ├── README.md                        # Index + reading order (start here)
 ├── 01-architecture.md               # System overview, pipeline, layers, data flow
-├── 02-kind-system.md                # Kind syntax, TypeKind, instances, location resolution, scope validation, discovery
+├── 02-kind-system.md                # Kind syntax, wrapped Kinds, instances, location resolution, scope validation, discovery
 ├── 03-constraints.md                # All 3 constraint types, plugin architecture
 ├── decisions/                       # Architecture Decision Records (ADRs)
 ├── 05-examples.md                   # Real-world modeling examples
@@ -636,5 +651,5 @@ If still unclear, ask the user for clarification rather than guessing.
 
 ---
 
-**Last Updated:** 2026-02-10
+**Last Updated:** 2026-02-11
 **Test Suite Status:** 31 files, 342 tests, 100% passing

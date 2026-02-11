@@ -261,10 +261,10 @@ type MyApp = Kind<"MyApp", {
 }>;
 ```
 
-**Step 3 — Add TypeKind-level enforcement:**
+**Step 3 — Add declaration-level enforcement with a wrapped Kind:**
 ```typescript
 type DeciderFn = (command: unknown) => unknown[];
-type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
+type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
 
 type MyApp = Kind<"MyApp", {
   domain: DomainLayer;

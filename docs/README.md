@@ -5,7 +5,7 @@
 | # | Chapter | What's in it |
 |---|---------|-------------|
 | 1 | [Architecture](01-architecture.md) | System overview, compiler pipeline, layers, data flow, source layout |
-| 2 | [Kind System](02-kind-system.md) | Kind syntax, TypeKind, instances, location resolution, scope validation, discovery |
+| 2 | [Kind System](02-kind-system.md) | Kind syntax (structural and wrapped), instances, location resolution, scope validation, discovery |
 | 3 | [Constraints](03-constraints.md) | All 6 constraint types (3 user-declared + 3 structural), plugin architecture |
 | 4 | [Decisions](decisions/) | Architecture Decision Records (32 ADRs: plugin vs LSP, drop .k.ts, unified Kind, etc.) |
 | 5 | [Examples](05-examples.md) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
@@ -44,7 +44,7 @@
 | How do I model a design system? | [05-examples.md](05-examples.md) — Design System |
 | How do bounded contexts work? | [05-examples.md](05-examples.md) — Bounded Contexts |
 | How do I learn KindScript step by step? | [06-tutorial.md](06-tutorial.md) — Tutorial |
-| How do I use TypeKind? | [02-kind-system.md](02-kind-system.md) — TypeKind |
+| How do I use wrapped Kinds? | [02-kind-system.md](02-kind-system.md) — Wrapped Kinds |
 | How does scope validation work? | [02-kind-system.md](02-kind-system.md) — Scope Validation |
 | How do I write tests? | [tests/README.md](../tests/README.md) — Testing guide |
 
