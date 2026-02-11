@@ -124,11 +124,13 @@ noCycles: ["domain", "application", "infra"];
 error KS70004: Circular dependency detected: domain → infra → domain
 ```
 
-**TypeKind composability** -- group exports by architectural role and enforce constraints between groups:
+**Wrapped Kind composability** -- group exports by architectural role and enforce constraints between groups:
 
 ```typescript
-type Decider = TypeKind<"Decider", DeciderFn>;
-type Effector = TypeKind<"Effector", EffectorFn>;
+import type { Kind, InstanceOf } from 'kindscript';
+
+type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
+type Effector = Kind<"Effector", {}, {}, { wraps: EffectorFn }>;
 
 type OrderModule = Kind<"OrderModule", {
   deciders: Decider;
@@ -136,6 +138,10 @@ type OrderModule = Kind<"OrderModule", {
 }, {
   noDependency: [["deciders", "effectors"]];
 }>;
+
+// Export declarations using InstanceOf
+export const applyDiscount: InstanceOf<Decider> = (order) => { /* ... */ };
+export const notifyOrder: InstanceOf<Effector> = (order) => { /* ... */ };
 ```
 ```
 src/domain/apply-discount.ts:1:1 - error KS70001: Forbidden dependency: deciders → effectors (src/domain/apply-discount.ts → src/domain/notify-order.ts)
@@ -205,7 +211,7 @@ Jupyter notebooks in `notebooks/` provide hands-on walkthroughs:
 |----------|-------------------|
 | [01-quickstart](notebooks/01-quickstart.ipynb) | Define, check, break, fix — all 3 constraint types |
 | [02-real-world](notebooks/02-real-world.ipynb) | Multi-instance bounded contexts with a real codebase |
-| [03-typekind](notebooks/03-typekind.ipynb) | TypeKind composability: declaration-level enforcement |
+| [03-typekind](notebooks/03-typekind.ipynb) | Wrapped Kind composability: declaration-level enforcement |
 
 For a static walkthrough (no Deno kernel required), see [Tutorial](docs/06-tutorial.md).
 
@@ -237,7 +243,7 @@ The site is deployed automatically via GitHub Actions. See [website/README.md](w
 
 All core functionality is implemented and tested. 31 test suites, 350 tests, 100% passing.
 
-**What's working:** All 6 constraint types (3 user-declared + 3 structural), TypeKind composability, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
+**What's working:** All 6 constraint types (3 user-declared + 3 structural), Wrapped Kind composability, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
 
 **Roadmap:** Watch mode, incremental compilation, diagnostic `relatedInformation` linking to contract definitions.
 
