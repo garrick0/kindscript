@@ -47,7 +47,7 @@ export type KindConfig = {
 /**
  * Phantom marker type that both structural and wrapped Kinds satisfy.
  * Used as the constraint for the Members parameter so that both
- * `Kind<"Foo">` and `TypeKind<"Bar", Fn>` can be used as members.
+ * `Kind<"Foo">` and wrapped `Kind<"Bar", {}, {}, { wraps: Fn }>` can be used as members.
  */
 export type KindRef = { readonly __kindscript_ref?: string };
 
@@ -59,17 +59,12 @@ export type KindRef = { readonly __kindscript_ref?: string };
  * it produces a structural type (`{ kind, location } & Members`) for use
  * with `satisfies Instance<T, Path>`.
  *
- * `TypeKind<N, T, C>` is sugar for `Kind<N, {}, C, { wraps: T }>`.
- *
  * ```typescript
  * // Structural Kind — used with satisfies Instance<T, Path>
  * type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
  *
- * // Wrapped Kind — used as type annotation on exports
+ * // Wrapped Kind — used as type annotation on exports via InstanceOf<K>
  * type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
- *
- * // Or equivalently using the TypeKind sugar:
- * type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
  * ```
  *
  * @typeParam N - The kind name as a string literal type
@@ -143,28 +138,20 @@ export type MemberMap<T extends KindRef> = {
 export type Instance<T extends KindRef, _Path extends string = string> = MemberMap<T>;
 
 /**
- * Sugar for a wrapped Kind — a type-level architectural kind that wraps
- * a TypeScript type.
+ * Phantom tag for sub-file exports that belong to a wrapped Kind.
  *
- * `TypeKind<N, T, C>` is exactly `Kind<N, {}, C, { wraps: T }>`.
- *
- * Instances are created by annotating exports with the TypeKind type.
- * The type annotation IS the architectural declaration — zero extra syntax.
+ * Use `InstanceOf<K>` as a type annotation on exported declarations to
+ * declare them as instances of a wrapped Kind. KindScript's scanner
+ * detects these annotations and assigns the export to the appropriate
+ * member.
  *
  * ```typescript
- * type DeciderFn = (command: Command) => readonly Event[];
- * type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
+ * type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
  *
- * // The type annotation IS the instance:
- * export const validateOrder: Decider = (cmd) => { ... };
+ * export const validateOrder: InstanceOf<Decider> = (cmd) => { ... };
  * ```
  *
- * @typeParam N - The kind name as a string literal type
- * @typeParam T - The wrapped TypeScript type
- * @typeParam C - Optional constraints (e.g., `{ pure: true }`)
+ * @typeParam K - The wrapped Kind type this export belongs to
  */
-export type TypeKind<
-  N extends string,
-  T,
-  C extends Constraints = {},
-> = Kind<N, {}, C, { wraps: T }>;
+export type InstanceOf<K extends KindRef> = K;
+

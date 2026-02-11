@@ -29,7 +29,7 @@ export interface KindDefinitionView {
   members: Array<{ name: string; typeName?: string; location?: string }>;
   constraints?: TypeNodeView;
   scope?: 'folder' | 'file';
-  /** If the 4th type arg has `wraps`, this Kind is also a wrapped Kind (TypeKind-equivalent) */
+  /** If the 4th type arg has `wraps`, this is a wrapped Kind */
   wrapsTypeName?: string;
 }
 
@@ -55,19 +55,9 @@ export interface InstanceDeclarationView {
 }
 
 /**
- * View of a TypeKind definition: type X = TypeKind<N, T, C>
+ * View of an exported declaration tagged with `InstanceOf<K>`.
  */
-export interface TypeKindDefinitionView {
-  typeName: string;
-  kindNameLiteral: string;
-  wrappedTypeName?: string;
-  constraints?: TypeNodeView;
-}
-
-/**
- * View of a typed export that references a TypeKind.
- */
-export interface TypeKindInstanceView {
+export interface TaggedExportView {
   exportName: string;
   kindTypeName: string;
 }
