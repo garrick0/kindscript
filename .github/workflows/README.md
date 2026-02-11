@@ -1,5 +1,82 @@
 # GitHub Actions Workflows
 
+## Deploy Website to Vercel
+
+Manual workflow to deploy the KindScript documentation website to Vercel.
+
+### Setup (One-time)
+
+#### 1. Get Vercel Credentials
+
+The following credentials are already configured in `.vercel/project.json`:
+- **VERCEL_ORG_ID:** `team_ejF7ixE5qEz0KpU23ezXlAsd`
+- **VERCEL_PROJECT_ID:** `prj_aTDCrSV2cR0IKpiqNvLDFmgz2z4O`
+
+You need to get a Vercel token:
+1. Go to https://vercel.com/account/tokens
+2. Click "Create Token"
+3. Name it "GitHub Actions" (or similar)
+4. Copy the token (starts with a long string)
+
+#### 2. Add Secrets to GitHub
+
+1. Go to: `https://github.com/<your-username>/kindscript/settings/secrets/actions`
+2. Click "New repository secret" for each:
+
+   **VERCEL_TOKEN**
+   - Name: `VERCEL_TOKEN`
+   - Value: Your Vercel token from step 1
+
+   **VERCEL_ORG_ID**
+   - Name: `VERCEL_ORG_ID`
+   - Value: `team_ejF7ixE5qEz0KpU23ezXlAsd`
+
+   **VERCEL_PROJECT_ID**
+   - Name: `VERCEL_PROJECT_ID`
+   - Value: `prj_aTDCrSV2cR0IKpiqNvLDFmgz2z4O`
+
+### Usage
+
+#### Deploy to Production
+
+1. Go to Actions tab
+2. Select "Deploy Website to Vercel" workflow
+3. Click "Run workflow"
+4. Select environment: `production` (default)
+5. Click "Run workflow"
+
+This will:
+- ✅ Build the Next.js website
+- ✅ Deploy to Vercel production
+- ✅ Show deployment URL in workflow summary
+
+#### Deploy to Preview
+
+1. Go to Actions tab
+2. Click "Run workflow"
+3. Select environment: `preview`
+4. Click "Run workflow"
+
+This deploys to a preview URL (useful for testing before production).
+
+### Troubleshooting
+
+**Error: Deployment not found**
+- Verify `VERCEL_PROJECT_ID` matches `.vercel/project.json`
+- Check that the token has access to the organization
+
+**Error: 401 Unauthorized**
+- Verify `VERCEL_TOKEN` is set correctly
+- Check token hasn't expired
+- Ensure token has appropriate permissions
+
+**Build fails on Vercel**
+- Check the workflow logs for detailed error messages
+- Ensure all dependencies are in `package.json`
+- Test build locally: `cd website && npm run build`
+
+---
+
 ## Publish to NPM
 
 Manual workflow to publish KindScript to npm.
