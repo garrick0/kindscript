@@ -8,7 +8,7 @@
 
 KindScript is an architectural enforcement tool that extends TypeScript's compiler pipeline. Just as TypeScript validates values against types, KindScript validates codebases against architectural patterns — dependency rules, purity constraints, port/adapter completeness, and more.
 
-KindScript produces standard `ts.Diagnostic` objects (error codes 70001, 70003–70005, and 70099), so violations appear alongside regular TypeScript errors in your editor and CI pipeline.
+KindScript produces standard `ts.Diagnostic` objects (error codes 70001, 70003–70007, and 70099), so violations appear alongside regular TypeScript errors in your editor and CI pipeline.
 
 ---
 
@@ -71,12 +71,12 @@ KindScript reuses TypeScript's scanner, parser, and type checker, then adds four
 | AST format | **Reuse** | `ts.Node` directly |
 | Type checking | **Reuse** | TypeScript's checker |
 | Module resolution | **Reuse** | TypeScript's resolver |
-| Diagnostic format | **Reuse** | `ts.Diagnostic` with codes 70001, 70003–70005, 70099 |
+| Diagnostic format | **Reuse** | `ts.Diagnostic` with codes 70001, 70003–70007, 70099 |
 | IDE integration | **Wrap** | TypeScript Language Service Plugin API |
 | KS Scanner | **Build** | Extracts Kind definitions and instance declarations from AST |
 | KS Parser | **Build** | Builds ArchSymbol trees (pure structural, no I/O) |
 | KS Binder | **Build** | Resolves files, generates contracts from constraint trees |
-| KS Checker | **Build** | Evaluates 4 contract types against resolved files |
+| KS Checker | **Build** | Evaluates 6 contract types against resolved files |
 
 ---
 
@@ -109,7 +109,7 @@ The pipeline is orchestrated by `PipelineService`, which runs four stages in seq
   Stage 2: PARSE ────────────────────────────────────────────────────
        |
        ├─ Build ArchSymbol trees (Instance + Member hierarchy)
-       └─ Resolve root from declared path, derive member paths from member names
+       └─ Resolve root from declared path, derive member paths from explicit locations or member names
        |
        ▼
   ParseResult { symbols, kindDefs, instanceSymbols, errors }
@@ -122,7 +122,7 @@ The pipeline is orchestrated by `PipelineService`, which runs four stages in seq
        └─ Generate TypeKind standalone contracts
        |
        ▼
-  BindResult { contracts, resolvedFiles, errors }
+  BindResult { contracts, resolvedFiles, containerFiles, declarationOwnership, errors }
        |
   Stage 4: CHECK ────────────────────────────────────────────────────
        |
@@ -269,13 +269,15 @@ For each instance declaration, the parser:
 ```
 buildMemberTree(kindDef, parentPath, memberValues, kindDefs):
   For each member defined in the Kind:
-    memberPath = joinPath(parentPath, memberName)     // derived from parent + member name
+    memberPath = property.location                    // explicit location from tuple syntax
+      ? resolvePath(parentPath, property.location)    //   e.g., [DomainLayer, './domain']
+      : joinPath(parentPath, memberName)              //   fallback: derive from member name
     Look up child Kind definition (if member has a typeName)
     Recurse if child Kind has members AND instance value has children
     Create ArchSymbol(name, Member, memberPath, childMembers, kindTypeName)
 ```
 
-The resulting ArchSymbol tree mirrors the Kind definition structure, with the root resolved from the declared path and member paths derived by concatenating member names:
+The resulting ArchSymbol tree mirrors the Kind definition structure, with the root resolved from the declared path and member paths resolved from explicit locations (or derived from member names as fallback):
 
 ```
 ArchSymbol: "app" (Instance, id: /project/src/)
@@ -286,7 +288,7 @@ ArchSymbol: "app" (Instance, id: /project/src/)
   └─ ArchSymbol: "infrastructure" (Member, id: /project/src/infrastructure/)
 ```
 
-**Key principle:** The root is resolved from the instance's declared path. Member locations are derived from `parentPath + memberName`. The parser never queries the filesystem — it constructs the model purely from scan output.
+**Key principle:** The root is resolved from the instance's declared path. Member locations come from explicit tuple declarations (e.g., `[DomainLayer, './domain']`) or fall back to `parentPath + memberName`. The parser never queries the filesystem — it constructs the model purely from scan output.
 
 #### Parse output
 
@@ -376,9 +378,11 @@ This is how `pure: true` on a leaf Kind (like `DomainLayer`) automatically appli
 
 ```
 BindResult {
-  contracts:     Contract[]              // all generated contracts
-  resolvedFiles: Map<string, string[]>   // location → file list
-  errors:        string[]                // non-fatal binding errors
+  contracts:            Contract[]                           // all generated contracts
+  resolvedFiles:        Map<string, string[]>                // location → file list
+  containerFiles:       Map<string, string[]>                // instance root → all files in scope
+  declarationOwnership: Map<string, Map<string, string>>     // file → Map<declName, symbolId>
+  errors:               string[]                             // non-fatal binding errors
 }
 ```
 
@@ -395,10 +399,13 @@ The service builds a shared context that all plugins receive:
 
 ```
 CheckContext {
-  tsPort:        TypeScriptPort                // for import resolution, interface analysis
-  program:       Program                       // the ts.Program from the orchestrator
-  checker:       TypeChecker                   // from tsPort.getTypeChecker(program)
-  resolvedFiles: Map<string, string[]>         // from Stage 3 (Bind)
+  tsPort:               TypeScriptPort                       // for import resolution, interface analysis
+  program:              Program                              // the ts.Program from the orchestrator
+  checker:              TypeChecker                          // from tsPort.getTypeChecker(program)
+  resolvedFiles:        Map<string, string[]>                // from Stage 3 (Bind)
+  containerFiles:       Map<string, string[]>                // instance root → all files in scope
+  ownershipTree:        OwnershipTree                        // parent-child instance relationships
+  declarationOwnership: Map<string, Map<string, string>>     // file → Map<declName, symbolId>
 }
 ```
 
@@ -421,9 +428,12 @@ Each plugin implements its own checking logic using the `CheckContext`. The shar
 
 | Plugin | resolvedFiles | tsPort methods | Domain utils |
 |---|---|---|---|
-| `noDependency` | Get files for both symbols | `getImports(sf, checker)` — compiler-resolved import edges | `isFileInSymbol()` — path containment check |
+| `noDependency` | Get files for both symbols | `getImports(sf, checker)`, `getIntraFileReferences(sf, checker)` | `isFileInSymbol()` — path containment |
 | `purity` | Get files for the symbol | `getImportModuleSpecifiers(program, sf)` — raw specifier strings | `NODE_BUILTINS` set membership |
-| `noCycles` | Get files for all symbols | `getImports(sf, checker)` — build dependency graph | `findCycles()` — cycle detection algorithm |
+| `noCycles` | Get files for all symbols | `getImports(sf, checker)` — build dependency graph | `findCycles()` — cycle detection |
+| `scope` | — | — | Validates instance location vs Kind scope |
+| `overlap` | Get files for both sibling symbols | — | Set intersection of file lists |
+| `exhaustiveness` | Get member files + containerFiles | — | Set difference: container − members |
 
 Each plugin returns:
 
@@ -559,16 +569,20 @@ src/
         checker.request.ts
         checker.response.ts
         import-edge.ts                        # ImportEdge value object
+        intra-file-edge.ts                    # IntraFileEdge (declaration-level references)
       plugins/                                # Contract plugin system (shared by bind + check)
         constraint-provider.ts                # ConstraintProvider interface
         contract-plugin.ts                    # ContractPlugin interface + helpers
         plugin-registry.ts                    # createAllPlugins()
         generator-helpers.ts                  # Shared generate() helpers
-        no-dependency/                        # noDependencyPlugin
+        no-dependency/                        # noDependencyPlugin (+ intra-file checking)
         purity/                               # purityPlugin (intrinsic)
         no-cycles/                            # noCyclesPlugin
         scope/                                # scopePlugin
-      views.ts                                # Pipeline view DTOs (TypeNodeView, etc.)
+        overlap/                              # overlapPlugin (auto-generated for siblings)
+        exhaustiveness/                       # exhaustivenessPlugin (opt-in exhaustive: true)
+      views.ts                                # Pipeline view DTOs (TypeNodeView, DeclarationView, etc.)
+      ownership-tree.ts                       # OwnershipTree, OwnershipNode, buildOwnershipTree()
       program.ts                              # ProgramPort, ProgramFactory, ProgramSetup
       pipeline.service.ts                     # Orchestrator (caching + 4 stages)
       pipeline.types.ts                       # PipelineUseCase, PipelineResponse
@@ -620,7 +634,7 @@ A constraint declared on a Kind type, ready for evaluation:
 
 ```typescript
 class Contract {
-  readonly type: ContractType;    // NoDependency | Purity | NoCycles | Scope
+  readonly type: ContractType;    // NoDependency | Purity | NoCycles | Scope | Overlap | Exhaustiveness
   readonly name: string;          // human-readable label, e.g., "noDependency(domain -> infrastructure)"
   readonly args: ArchSymbol[];    // member symbols this contract references
   readonly location?: string;     // where this contract was defined (for error messages)
@@ -637,14 +651,10 @@ class Diagnostic {
   readonly code: number;                       // 70001–70099
   readonly source: SourceRef;                  // where the violation occurred
   readonly relatedContract?: ContractReference;
-
-  // Backward-compat getters (delegate to source)
-  get file(): string;                          // source.file (empty string for structural)
-  get line(): number;                          // source.line (1-indexed, 0 for structural)
-  get column(): number;                        // source.column (0-indexed)
-  get scope(): string | undefined;             // source.scope (label for structural violations)
 }
 ```
+
+Access location via `diagnostic.source.file`, `.source.line`, `.source.column`, `.source.scope`.
 
 The `SourceRef` value object encapsulates location:
 
@@ -663,6 +673,8 @@ KS70001  Forbidden dependency                       (noDependency)
 KS70003  Impure import in '<symbol>': '<module>'    (purity)
 KS70004  Circular dependency                        (noCycles)
 KS70005  Scope mismatch                             (scope)
+KS70006  Member overlap                             (overlap)
+KS70007  Unassigned file                            (exhaustiveness)
 KS70099  Invalid contract              (malformed constraint)
 ```
 

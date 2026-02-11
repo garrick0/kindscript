@@ -1,6 +1,6 @@
 # Constraints
 
-> All 3 constraint types, the plugin architecture, and how constraint checking works.
+> All constraint types (3 user-declared + 3 structural), the plugin architecture, and how constraint checking works.
 
 ---
 
@@ -16,6 +16,8 @@ KindScript enforces architectural rules through **constraints** — rules declar
 | `purity` | Behavioral | Layer has no side-effect imports | KS70003 |
 | `noCycles` | Dependency | No circular dependencies between layers | KS70004 |
 | `scope` | Structural | Instance location matches Kind's declared scope | KS70005 |
+| `overlap` | Structural | Two sibling members must not claim the same files | KS70006 |
+| `exhaustive` | Structural | All files in instance scope must be assigned to a member | KS70007 |
 
 ---
 
@@ -48,6 +50,7 @@ Constraints come in three shapes:
 | **Intrinsic** (applies to a member kind) | `pure` | `pure: true` on the member Kind |
 | **Relational** (between two members) | `noDependency` | `[["from", "to"]]` |
 | **Collective** (across a group) | `noCycles` | `["member1", "member2", ...]` |
+| **Structural** (auto-generated) | `overlap`, `exhaustive` | Implicit or `exhaustive: true` |
 
 ---
 
@@ -133,6 +136,53 @@ type Context = Kind<"Context", {
 error KS70004: Circular dependency detected: domain → infrastructure → domain
 ```
 
+### overlap — Member Overlap (KS70006)
+
+Detects when two sibling members within the same instance claim the same file(s). This is an **implicit** check — the binder generates overlap contracts automatically for every pair of sibling members. No user-facing constraint syntax is needed.
+
+**How it works:**
+1. For each instance, the binder generates one overlap contract per pair of sibling members
+2. During checking, the plugin intersects the resolved file sets of both members
+3. If any file appears in both sets, produces a violation
+
+**Example violation:**
+```
+[a] - error KS70006: Member overlap: "a" and "b" share 1 file(s): src/sub/code.ts
+```
+
+**Notes:**
+- Overlap checking is automatic — users don't need to declare it
+- The binder generates `C(n, 2)` overlap contracts for `n` sibling members
+- Folder-scoped members that contain sub-members will naturally produce overlaps unless member locations are disjoint
+
+### exhaustive — Unassigned Code (KS70007)
+
+Checks that every file within an instance's scope is assigned to at least one member. Opt-in via `exhaustive: true` in the Kind's constraints.
+
+```typescript
+type App = Kind<"App", {
+  core: [Core, './core'];
+  infra: [Infra, './infra'];
+}, {
+  exhaustive: true;
+}>;
+```
+
+**How it works:**
+1. Resolves the instance's container (all files under the instance root)
+2. Collects all files assigned to members via `resolvedFiles`
+3. Any file in the container but not in any member is flagged as unassigned
+
+**Default exclusions** (not flagged as unassigned):
+- `context.ts` / `context.tsx` — instance declaration files
+- `*.test.ts` / `*.spec.ts` — test files
+- Files inside `__tests__/` directories
+
+**Example violation:**
+```
+[app] - error KS70007: Unassigned file: "src/orphan.ts" is not in any member of app
+```
+
 ---
 
 ## Intrinsic Constraints
@@ -208,7 +258,7 @@ interface ContractPlugin extends ConstraintProvider {
 
 ### Plugin Registry
 
-All 3 plugins are registered in `plugin-registry.ts`. Each plugin is a singleton object (not a factory function):
+All 6 plugins are registered in `plugin-registry.ts`. Each plugin is a singleton object (not a factory function):
 
 ```typescript
 function createAllPlugins(): ContractPlugin[] {
@@ -217,6 +267,8 @@ function createAllPlugins(): ContractPlugin[] {
     purityPlugin,
     noCyclesPlugin,
     scopePlugin,
+    overlapPlugin,
+    exhaustivenessPlugin,
   ];
 }
 ```
@@ -246,7 +298,7 @@ See any plugin in `src/application/pipeline/plugins/` for a reference implementa
 3. **Register** — Add to `createAllPlugins()` in `plugin-registry.ts`
 4. **Tests** — Every plugin needs validation, check, and generate tests
 
-All 3 existing plugins follow this pattern.
+All 6 existing plugins follow this pattern.
 
 ---
 

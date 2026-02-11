@@ -57,17 +57,21 @@ src/
 │   │   │   ├── checker.use-case.ts             # CheckerUseCase interface
 │   │   │   ├── checker.request.ts              # CheckerRequest
 │   │   │   ├── checker.response.ts             # CheckerResponse
-│   │   │   └── import-edge.ts                  # ImportEdge value object
+│   │   │   ├── import-edge.ts                  # ImportEdge value object
+│   │   │   └── intra-file-edge.ts              # IntraFileEdge (declaration-level references)
 │   │   ├── plugins/                            # Contract plugin system (shared by bind + check)
 │   │   │   ├── constraint-provider.ts          # ConstraintProvider interface + GeneratorResult
 │   │   │   ├── contract-plugin.ts              # ContractPlugin interface + helpers
 │   │   │   ├── generator-helpers.ts            # Shared generate() helpers
 │   │   │   ├── plugin-registry.ts              # createAllPlugins()
-│   │   │   ├── no-dependency/                  # noDependencyPlugin
+│   │   │   ├── no-dependency/                  # noDependencyPlugin (+ intra-file checking)
 │   │   │   ├── no-cycles/                      # noCyclesPlugin
 │   │   │   ├── purity/                         # purityPlugin
-│   │   │   └── scope/                          # scopePlugin
-│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, etc.)
+│   │   │   ├── scope/                          # scopePlugin
+│   │   │   ├── overlap/                        # overlapPlugin (auto-generated for siblings)
+│   │   │   └── exhaustiveness/                 # exhaustivenessPlugin (opt-in exhaustive: true)
+│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, DeclarationView, etc.)
+│   │   ├── ownership-tree.ts                   # OwnershipTree, OwnershipNode, buildOwnershipTree()
 │   │   ├── program.ts                          # ProgramPort, ProgramFactory, ProgramSetup
 │   │   ├── pipeline.types.ts                   # PipelineRequest, PipelineResponse, PipelineUseCase
 │   │   └── pipeline.service.ts                 # PipelineService (orchestrator: caching + 4 stages)
@@ -98,7 +102,7 @@ src/
 
 ## Test Suite Organization
 
-**Current Stats:** 28 test files, 298 tests, 100% passing
+**Current Stats:** 31 test files, 342 tests, 100% passing
 
 ### Test Layers
 
@@ -117,7 +121,7 @@ tests/
 │   ├── domain-coverage.test.ts
 │   └── source-ref.test.ts
 │
-├── application/                     # 9 files - Application layer tests
+├── application/                     # 12 files - Application layer tests
 │   ├── classify-ast-kind-parsing.test.ts
 │   ├── classify-ast-contracts.test.ts
 │   ├── classify-ast-locate.test.ts
@@ -126,7 +130,10 @@ tests/
 │   ├── no-dependency.plugin.test.ts
 │   ├── no-cycles.plugin.test.ts
 │   ├── purity.plugin.test.ts
-│   └── scope.plugin.test.ts
+│   ├── scope.plugin.test.ts
+│   ├── overlap.plugin.test.ts
+│   ├── exhaustiveness.plugin.test.ts
+│   └── ownership-tree.test.ts
 │
 ├── infrastructure/                  # 3 files - Adapter tests
 │   ├── ast.adapter.test.ts
@@ -149,7 +156,7 @@ tests/
 │       ├── diagnostic-converter.test.ts
 │       └── language-service-proxy.test.ts
 │
-└── integration/                     # 3 test files + 22 fixture dirs
+└── integration/                     # 3 test files + 24 fixture dirs
     ├── check-contracts.integration.test.ts
     ├── tier2-contracts.integration.test.ts
     ├── tier2-locate.integration.test.ts
@@ -163,11 +170,13 @@ tests/
 - `classify-ast-contracts.test.ts` - Constraint parsing + multi-instance
 - `classify-ast-locate.test.ts` - Instance<T, Path>, multi-file, explicit path resolution, file-scoped instances
 
-**Per-contract plugin tests** (4 files in `tests/application/` + 1 dispatcher):
-- `no-dependency.plugin.test.ts` (15 tests) - noDependencyPlugin (check + generate + validate)
+**Per-contract plugin tests** (6 files in `tests/application/` + 1 dispatcher):
+- `no-dependency.plugin.test.ts` (21 tests) - noDependencyPlugin (check + intra-file + generate + validate)
 - `no-cycles.plugin.test.ts` (12 tests) - noCyclesPlugin (check + generate + validate)
-- `purity.plugin.test.ts` (15 tests) - purityPlugin (check + intrinsic + validate)
+- `purity.plugin.test.ts` (14 tests) - purityPlugin (check + intrinsic + validate)
 - `scope.plugin.test.ts` (10 tests) - scopePlugin (check + validate)
+- `overlap.plugin.test.ts` (12 tests) - overlapPlugin (check + validate)
+- `exhaustiveness.plugin.test.ts` (13 tests) - exhaustivenessPlugin (check + generate + validate)
 - `check-contracts-service.test.ts` (3 tests) - Dispatcher validation + aggregation
 
 **E2E tests** consolidated into 1 file:
@@ -366,17 +375,16 @@ it('checks contracts', () => {
 
 **Date:** 2026-02-10
 
-**Summary:** Explicit instance location — `Instance<T, Path>` replaces convention-based derivation
-- `Instance<T>` now requires a second type param: `Instance<App, './src'>` — path relative to declaration file
-- Path granularity: folder (`'./src'`), file (`'./Button.tsx'`), sub-file (`'./file.ts#exportName'`)
-- `ArchSymbol.exportName` field added for sub-file hash syntax instances
-- Parser uses `resolvePath()` for explicit path resolution (no more convention-based derivation)
-- New `ContractType.Scope` + `DiagnosticCode.ScopeMismatch: 70005` for scope validation
-- New `scopePlugin` — validates instance location matches Kind's declared scope (folder vs file)
-- AST adapter: empty `{}` as constraints type param treated as "no constraints" (not an error)
-- 28 test files, 298 tests, 100% passing
+**Summary:** Recursive ownership model complete — all 7 phases implemented + cleanup
+- All 7 phases (0–6) complete: explicit locations, container resolution, overlap, exhaustiveness, ownership tree, declaration containment, intra-file deps
+- Removed backward-compat Diagnostic getters (`.file`, `.line`, `.column`, `.scope`) — consumers now use `.source.*` directly
+- Added `exhaustive?: true` to `Constraints` type in public API
+- Added integration/E2E tests for overlap (KS70006) and exhaustiveness (KS70007) violations
+- Fixed test-pipeline helper to pass `containerFiles` and `declarationOwnership` to checker
+- 6 registered plugins: noDependency, purity, noCycles, scope, overlap, exhaustiveness
+- 31 test files, 342 tests, 100% passing
 
-**Previous:** Internal semantic model cleanup — remove filesystem path knowledge from domain layer
+**Previous:** Explicit instance location — `Instance<T, Path>` replaces convention-based derivation
 
 **Key entities:**
 - `Engine` interface: `{ pipeline, plugins }` — minimal surface for app composition roots
@@ -385,11 +393,16 @@ it('checks contracts', () => {
 - `ContractPlugin` interface: `{ type, constraintName, diagnosticCode, validate, check, generate?, intrinsic?, codeFix? }`
 - `ConstraintProvider` interface: `{ constraintName, generate?, intrinsic? }` — narrow type used by Binder
 - `SourceRef` value object: `{ file, line, column, scope? }` — `at()` for file-scoped, `structural()` for project-wide
-- `Diagnostic` entity: constructor takes `(message, code, source: SourceRef, relatedContract?)` — backward-compat getters for `.file`, `.line`, `.column`, `.scope`
+- `Diagnostic` entity: constructor takes `(message, code, source: SourceRef, relatedContract?)` — access location via `.source.file`, `.source.line`, `.source.column`, `.source.scope`
 - `ASTExtractionResult<T>`: `{ data: T, errors: string[] }` — wraps AST port results
 - `TypeKindDefinitionView`: `{ typeName, kindNameLiteral, wrappedTypeName?, constraints? }` — scanner output for TypeKind definitions
 - `TypeKindInstanceView`: `{ exportName, kindTypeName }` — scanner output for typed exports
 - `ScannedTypeKindInstance`: `{ view: TypeKindInstanceView, sourceFileName: string }` — file-paired TypeKind instance
+- `OwnershipTree`: `{ roots, nodeByInstanceId }` — parent-child instance relationships built from scope containment
+- `OwnershipNode`: `{ instanceSymbol, scope, parent, children, memberOf? }` — tree node
+- `DeclarationView`: `{ name, kind, exported, line, column }` — top-level declaration in a source file
+- `IntraFileEdge`: `{ fromDeclaration, toDeclaration, line, column }` — reference between declarations in the same file
+- `ImportEdge`: cross-file import edge (moved from domain to application layer)
 
 ---
 
@@ -431,6 +444,33 @@ See the [Documentation](#documentation-organization) section below for the full 
 
 ---
 
+## Interactive Tutorial
+
+An interactive browser-based tutorial lives in `tutorial/` (TutorialKit + Astro). It provides 7 lessons covering the 3 user-declared constraints (`noDependency`, `purity`, `noCycles`).
+
+### Key Paths
+
+- `tutorial/README.md` - Setup and usage instructions
+- `tutorial/src/content/tutorial/` - Lesson content (markdown + `_files/` + `_solution/`)
+- `tutorial/src/templates/default/` - Shared template (package.json, tsconfig, local kindscript package)
+- `tutorial/scripts/sync-kindscript.sh` - Syncs compiled dist/ into the template
+
+### When to update the tutorial
+
+- **Changed CLI output or diagnostic codes** - Update lesson `content.md` prose that references error messages
+- **Changed public API types** (`src/types/index.ts`) - Update `context.ts` files in lesson `_files/` and `_solution/`
+- **Bumped version** - Run `bash tutorial/scripts/sync-kindscript.sh` to rebuild and re-sync the template
+- **Added a new constraint** - Consider adding a new part with lessons demonstrating it
+
+### Running locally
+
+```bash
+bash tutorial/scripts/sync-kindscript.sh   # Build + sync KindScript into template
+cd tutorial && npm install && npm start     # Dev server at localhost:4321
+```
+
+---
+
 ## Documentation Organization
 
 Documentation is organized as 6 maintained chapter files (checked in) plus a gitignored scratchpad for active explorations:
@@ -461,6 +501,7 @@ docs/                                # Source of truth (checked in)
 | Understand why a decision was made | `docs/04-decisions.md` |
 | See real-world modeling examples | `docs/05-examples.md` |
 | Walk through KindScript step by step | `docs/06-tutorial.md` |
+| Try the interactive tutorial | `tutorial/` ([README](tutorial/README.md)) |
 | Look at old architecture versions | `docs/archive/architecture/` |
 
 ### When Making Documentation Changes
@@ -563,4 +604,4 @@ If still unclear, ask the user for clarification rather than guessing.
 ---
 
 **Last Updated:** 2026-02-10
-**Test Suite Status:** 26 files, 263 tests, 100% passing
+**Test Suite Status:** 31 files, 342 tests, 100% passing

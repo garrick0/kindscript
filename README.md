@@ -8,7 +8,7 @@ Define architectural patterns as types. Enforce them at compile time.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.8.0--m8-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/tests-298%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-350%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org/)
 
 [Documentation](docs/) · [Notebooks](notebooks/) · [Examples](docs/05-examples.md)
@@ -141,7 +141,7 @@ type OrderModule = Kind<"OrderModule", {
 src/domain/apply-discount.ts:1:1 - error KS70001: Forbidden dependency: deciders → effectors (src/domain/apply-discount.ts → src/domain/notify-order.ts)
 ```
 
-Three constraint types total. See [Constraints documentation](docs/03-constraints.md) for full details.
+Three user-declared constraint types, plus three structural constraints that are checked automatically. See [Constraints documentation](docs/03-constraints.md) for full details.
 
 <details>
 <summary>All diagnostic codes</summary>
@@ -152,6 +152,8 @@ Three constraint types total. See [Constraints documentation](docs/03-constraint
 | KS70003 | purity | Impure import in pure layer |
 | KS70004 | noCycles | Circular dependency |
 | KS70005 | scope | Scope mismatch (instance location vs Kind scope) |
+| KS70006 | overlap | Two sibling members claim the same file(s) |
+| KS70007 | exhaustive | File not assigned to any member (opt-in) |
 
 </details>
 
@@ -191,7 +193,7 @@ Violations appear alongside regular TypeScript errors -- same format, same tooli
 |----------|---------------|
 | [Architecture](docs/01-architecture.md) | Full pipeline walkthrough, layers, data flow |
 | [Kind System](docs/02-kind-system.md) | Kind syntax, instances, location resolution, discovery |
-| [Constraints](docs/03-constraints.md) | All 3 constraint types, plugin architecture |
+| [Constraints](docs/03-constraints.md) | All 6 constraint types, plugin architecture |
 | [Examples](docs/05-examples.md) | Real-world modeling (Clean Architecture, Atomic Design, monorepos) |
 | [Decisions](docs/04-decisions.md) | Key architectural decisions and rationale |
 
@@ -207,11 +209,15 @@ Jupyter notebooks in `notebooks/` provide hands-on walkthroughs:
 
 For a static walkthrough (no Deno kernel required), see [Tutorial](docs/06-tutorial.md).
 
+### Interactive tutorial
+
+The `tutorial/` directory contains a browser-based interactive tutorial built with [TutorialKit](https://tutorialkit.dev). Edit files and run `npx ksc check .` directly in the browser. See [tutorial/README.md](tutorial/README.md) for setup.
+
 ## Project Status
 
-All core functionality is implemented and tested. 28 test suites, 298 tests, 100% passing.
+All core functionality is implemented and tested. 31 test suites, 350 tests, 100% passing.
 
-**What's working:** All 3 constraint types, TypeKind composability, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
+**What's working:** All 6 constraint types (3 user-declared + 3 structural), TypeKind composability, CLI (`ksc check`), TypeScript language service plugin (inline diagnostics + code fixes).
 
 **Roadmap:** Watch mode, incremental compilation, diagnostic `relatedInformation` linking to contract definitions.
 

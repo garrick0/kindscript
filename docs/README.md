@@ -6,7 +6,7 @@
 |---|---------|-------------|
 | 1 | [Architecture](01-architecture.md) | System overview, compiler pipeline, layers, data flow, source layout |
 | 2 | [Kind System](02-kind-system.md) | Kind syntax, TypeKind, instances, location resolution, scope validation, discovery |
-| 3 | [Constraints](03-constraints.md) | All 3 constraint types, plugin architecture, Constraints |
+| 3 | [Constraints](03-constraints.md) | All 6 constraint types (3 user-declared + 3 structural), plugin architecture |
 | 4 | [Decisions](04-decisions.md) | Key decisions log (D1–D18: plugin vs LSP, drop .k.ts, unified Kind, etc.) |
 | 5 | [Examples](05-examples.md) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
 | 6 | [Tutorial](06-tutorial.md) | Progressive walkthrough: first constraint to real-world modeling |
@@ -57,7 +57,7 @@ docs/                                Source of truth (checked in)
 ├── README.md                        This file (index)
 ├── 01-architecture.md               System overview + pipeline + layers
 ├── 02-kind-system.md                Kind syntax + instances + discovery
-├── 03-constraints.md                All 3 constraints + plugin architecture
+├── 03-constraints.md                All 6 constraints + plugin architecture
 ├── 04-decisions.md                  Key decisions log
 ├── 05-examples.md                   Real-world modeling examples
 ├── 06-tutorial.md                   Progressive walkthrough + real-world narrative

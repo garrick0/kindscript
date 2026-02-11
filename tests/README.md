@@ -12,7 +12,7 @@ This directory contains the complete test suite for KindScript, organized to mir
 - **Integration Tests** (`tests/integration/`) - Multi-component tests with real I/O
 - **Helpers** (`tests/helpers/`) - Shared utilities, factories, mocks
 
-**Current Stats:** 27 test files, 269 tests, 100% passing
+**Current Stats:** 31 test files, 342 tests, 100% passing
 
 ---
 
@@ -36,7 +36,7 @@ tests/
 │   ├── domain-coverage.test.ts
 │   └── source-ref.test.ts
 │
-├── application/                     # 8 files - Application layer tests
+├── application/                     # 12 files - Application layer tests
 │   ├── classify-ast-kind-parsing.test.ts
 │   ├── classify-ast-contracts.test.ts
 │   ├── classify-ast-locate.test.ts
@@ -44,7 +44,11 @@ tests/
 │   ├── check-contracts-service.test.ts
 │   ├── no-dependency.plugin.test.ts
 │   ├── no-cycles.plugin.test.ts
-│   └── purity.plugin.test.ts
+│   ├── purity.plugin.test.ts
+│   ├── scope.plugin.test.ts
+│   ├── overlap.plugin.test.ts
+│   ├── exhaustiveness.plugin.test.ts
+│   └── ownership-tree.test.ts
 │
 ├── infrastructure/                  # 3 files - Shared adapter tests
 │   ├── ast.adapter.test.ts
@@ -67,7 +71,7 @@ tests/
 │       ├── diagnostic-converter.test.ts
 │       └── language-service-proxy.test.ts
 │
-└── integration/                     # 3 test files + 22 fixture dirs
+└── integration/                     # 3 test files + 24 fixture dirs
     ├── check-contracts.integration.test.ts
     ├── tier2-contracts.integration.test.ts
     ├── tier2-locate.integration.test.ts

@@ -54,7 +54,7 @@ type StrictCleanContext = Kind<"StrictCleanContext", {
 | Parameter | Required | Purpose |
 |-----------|----------|---------|
 | `N` (name) | Yes | String literal discriminant — must match the type alias name |
-| `Members` | No | Object type mapping member names to their Kind types |
+| `Members` | No | Object type mapping member names to their Kind types (plain or `[KindRef, './path']` tuples) |
 | `Constraints` | No | `Constraints<Members>` — architectural rules to enforce |
 | `_Config` | No | `KindConfig` — `{ wraps?: T; scope?: 'folder' \| 'file' }`. `wraps` makes Kind produce a type annotation shape (TypeKind behavior). `scope` declares the expected instance scope, validated by the scope plugin. |
 
@@ -125,9 +125,35 @@ Location is required. Omitting it is a scanner error.
 
 ---
 
+## Explicit Member Locations
+
+Members can specify their filesystem location explicitly using tuple syntax:
+
+```typescript
+type App = Kind<"App", {
+  domain: [DomainLayer, './domain'];             // explicit: member lives at ./domain
+  application: [ApplicationLayer, './application'];
+  infrastructure: [InfraLayer, './infrastructure'];
+}>;
+```
+
+The tuple `[KindRef, string]` pairs a Kind type with its relative path from the instance root. This decouples member names from filesystem paths — a member named `core` can live at `./domain`, and vice versa.
+
+Without a tuple, the member path is derived from the member name (e.g., member `domain` resolves to `./domain`). TypeKind members (matched by type annotation, not path) always use plain syntax:
+
+```typescript
+type OrderModule = Kind<"OrderModule", {
+  deciders: Decider;              // TypeKind — matched by type annotation, no path needed
+  effectors: Effector;            // TypeKind — matched by type annotation, no path needed
+  helpers: [HelperKind, './lib']; // explicit: helpers are at ./lib, not ./helpers
+}>;
+```
+
+---
+
 ## Location Resolution
 
-KindScript resolves the instance root from the declared path, then derives member paths from member names.
+KindScript resolves the instance root from the declared path, then derives member paths from explicit locations or member names.
 
 ### Root Resolution
 
@@ -297,9 +323,9 @@ type MemberMap<T extends KindRef> = {
 };
 ```
 
-It strips the `kind`, `location`, and internal phantom properties (which are derived automatically), keeps member names, and recursively applies to child Kinds. Each member value is either a nested `MemberMap` (for Kinds with sub-members) or an empty object `{}` (for leaf Kinds). `KindRef` is a shared phantom marker type that both wrapped and structural Kinds satisfy.
+It strips the `kind`, `location`, and internal phantom properties (which are derived automatically), keeps member names, and recursively applies to child Kinds. Each member value is either a nested `MemberMap` (for Kinds with sub-members) or an empty object `{}` (for leaf Kinds). `KindRef` is a shared phantom marker type that both wrapped and structural Kinds satisfy. When members use tuple syntax (`[KindRef, string]`), `MemberMap` extracts the Kind from the tuple.
 
-Member names must be valid TypeScript identifiers. They double as directory names for location resolution. This is by design — the member name `domain` implies the relative path `./domain`.
+Member names must be valid TypeScript identifiers. By default, member names double as directory names for location resolution (e.g., member `domain` resolves to `./domain`). With explicit tuple locations, the path is independent of the name — a member named `core` at `[CoreKind, './domain']` resolves to `./domain`.
 
 ---
 
@@ -383,7 +409,7 @@ The binder resolves TypeKind members by scanning typed exports within the parent
 | Instance mechanism | `satisfies Instance<T, Path>` | Type annotation |
 | Resolution | Filesystem paths (binder) | Typed-export collection within scope (binder) |
 | Members | Subdirectories | As Kind members (composability) |
-| Standalone constraints | All 3 constraint types | All 3 constraint types (via 3rd parameter) |
+| Standalone constraints | All constraint types | All user-declared constraint types (via 3rd parameter) |
 | Underlying type | `Kind<N, Members, C, Config>` | `Kind<N, {}, C, { wraps: T }>` (sugar alias) |
 
 ---
