@@ -1,0 +1,53 @@
+# Architecture Decision Records
+
+This section contains all architectural decisions made during the development of KindScript. Each ADR follows a standard format documenting the context, decision, rationale, and impact.
+
+## All Decisions
+
+- [ADR-0001: Language Service Plugin Instead of Custom LSP](0001-language-service-plugin-instead-of-custom-lsp)
+- [ADR-0002: No ts-morph](0002-no-ts-morph)
+- [ADR-0003: Type Alias Instead of interface extends](0003-type-alias-instead-of-interface-extends)
+- [ADR-0004: Use satisfies Instead of Runtime Markers](0004-use-satisfies-instead-of-runtime-markers)
+- [ADR-0005: Self-Registering Contract Plugins](0005-self-registering-contract-plugins)
+- [ADR-0006: Remove Standard Library Packages](0006-remove-standard-library-packages)
+- [ADR-0007: Flatten src/runtime/](0007-flatten-src-runtime)
+- [ADR-0008: Remove ContractConfig&lt;T&gt;](0008-remove-contractconfigt)
+- [ADR-0009: Drop .k.ts, Piggyback on TypeScript Type Checker](0009-drop-kts-piggyback-on-typescript-type-checker)
+- [ADR-0010: Four-Stage Pipeline Alignment](0010-four-stage-pipeline-alignment)
+- [ADR-0011: Pipeline Cleanup — Separation of Concerns](0011-pipeline-cleanup-separation-of-concerns)
+- [ADR-0012: Rename InstanceConfig&lt;T&gt; to Instance&lt;T&gt;](0012-rename-instanceconfigt-to-instancet)
+- [ADR-0013: Rename ConstraintConfig to Constraints](0013-rename-constraint-config-to-constraints)
+- [ADR-0014: File-Scoped Leaf Instances](0014-file-scoped-leaf-instances)
+- [ADR-0015: Unified Kind Type — TypeKind as Sugar](0015-unified-kind-type-typekind-as-sugar)
+- [ADR-0016: Resolution Moves from Parser to Binder](0016-resolution-moves-from-parser-to-binder)
+- [ADR-0017: Remove mustImplement, exists, mirrors Plugins](0017-remove-must-implement-exists-mirrors-plugins)
+- [ADR-0018: Semantic Error Messages](0018-semantic-error-messages)
+- [ADR-0019: Ownership Tree for Recursive Instance Containment](0019-ownership-tree-for-recursive-instance-containment)
+- [ADR-0020: Auto-Generated Implicit Contracts for Overlap Detection](0020-auto-generated-implicit-contracts-for-overlap-detection)
+- [ADR-0021: Opt-In Exhaustiveness via exhaustive: true](0021-opt-in-exhaustiveness-via-exhaustive-true)
+- [ADR-0022: Intra-File Dependency Checking for TypeKind Members](0022-intra-file-dependency-checking-for-typekind-members)
+- [ADR-0023: SourceRef Value Object Replacing Raw Location Fields](0023-source-ref-value-object-replacing-raw-location-fields)
+- [ADR-0024: Instance&lt;T, Path&gt; — Explicit Location Replaces Convention-Based Derivation](0024-instancet-path-explicit-location-replaces-convention-based-derivation)
+- [ADR-0025: ImportEdge Moved from Domain to Application Layer](0025-import-edge-moved-from-domain-to-application-layer)
+- [ADR-0026: ISP Split — Ports into Sub-Interfaces](0026-isp-split-ports-into-sub-interfaces)
+- [ADR-0027: Scope Plugin and KindConfig.scope for Declared Instance Scope](0027-scope-plugin-and-kind-config-scope-for-declared-instance-scope)
+- [ADR-0028: Container Resolution as Separate Binder Concern](0028-container-resolution-as-separate-binder-concern)
+- [ADR-0029: A+Apps Architecture — Onion Core with Per-Product Apps](0029-a-plus-apps-architecture-onion-core-with-per-product-apps)
+- [ADR-0030: Pure Path Utilities Extracted to Infrastructure](0030-pure-path-utilities-extracted-to-infrastructure)
+- [ADR-0031: Intrinsic Constraint Propagation Pattern](0031-intrinsic-constraint-propagation-pattern)
+- [ADR-0032: DeclarationOwnership for TypeKind Member Attribution](0032-declaration-ownership-for-typekind-member-attribution)
+
+## Format
+
+Each ADR contains:
+- **Context**: The problem or situation that led to the decision
+- **Decision**: The choice that was made
+- **Rationale**: Why this decision was made, including alternatives considered
+- **Impact**: Implementation details, testing requirements, documentation needs, and migration steps
+
+## Status
+
+- **Done**: Decision has been implemented
+- **Superseded**: Decision was replaced by a later ADR
+- **Deprecated**: Decision is no longer relevant
+- **Proposed**: Decision is under consideration

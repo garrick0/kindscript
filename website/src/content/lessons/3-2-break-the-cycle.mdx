@@ -1,0 +1,31 @@
+# Challenge: Break the Cycle
+
+Domain and infrastructure have a circular dependency. The `noCycles` constraint caught it.
+
+## Your task
+
+Apply **Dependency Inversion** to break the cycle:
+
+1. In `src/domain/service.ts`:
+   - Remove the import of `Database` from infrastructure
+   - Define a `DataStore` interface in the domain
+   - Accept it via constructor injection
+
+2. In `src/infrastructure/database.ts`:
+   - Remove the import of `DomainService`
+   - Import the `DataStore` interface from domain instead
+   - Have `Database` implement `DataStore`
+
+The dependency should flow **one direction only**: infrastructure depends on domain (not the reverse).
+
+## Verify your fix
+
+```
+npx ksc check .
+```
+
+You should see **0 violations**.
+
+:::tip
+**Dependency Inversion Principle.** High-level modules (domain) should not depend on low-level modules (infrastructure). Both should depend on abstractions. The domain defines the `DataStore` interface; infrastructure implements it.
+:::

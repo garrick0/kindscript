@@ -1,0 +1,33 @@
+{
+  "name": "kindscript-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7",
+    "@webcontainer/api": "^1.6",
+    "@xterm/addon-fit": "^0.10",
+    "@xterm/xterm": "^5",
+    "next": "^15",
+    "nextra": "^4.2",
+    "nextra-theme-docs": "^4.2",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^2.1",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "pagefind": "^1",
+    "typescript": "^5.5"
+  }
+}

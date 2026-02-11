@@ -1,0 +1,737 @@
+# Architecture
+
+> System overview, compiler pipeline, layers, and data flow.
+
+---
+
+## Core Concept
+
+KindScript is an architectural enforcement tool that extends TypeScript's compiler pipeline. Just as TypeScript validates values against types, KindScript validates codebases against architectural patterns — dependency rules, purity constraints, port/adapter completeness, and more.
+
+KindScript produces standard `ts.Diagnostic` objects (error codes 70001, 70003–70007, and 70099), so violations appear alongside regular TypeScript errors in your editor and CI pipeline.
+
+---
+
+## Compiler Pipeline
+
+KindScript reuses TypeScript's scanner, parser, and type checker, then adds four new stages for architectural analysis:
+
+```
+  .ts source files
+       |
+  +---------+    +---------+    +---------+
+  | Scanner |===>| Parser  |===>|TS Binder|     TypeScript's own phases
+  +---------+    +---------+    +---------+     (reused as-is)
+       |              |              |
+    tokens        ts.Node AST    ts.Symbol
+                                     |
+                              +------+------+
+                              | TS Checker  |   TypeScript type checking
+                              +------+------+   (reused as-is)
+                                     |
+                               ts.Diagnostic
+                                     |
+  ================================== | ======   KindScript stages begin
+                                     |
+                              +------+------+
+                              | KS Scanner  |   Extract Kind definitions
+                              +------+------+   and instance declarations
+                                     |
+                                 ScanResult
+                                     |
+                              +------+------+
+                              | KS Parser   |   Build ArchSymbol trees
+                              +------+------+   (pure structural)
+                                     |
+                                ParseResult
+                                     |
+                              +------+------+
+                              | KS Binder   |   Generate Contracts from
+                              +------+------+   constraint trees
+                                     |
+                                 BindResult
+                                     |
+                              +------+------+
+                              | KS Checker  |   Evaluate contracts against
+                              +------+------+   resolved files and imports
+                                     |
+                               ts.Diagnostic    (same format as TS errors)
+                                     |
+                    +----------------+----------------+
+                    |                |                |
+               CLI output      IDE squiggles    CI exit code
+               (ksc check)     (TS plugin)      (process.exit)
+```
+
+### What KindScript builds vs reuses
+
+| Component | Approach | Notes |
+|-----------|----------|-------|
+| Scanner / Parser | **Reuse** | TypeScript's own |
+| AST format | **Reuse** | `ts.Node` directly |
+| Type checking | **Reuse** | TypeScript's checker |
+| Module resolution | **Reuse** | TypeScript's resolver |
+| Diagnostic format | **Reuse** | `ts.Diagnostic` with codes 70001, 70003–70007, 70099 |
+| IDE integration | **Wrap** | TypeScript Language Service Plugin API |
+| KS Scanner | **Build** | Extracts Kind definitions and instance declarations from AST |
+| KS Parser | **Build** | Builds ArchSymbol trees (pure structural, no I/O) |
+| KS Binder | **Build** | Resolves files, generates contracts from constraint trees |
+| KS Checker | **Build** | Evaluates 6 contract types against resolved files |
+
+---
+
+## Detailed Pipeline Walkthrough
+
+The pipeline is orchestrated by `PipelineService`, which runs four stages in sequence: **Scan → Parse → Bind → Check**. Each stage's output feeds the next.
+
+```
+  projectRoot
+       |
+  PipelineService (orchestrator) ───────────────────────────────────
+       |
+       ├─ Read config (kindscript.json + tsconfig.json)
+       ├─ Merge compiler options
+       ├─ Discover root files
+       ├─ Create ts.Program + TypeChecker
+       ├─ Check cache (skip to output if fresh)
+       |
+  Stage 1: SCAN ─────────────────────────────────────────────────────
+       |
+       ├─ For each source file:
+       │   ├─ Extract Kind definitions (type aliases referencing Kind<N>)
+       │   ├─ Extract TypeKind definitions (TypeKind<N, T, C>)
+       │   ├─ Extract Instance declarations (satisfies Instance<T>)
+       │   └─ Extract TypeKind instances (typed exports)
+       |
+       ▼
+  ScanResult { kindDefs, instances, typeKindDefs, typeKindInstances, errors }
+       |
+  Stage 2: PARSE ────────────────────────────────────────────────────
+       |
+       ├─ Build ArchSymbol trees (Instance + Member hierarchy)
+       └─ Resolve root from declared path, derive member paths from explicit locations or member names
+       |
+       ▼
+  ParseResult { symbols, kindDefs, instanceSymbols, errors }
+       |
+  Stage 3: BIND ─────────────────────────────────────────────────────
+       |
+       ├─ Resolve symbols to files (directory/file/declaration)
+       ├─ Walk constraint trees → generate Contract[]
+       ├─ Propagate intrinsic constraints from member Kinds
+       └─ Generate TypeKind standalone contracts
+       |
+       ▼
+  BindResult { contracts, resolvedFiles, containerFiles, declarationOwnership, errors }
+       |
+  Stage 4: CHECK ────────────────────────────────────────────────────
+       |
+       ├─ For each contract: validate args
+       └─ For each contract: plugin.check() → Diagnostic[]
+       |
+       ▼
+  CheckerResponse { diagnostics, contractsChecked, filesAnalyzed }
+```
+
+---
+
+### Pipeline Orchestrator
+
+**Service:** `PipelineService`
+**Purpose:** Chain the four pipeline stages with caching. Delegates program setup to `ProgramFactory`.
+
+#### Program setup (ProgramFactory)
+
+`PipelineService` delegates config reading, file discovery, and TS program creation to a `ProgramPort` (implemented by `ProgramFactory`):
+
+1. **Read config** — reads `kindscript.json` (optional) and `tsconfig.json`
+2. **Merge compiler options** — KindScript options override TypeScript options
+3. **Discover root files** — from `tsconfig.json` `files` array, or `readDirectory(rootDir, recursive=true)`
+4. **Create ts.Program** — `tsPort.createProgram(rootFiles, compilerOptions)` + `getTypeChecker()`
+5. **Get source files** — filtered to exclude `node_modules` and `.d.ts` files
+
+Returns `ProgramSetup { program, sourceFiles, checker, config }` or `{ error: string }`.
+
+**Early exit:** Returns error if no TypeScript files or no source files are found.
+
+#### Cache check
+
+The orchestrator maintains a cache keyed on source file paths and their modification timestamps:
+
+```
+cacheKey = sourceFiles
+  .map(sf => `${sf.fileName}:${fsPort.getModifiedTime(sf.fileName)}`)
+  .sort()
+  .join('|')
+```
+
+If the key matches the previous run, the cached result is returned immediately. This is critical for the IDE plugin, where the pipeline runs on every keystroke.
+
+**If cache hits → skip directly to output. All four stages are skipped.**
+
+#### Cache behavior
+
+- **Invalidation:** The cache is invalidated whenever any source file's modification timestamp changes, or when files are added/removed. There is no TTL — the cache is purely content-addressed.
+- **Scope:** The cache is held in-memory within a single `PipelineService` instance. The CLI creates a fresh instance per run (so caching only helps within a single invocation). The IDE plugin reuses the same instance across keystrokes, which is where caching matters most.
+- **Miss behavior:** On cache miss, all four stages run from scratch. There is no partial/incremental reuse — a future optimization opportunity.
+
+---
+
+### Stage 1: Scan
+
+**Service:** `ScanService`
+**Purpose:** Extract raw `KindDefinitionView` and `InstanceDeclarationView` from source files via the `ASTViewPort`.
+
+The scanner iterates every source file and makes two calls per file:
+
+#### Extract Kind definitions
+
+`astPort.getKindDefinitions(sourceFile, checker)` walks each file's top-level statements looking for type alias declarations whose type reference resolves to `Kind` (verified via the TypeChecker using `isSymbolNamed()`, which handles import aliases like `import { Kind as K }`).
+
+For each match, it extracts a `KindDefinitionView`:
+
+```
+KindDefinitionView {
+  typeName:        string           ← the type alias name (e.g., "CleanContext")
+  kindNameLiteral: string           ← first type arg (string literal, e.g., "CleanContext")
+  members:         Array<{          ← second type arg (type literal properties)
+    name: string;                     property name
+    typeName?: string;                type reference name (e.g., "DomainLayer")
+  }>
+  constraints?:    TypeNodeView     ← third type arg (recursive structural view)
+}
+```
+
+The constraint extraction is **structural inference** — `buildTypeNodeView()` determines shape from AST node types, not from property names:
+
+| AST node type | TypeNodeView |
+|---|---|
+| `TrueKeyword` / `FalseKeyword` | `{ kind: 'boolean' }` |
+| `TupleTypeNode` with string literals | `{ kind: 'stringList', values: [...] }` |
+| `TupleTypeNode` with nested tuples | `{ kind: 'tuplePairs', values: [[a,b], ...] }` |
+| `TypeLiteralNode` with properties | `{ kind: 'object', properties: [...] }` (recursive) |
+
+#### Extract Instance declarations
+
+`astPort.getInstanceDeclarations(sourceFile, checker)` finds `satisfies Instance<T>` expressions.
+
+The ASTAdapter:
+1. Builds a `varMap` of all variable declarations in the file (for resolving identifier references)
+2. Finds variable declarations with `satisfies` expressions
+3. Uses `isSymbolNamed()` to verify the type reference is `Instance`
+4. Extracts the Kind type name from the type argument
+
+For each match, it extracts an `InstanceDeclarationView`:
+
+```
+InstanceDeclarationView {
+  variableName: string              ← the variable name (e.g., "app")
+  kindTypeName: string              ← the type argument (e.g., "CleanContext")
+  declaredPath: string              ← the second type arg (e.g., ".", "./src")
+  members:      MemberValueView[]   ← recursively-resolved member values
+}
+
+MemberValueView {
+  name:      string                 ← property key
+  children?: MemberValueView[]      ← nested object properties
+}
+```
+
+The adapter resolves identifier references via `varMap` — `{ domain: x }` where `x` is a previously declared variable gets resolved to `x`'s value expression.
+
+#### Scan output
+
+```
+ScanResult {
+  kindDefs:          Map<string, KindDefinitionView>          // typeName → definition
+  instances:         ScannedInstance[]                         // { view, sourceFileName }
+  typeKindDefs:      Map<string, TypeKindDefinitionView>      // TypeKind<N, T, C> definitions
+  typeKindInstances: ScannedTypeKindInstance[]                 // typed exports (pass 2)
+  errors:            string[]                                 // extraction errors
+}
+```
+
+---
+
+### Stage 2: Parse
+
+**Service:** `ParseService`
+**Purpose:** Build ArchSymbol trees from scanner output. The parser is purely structural — it resolves the instance root from the declared path, derives member paths from member names, but does NOT resolve those paths to actual files (that's the binder's job).
+
+#### Build member tree (ArchSymbol hierarchy)
+
+For each instance declaration, the parser:
+
+1. **Looks up the Kind definition** from the `kindDefs` map using `kindTypeName`
+2. **Resolves the root location** — `resolvePath(dirnamePath(sourceFileName), declaredPath)`, resolving the declared path relative to the declaration file's directory. Handles hash syntax for sub-file paths (`./file.ts#exportName`).
+3. **Builds the member tree** via `buildMemberTree()`:
+
+```
+buildMemberTree(kindDef, parentPath, memberValues, kindDefs):
+  For each member defined in the Kind:
+    memberPath = property.location                    // explicit location from tuple syntax
+      ? resolvePath(parentPath, property.location)    //   e.g., [DomainLayer, './domain']
+      : joinPath(parentPath, memberName)              //   fallback: derive from member name
+    Look up child Kind definition (if member has a typeName)
+    Recurse if child Kind has members AND instance value has children
+    Create ArchSymbol(name, Member, memberPath, childMembers, kindTypeName)
+```
+
+The resulting ArchSymbol tree mirrors the Kind definition structure, with the root resolved from the declared path and member paths resolved from explicit locations (or derived from member names as fallback):
+
+```
+ArchSymbol: "app" (Instance, id: /project/src/)
+  ├─ ArchSymbol: "domain" (Member, id: /project/src/domain/)
+  ├─ ArchSymbol: "application" (Member, id: /project/src/application/)
+  │   ├─ ArchSymbol: "ports" (Member, id: /project/src/application/ports/)
+  │   └─ ArchSymbol: "services" (Member, id: /project/src/application/services/)
+  └─ ArchSymbol: "infrastructure" (Member, id: /project/src/infrastructure/)
+```
+
+**Key principle:** The root is resolved from the instance's declared path. Member locations come from explicit tuple declarations (e.g., `[DomainLayer, './domain']`) or fall back to `parentPath + memberName`. The parser never queries the filesystem — it constructs the model purely from scan output.
+
+#### Parse output
+
+The parser is purely structural — it resolves the root from the declared path and derives member paths, but does NOT resolve those paths to actual files. Name resolution (resolvedFiles) is the Binder's responsibility.
+
+```
+ParseResult {
+  symbols:           ArchSymbol[]                // Kind definitions + instance trees
+  kindDefs:          Map<string, KindDefinitionView>  // passed through for the Binder
+  instanceSymbols:   Map<string, ArchSymbol[]>   // kindTypeName → instance symbols
+  instanceTypeNames: Map<string, string>         // "app" → "CleanContext"
+  errors:            string[]                    // non-fatal parse errors
+}
+```
+
+**Early exit (in orchestrator):** If `symbols.length === 0`, returns `{ ok: false, error: 'No Kind definitions found.' }`.
+
+---
+
+### Stage 3: Bind
+
+**Service:** `BindService`
+**Purpose:** Resolve symbol locations to files and generate `Contract[]` from constraint trees via `ConstraintProvider` plugins. The binder performs two binding operations: name resolution (resolvedFiles) and constraint binding (Contracts).
+
+#### Resolve symbol locations
+
+The binder resolves each symbol's `id` to actual code files using a unified strategy:
+
+```
+For each symbol and its descendants:
+  1. TypeKind member? → Declaration resolution (typed exports within parent scope)
+  2. Directory exists? → Folder resolution (readDirectory, recursive)
+  3. File exists? → File resolution (single file)
+  4. None → Unresolved (omitted from resolvedFiles)
+```
+
+Locations that don't exist on disk are silently omitted — `resolvedFiles` only contains locations with actual files.
+
+#### Generate contracts from explicit constraints
+
+For each Kind that has instances, the binder calls `walkConstraints()` on the Kind's constraint `TypeNodeView`.
+
+`walkConstraints()` recursively traverses the constraint tree, building **dotted property names** as it descends:
+
+```
+walkConstraints(view, instanceSymbol, ..., namePrefix=""):
+  For each property in the object view:
+    fullName = namePrefix ? namePrefix + "." + prop.name : prop.name
+
+    If value is 'object' → RECURSE with fullName as new prefix
+    If value is leaf → look up plugin by fullName
+      → plugin.generate(value, instanceSymbol, kindName, location) → Contract[]
+```
+
+Each plugin's `generate()` function resolves member names from the constraint value to actual `ArchSymbol` objects via `instanceSymbol.findByPath()` and creates `Contract` objects.
+
+Two shared helper functions handle the common patterns:
+- `generateFromTuplePairs()` — for `[["a", "b"]]` style constraints (noDependency)
+- `generateFromStringList()` — for `["a", "b"]` style constraints (noCycles)
+
+**Special case:** Intrinsic-only constraints (those with `intrinsic` but no `generate` on the plugin, like `pure`) are **skipped** here — they're handled in the propagation phase.
+
+#### Propagate intrinsic constraints
+
+After generating explicit contracts, the binder propagates **intrinsic constraints** from member Kinds to their parent instances.
+
+```
+For each Kind definition with instances:
+  For each member property of the Kind:
+    Look up the member's own Kind definition
+    If that Kind has constraints:
+      For each plugin with an intrinsic handler:
+        If plugin.intrinsic.detect(memberKindConstraints) → true:
+          Find the member's ArchSymbol in the instance tree
+          Call plugin.intrinsic.propagate(memberSymbol, memberName, location)
+          Deduplicate: skip if identical contract already exists
+          Add resulting Contract to the list
+```
+
+Currently only `purityPlugin` has intrinsic behavior:
+- `detect()` checks if the constraint tree has a `pure: boolean` property
+- `propagate()` creates a `Purity` contract targeting the specific member symbol
+
+This is how `pure: true` on a leaf Kind (like `DomainLayer`) automatically applies purity checking to every instance that uses it as a member.
+
+#### Bind output
+
+```
+BindResult {
+  contracts:            Contract[]                           // all generated contracts
+  resolvedFiles:        Map<string, string[]>                // location → file list
+  containerFiles:       Map<string, string[]>                // instance root → all files in scope
+  declarationOwnership: Map<string, Map<string, string>>     // file → Map<declName, symbolId>
+  errors:               string[]                             // non-fatal binding errors
+}
+```
+
+---
+
+### Stage 4: Check
+
+**Service:** `CheckerService`
+**Purpose:** Evaluate each contract against the resolved project and produce diagnostics.
+
+#### Build CheckContext
+
+The service builds a shared context that all plugins receive:
+
+```
+CheckContext {
+  tsPort:               TypeScriptPort                       // for import resolution, interface analysis
+  program:              Program                              // the ts.Program from the orchestrator
+  checker:              TypeChecker                          // from tsPort.getTypeChecker(program)
+  resolvedFiles:        Map<string, string[]>                // from Stage 3 (Bind)
+  containerFiles:       Map<string, string[]>                // instance root → all files in scope
+  ownershipTree:        OwnershipTree                        // parent-child instance relationships
+  declarationOwnership: Map<string, Map<string, string>>     // file → Map<declName, symbolId>
+}
+```
+
+#### Contract validation
+
+For each contract, the dispatcher:
+
+1. **Looks up the plugin** by `contract.type` from a `Map<ContractType, ContractPlugin>`
+2. **Validates the args** by calling `plugin.validate(contract.args)`
+   - Returns `null` if valid, or an error message string
+   - If invalid, emits an `InvalidContract` diagnostic (code 70099) and skips checking
+
+#### Contract checking
+
+For valid contracts, the dispatcher calls `plugin.check(contract, context)`.
+
+Each plugin implements its own checking logic using the `CheckContext`. The shared helper `getSourceFilesForPaths()` resolves file paths to `SourceFile` objects from the TypeScript program.
+
+**How each plugin uses the context:**
+
+| Plugin | resolvedFiles | tsPort methods | Domain utils |
+|---|---|---|---|
+| `noDependency` | Get files for both symbols | `getImports(sf, checker)`, `getIntraFileReferences(sf, checker)` | `isFileInSymbol()` — path containment |
+| `purity` | Get files for the symbol | `getImportModuleSpecifiers(program, sf)` — raw specifier strings | `NODE_BUILTINS` set membership |
+| `noCycles` | Get files for all symbols | `getImports(sf, checker)` — build dependency graph | `findCycles()` — cycle detection |
+| `scope` | — | — | Validates instance location vs Kind scope |
+| `overlap` | Get files for both sibling symbols | — | Set intersection of file lists |
+| `exhaustiveness` | Get member files + containerFiles | — | Set difference: container − members |
+
+Each plugin returns:
+
+```
+CheckResult {
+  diagnostics:   Diagnostic[]     // violations found
+  filesAnalyzed: number           // count of files inspected
+}
+```
+
+#### Check output
+
+The dispatcher aggregates results from all plugins:
+
+```
+CheckerResponse {
+  diagnostics:      Diagnostic[]   // all violations
+  contractsChecked: number         // total contracts evaluated
+  violationsFound:  number         // diagnostics.length
+  filesAnalyzed:    number         // sum across all plugins
+}
+```
+
+---
+
+### Pipeline Output
+
+`PipelineService` aggregates errors from all four stages and returns a discriminated union:
+
+```
+PipelineSuccess {
+  ok:                    true
+  diagnostics:           Diagnostic[]
+  contractsChecked:      number
+  filesAnalyzed:         number
+  classificationErrors:  string[]     // aggregated from scan + parse + bind
+}
+
+PipelineError {
+  ok:    false
+  error: string
+}
+```
+
+Both the CLI and the IDE plugin delegate to `PipelineService`. The apps layer only handles presentation:
+- **CLI** — formats diagnostics for terminal output, sets exit code
+- **Plugin** — filters diagnostics for the currently open file, converts to `ts.Diagnostic` format
+
+---
+
+## Layer Architecture
+
+KindScript itself follows strict Clean Architecture:
+
+```
+Domain Layer (pure, zero dependencies)
+  ↑ depends on
+Application Layer (ports + pipeline: scan → parse → bind → check)
+  ↑ implements
+Infrastructure Layer (shared driven adapters only)
+Apps Layer (CLI + Plugin — each with own ports, adapters, use cases)
+```
+
+### Domain Layer
+
+Pure business logic with zero external dependencies — no TypeScript compiler API, no Node.js `fs`.
+
+- **Entities:** `ArchSymbol`, `Contract`, `Diagnostic`, `Program`
+- **Value Objects:** `ContractReference`, `SourceRef`
+- **Types:** `ArchSymbolKind`, `ContractType`, `CompilerOptions`
+- **Constants:** `DiagnosticCode`, `NodeBuiltins`
+- **Utilities:** cycle detection
+
+### Application Layer
+
+Use cases and port interfaces. Organized as a four-stage pipeline:
+
+- **Ports:** `TypeScriptPort` (composite of `CompilerPort` + `CodeAnalysisPort`), `FileSystemPort`, `ConfigPort`, `ASTViewPort` — 4 driven port interfaces
+- **Pipeline:**
+  - `ScanService` — AST extraction via `ASTViewPort`
+  - `ParseService` — ArchSymbol tree construction (pure structural, no I/O)
+  - `BindService` — File resolution + contract generation via `ConstraintProvider` plugins
+  - `CheckerService` — Contract evaluation via `ContractPlugin` implementations
+  - `PipelineService` — orchestrator (caching + stage chaining, delegates program setup to `ProgramFactory`)
+  - `ProgramFactory` — config reading, file discovery, TS program creation (behind `ProgramPort` interface)
+- **Engine:** `Engine` interface bundling shared services (`pipeline` + `plugins`)
+
+### Infrastructure Layer
+
+Shared driven adapters only:
+
+- `TypeScriptAdapter` — wraps `ts.Program` and `ts.TypeChecker`
+- `FileSystemAdapter` — wraps Node.js `fs` and `path`
+- `ASTAdapter` — wraps `ts.Node` traversal with type checker queries
+- `ConfigAdapter` — reads `tsconfig.json` and `kindscript.json`
+- `createEngine()` — factory that wires all shared services
+
+### Apps Layer
+
+Product entry points, each with their own ports, adapters, and use cases:
+
+- **CLI** (`apps/cli/`) — `CheckCommand`, `ConsolePort`, `DiagnosticPort`
+- **Plugin** (`apps/plugin/`) — TS language service plugin with `GetPluginDiagnostics`, `GetPluginCodeFixes`
+
+---
+
+## Source Layout
+
+```
+src/
+  types/index.ts                              # Public API (Kind, TypeKind, Constraints, Instance, KindConfig, KindRef)
+  domain/                                     # Pure, zero dependencies
+    entities/                                 # ArchSymbol, Contract, Diagnostic, Program
+    value-objects/                            # ContractReference, SourceRef
+    types/                                    # ArchSymbolKind, ContractType
+    constants/                                # DiagnosticCode, NodeBuiltins
+    utils/                                    # cycle-detection
+  application/
+    ports/                                    # 4 driven ports
+    pipeline/
+      scan/                                   # Stage 1: AST extraction
+        scan.service.ts
+        scan.types.ts                         # ScanRequest, ScanResult, ScanUseCase
+      parse/                                  # Stage 2: ArchSymbol trees (pure structural)
+        parse.service.ts
+        parse.types.ts                        # ParseResult, ParseUseCase
+      bind/                                   # Stage 3: Resolution + contract generation
+        bind.service.ts
+        bind.types.ts                         # BindResult, BindUseCase
+      check/                                  # Stage 4: Contract evaluation
+        checker.service.ts
+        checker.use-case.ts                   # CheckerUseCase interface
+        checker.request.ts
+        checker.response.ts
+        import-edge.ts                        # ImportEdge value object
+        intra-file-edge.ts                    # IntraFileEdge (declaration-level references)
+      plugins/                                # Contract plugin system (shared by bind + check)
+        constraint-provider.ts                # ConstraintProvider interface
+        contract-plugin.ts                    # ContractPlugin interface + helpers
+        plugin-registry.ts                    # createAllPlugins()
+        generator-helpers.ts                  # Shared generate() helpers
+        no-dependency/                        # noDependencyPlugin (+ intra-file checking)
+        purity/                               # purityPlugin (intrinsic)
+        no-cycles/                            # noCyclesPlugin
+        scope/                                # scopePlugin
+        overlap/                              # overlapPlugin (auto-generated for siblings)
+        exhaustiveness/                       # exhaustivenessPlugin (opt-in exhaustive: true)
+      views.ts                                # Pipeline view DTOs (TypeNodeView, DeclarationView, etc.)
+      ownership-tree.ts                       # OwnershipTree, OwnershipNode, buildOwnershipTree()
+      program.ts                              # ProgramPort, ProgramFactory, ProgramSetup
+      pipeline.service.ts                     # Orchestrator (caching + 4 stages)
+      pipeline.types.ts                       # PipelineUseCase, PipelineResponse
+    engine.ts                                 # Engine interface
+  infrastructure/                             # Shared driven adapters only
+    typescript/typescript.adapter.ts
+    filesystem/filesystem.adapter.ts
+    config/config.adapter.ts
+    ast/ast.adapter.ts
+    path/path-utils.ts                        # Pure path utilities (isFileInSymbol, joinPath, etc.)
+    engine-factory.ts                         # createEngine()
+  apps/
+    cli/                                      # CLI entry point + commands
+      ports/                                  # ConsolePort, DiagnosticPort
+      adapters/                               # CLIConsoleAdapter, CLIDiagnosticAdapter
+      commands/check.command.ts
+    plugin/                                   # TS language service plugin
+      ports/                                  # LanguageServicePort
+      adapters/                               # LanguageServiceAdapter
+      use-cases/                              # GetPluginDiagnostics, GetPluginCodeFixes
+      language-service-proxy.ts
+      diagnostic-converter.ts
+```
+
+---
+
+## Key Data Types
+
+### ArchSymbol
+
+The core domain entity — a named architectural unit classified from the AST:
+
+```typescript
+class ArchSymbol {
+  readonly name: string;                       // symbol name (e.g., "domain", "app")
+  readonly kind: ArchSymbolKind;               // Kind | Instance | Member
+  readonly id?: string;                         // opaque identifier (lookup key into resolvedFiles)
+  readonly members: Map<string, ArchSymbol>;   // child symbols (hierarchical)
+  readonly kindTypeName?: string;              // the Kind type this instantiates
+  readonly exportName?: string;                // for sub-file instances (hash syntax)
+}
+```
+
+Key methods: `findMember(name)`, `findByPath("a.b.c")`, `descendants()` (generator), `getAllMembers()`.
+
+### Contract
+
+A constraint declared on a Kind type, ready for evaluation:
+
+```typescript
+class Contract {
+  readonly type: ContractType;    // NoDependency | Purity | NoCycles | Scope | Overlap | Exhaustiveness
+  readonly name: string;          // human-readable label, e.g., "noDependency(domain -> infrastructure)"
+  readonly args: ArchSymbol[];    // member symbols this contract references
+  readonly location?: string;     // where this contract was defined (for error messages)
+}
+```
+
+### Diagnostic
+
+KindScript's violation format, compatible with TypeScript diagnostics:
+
+```typescript
+class Diagnostic {
+  readonly message: string;                    // human-readable error
+  readonly code: number;                       // 70001–70099
+  readonly source: SourceRef;                  // where the violation occurred
+  readonly relatedContract?: ContractReference;
+}
+```
+
+Access location via `diagnostic.source.file`, `.source.line`, `.source.column`, `.source.scope`.
+
+The `SourceRef` value object encapsulates location:
+
+```typescript
+class SourceRef {
+  static at(file, line, column): SourceRef;    // file-scoped diagnostic
+  static structural(scope?): SourceRef;        // project-wide / scope-wide diagnostic
+  get isFileScoped(): boolean;
+}
+```
+
+Diagnostic codes:
+
+```
+KS70001  Forbidden dependency                       (noDependency)
+KS70003  Impure import in '<symbol>': '<module>'    (purity)
+KS70004  Circular dependency                        (noCycles)
+KS70005  Scope mismatch                             (scope)
+KS70006  Member overlap                             (overlap)
+KS70007  Unassigned file                            (exhaustiveness)
+KS70099  Invalid contract              (malformed constraint)
+```
+
+### TypeNodeView
+
+The structural view of constraint type arguments, extracted from the AST:
+
+```typescript
+type TypeNodeView =
+  | { kind: 'boolean' }                                              // true / false
+  | { kind: 'stringList'; values: string[] }                         // ["a", "b"]
+  | { kind: 'tuplePairs'; values: [string, string][] }               // [["a", "b"]]
+  | { kind: 'object'; properties: Array<{ name: string; value: TypeNodeView }> }  // { x: ... }
+```
+
+### ContractPlugin
+
+The full plugin interface for contract enforcement:
+
+```typescript
+interface ContractPlugin extends ConstraintProvider {
+  readonly type: ContractType;
+  readonly diagnosticCode: number;
+  validate(args: ArchSymbol[]): string | null;
+  check(contract: Contract, ctx: CheckContext): CheckResult;
+  codeFix?: { fixName: string; description: string };
+}
+```
+
+Extends `ConstraintProvider` (used by the bind stage):
+
+```typescript
+interface ConstraintProvider {
+  readonly constraintName: string;                       // e.g., "noDependency", "pure"
+  generate?: (value, instanceSymbol, ...) => GeneratorResult;
+  intrinsic?: {
+    detect(view: TypeNodeView): boolean;
+    propagate(memberSymbol, memberName, location): Contract;
+  };
+}
+```
+
+---
+
+## IDE Integration
+
+KindScript uses the TypeScript Language Service Plugin API — not a custom LSP server. The plugin intercepts `getSemanticDiagnostics` and `getCodeFixesAtPosition` to add architectural diagnostics alongside type errors.
+
+**Configuration** (`tsconfig.json`):
+```json
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "kindscript" }]
+  }
+}
+```
+
+Every editor using tsserver (VS Code, Vim, Emacs, WebStorm) gets KindScript support immediately with zero editor-specific integration.
+
+The CLI (`ksc check`) provides the same checks for CI pipelines.

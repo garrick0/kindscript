@@ -1,0 +1,21 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "headers": [
+    {
+      "source": "/tutorial/:path*",
+      "headers": [
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,358 @@
+# Constraints
+
+> All constraint types (3 user-declared + 3 structural), the plugin architecture, and how constraint checking works.
+
+---
+
+## Overview
+
+KindScript enforces architectural rules through **constraints** — rules declared on Kind types that are evaluated against the actual codebase. Each constraint type checks a different property.
+
+> **Terminology:** Users declare *constraints* on Kind types. Internally, the compiler generates *contracts* — evaluable rules produced by `ConstraintProvider` plugins in the bind stage. The docs use "constraint" for the user-facing concept and "contract" for the internal domain entity.
+
+| Constraint | Category | What It Checks | Diagnostic Code |
+|----------|----------|----------------|-----------------|
+| `noDependency` | Dependency | Layer A cannot import from Layer B | KS70001 |
+| `purity` | Behavioral | Layer has no side-effect imports | KS70003 |
+| `noCycles` | Dependency | No circular dependencies between layers | KS70004 |
+| `scope` | Structural | Instance location matches Kind's declared scope | KS70005 |
+| `overlap` | Structural | Two sibling members must not claim the same files | KS70006 |
+| `exhaustive` | Structural | All files in instance scope must be assigned to a member | KS70007 |
+
+---
+
+## Declaring Constraints
+
+Constraints are declared as the 3rd type parameter on `Kind<N, Members, Constraints>`:
+
+```typescript
+type OrderingContext = Kind<"OrderingContext", {
+  domain: DomainLayer;
+  application: ApplicationLayer;
+  infrastructure: InfrastructureLayer;
+}, {
+  noDependency: [
+    ["domain", "infrastructure"],
+    ["domain", "application"],
+  ];
+  noCycles: ["domain", "application", "infrastructure"];
+}>;
+```
+
+The `Constraints<Members>` type ensures member names are valid identifiers from the Kind's member map.
+
+### Constraint Shapes
+
+Constraints come in three shapes:
+
+| Shape | Constraints | Declaration |
+|-------|-------------|-------------|
+| **Intrinsic** (applies to a member kind) | `pure` | `pure: true` on the member Kind |
+| **Relational** (between two members) | `noDependency` | `[["from", "to"]]` |
+| **Collective** (across a group) | `noCycles` | `["member1", "member2", ...]` |
+| **Structural** (auto-generated) | `overlap`, `exhaustive` | Implicit or `exhaustive: true` |
+
+---
+
+## Constraint Types
+
+### noDependency — Forbidden Dependency (KS70001)
+
+Forbids any file in member A from importing any file in member B. This is the core mechanism for enforcing dependency direction in Clean Architecture, Hexagonal, Onion, etc.
+
+```typescript
+type Context = Kind<"Context", {
+  domain: DomainLayer;
+  infrastructure: InfrastructureLayer;
+}, {
+  noDependency: [["domain", "infrastructure"]];
+}>;
+```
+
+**How it works:**
+1. Resolves all files in the `from` member's directory (recursively)
+2. Resolves all files in the `to` member's directory (into a Set)
+3. For each file in `from`, uses the TypeScript type checker to resolve all imports
+4. If any resolved import target is in the `to` member's file set, produces a violation
+
+**Example violation:**
+```
+src/domain/service.ts:12:1 - error KS70001: Forbidden dependency: domain → infrastructure (src/domain/service.ts → src/infrastructure/database.ts)
+
+  12 import { Db } from '../infrastructure/database';
+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+**Notes:**
+- Both `import` and `import type` are checked (type-only imports are not exempted)
+- Dynamic imports (`import()` expressions) are not currently checked
+- Re-exports through barrel files are detected at the resolved target level
+
+### purity — Impure Import (KS70003)
+
+Checks that a member marked `pure: true` does not import from Node.js built-in modules (fs, http, crypto, net, etc.). This enforces side-effect-free domain layers.
+
+Purity is declared on the **member Kind** (not the parent Kind):
+
+```typescript
+type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
+```
+
+**How it works:**
+1. Resolves all files in the member's directory
+2. For each file, extracts raw import module specifiers
+3. Checks each specifier against the `NODE_BUILTINS` list (includes `node:` prefix variants)
+4. If a file imports a built-in module, produces a violation
+
+**Example violation:**
+```
+src/domain/service.ts:1:1 - error KS70003: Impure import in 'domain': 'fs'
+
+  1 import { readFileSync } from 'fs';
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+### noCycles — Circular Dependency (KS70004)
+
+Detects circular dependency chains between members. If member A imports from member B, and member B imports from member A (directly or transitively through other members), this is a violation.
+
+```typescript
+type Context = Kind<"Context", {
+  domain: DomainLayer;
+  application: ApplicationLayer;
+  infrastructure: InfrastructureLayer;
+}, {
+  noCycles: ["domain", "application", "infrastructure"];
+}>;
+```
+
+**How it works:**
+1. Builds an import graph between the specified members
+2. Runs Tarjan's SCC (strongly connected components) algorithm
+3. Any SCC with more than one member is a cycle → violation
+
+**Example violation:**
+```
+error KS70004: Circular dependency detected: domain → infrastructure → domain
+```
+
+### overlap — Member Overlap (KS70006)
+
+Detects when two sibling members within the same instance claim the same file(s). This is an **implicit** check — the binder generates overlap contracts automatically for every pair of sibling members. No user-facing constraint syntax is needed.
+
+**How it works:**
+1. For each instance, the binder generates one overlap contract per pair of sibling members
+2. During checking, the plugin intersects the resolved file sets of both members
+3. If any file appears in both sets, produces a violation
+
+**Example violation:**
+```
+[a] - error KS70006: Member overlap: "a" and "b" share 1 file(s): src/sub/code.ts
+```
+
+**Notes:**
+- Overlap checking is automatic — users don't need to declare it
+- The binder generates `C(n, 2)` overlap contracts for `n` sibling members
+- Folder-scoped members that contain sub-members will naturally produce overlaps unless member locations are disjoint
+
+### exhaustive — Unassigned Code (KS70007)
+
+Checks that every file within an instance's scope is assigned to at least one member. Opt-in via `exhaustive: true` in the Kind's constraints.
+
+```typescript
+type App = Kind<"App", {
+  core: [Core, './core'];
+  infra: [Infra, './infra'];
+}, {
+  exhaustive: true;
+}>;
+```
+
+**How it works:**
+1. Resolves the instance's container (all files under the instance root)
+2. Collects all files assigned to members via `resolvedFiles`
+3. Any file in the container but not in any member is flagged as unassigned
+
+**Default exclusions** (not flagged as unassigned):
+- `context.ts` / `context.tsx` — instance declaration files
+- `*.test.ts` / `*.spec.ts` — test files
+- Files inside `__tests__/` directories
+
+**Example violation:**
+```
+[app] - error KS70007: Unassigned file: "src/orphan.ts" is not in any member of app
+```
+
+---
+
+## Intrinsic Constraints
+
+Most constraints are declared on a parent Kind and reference its members by name (e.g., `noDependency: [["domain", "infrastructure"]]`). **Intrinsic constraints** work differently — they are declared on a member Kind itself and automatically propagate to every parent instance that uses that member.
+
+Currently only `purity` supports intrinsic propagation.
+
+### How It Works
+
+1. **Declare purity on the member Kind:**
+
+```typescript
+type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
+```
+
+2. **Use it as a member in a parent Kind:**
+
+```typescript
+type OrderingContext = Kind<"OrderingContext", {
+  domain: DomainLayer;
+  infrastructure: InfrastructureLayer;
+}>;
+```
+
+3. **The binder detects and propagates:**
+
+During the bind stage, `BindService` inspects each member Kind's constraints. When it finds `pure: true` on `DomainLayer`, it calls `purityPlugin.intrinsic.propagate()` to create a `Purity` contract targeting the `domain` member in every `OrderingContext` instance — without the parent Kind needing to declare purity explicitly.
+
+### Why Intrinsic?
+
+Some constraints are properties of the member itself, not relationships between members. Purity is inherent to `DomainLayer` — it should be pure everywhere it's used, not just in contexts that remember to declare it. Intrinsic propagation makes this automatic.
+
+### Plugin Support
+
+A plugin supports intrinsic behavior by providing an `intrinsic` object with two methods:
+
+- `detect(view: TypeNodeView): boolean` — returns true if the member Kind's constraints contain this intrinsic (e.g., has a `pure` boolean property)
+- `propagate(memberSymbol, memberName, location): Contract` — creates the contract for this member
+
+The binder deduplicates: if a parent Kind explicitly declares the same constraint, the intrinsic propagation is skipped.
+
+---
+
+## Constraint Plugin Architecture
+
+Each constraint type is implemented as a `ContractPlugin` — a self-contained object with validation, checking, and optional generation logic.
+
+### Plugin Interface
+
+Each `ContractPlugin` extends `ConstraintProvider` (the bind-stage view) with enforcement capabilities:
+
+```typescript
+interface ConstraintProvider {
+  readonly constraintName: string;
+  generate?: (value: TypeNodeView, instanceSymbol: ArchSymbol, kindName: string, location: string) => GeneratorResult;
+  intrinsic?: {
+    detect(view: TypeNodeView): boolean;
+    propagate(memberSymbol: ArchSymbol, memberName: string, location: string): Contract;
+  };
+}
+
+interface ContractPlugin extends ConstraintProvider {
+  readonly type: ContractType;
+  readonly diagnosticCode: number;
+
+  validate(args: ArchSymbol[]): string | null;
+  check(contract: Contract, ctx: CheckContext): CheckResult;
+
+  codeFix?: { fixName: string; description: string };
+}
+```
+
+### Plugin Registry
+
+All 6 plugins are registered in `plugin-registry.ts`. Each plugin is a singleton object (not a factory function):
+
+```typescript
+function createAllPlugins(): ContractPlugin[] {
+  return [
+    noDependencyPlugin,
+    purityPlugin,
+    noCyclesPlugin,
+    scopePlugin,
+    overlapPlugin,
+    exhaustivenessPlugin,
+  ];
+}
+```
+
+The `CheckerService` is a thin dispatcher (~60 lines) that:
+1. Receives contracts and resolved files
+2. Looks up the appropriate plugin for each contract's type
+3. Delegates checking to the plugin
+4. Aggregates all diagnostics
+
+### Adding a New Constraint Type
+
+1. Add the contract type to `src/domain/types/contract-type.ts`
+2. Add the diagnostic code to `src/domain/constants/diagnostic-codes.ts`
+3. Create the plugin in `src/application/pipeline/plugins/<name>/<name>.plugin.ts`
+4. Register it in `plugins/plugin-registry.ts`
+5. Add unit tests in `tests/application/<name>.plugin.test.ts`
+6. Add integration tests and fixtures
+7. Add E2E tests in `tests/cli/e2e/cli.e2e.test.ts`
+
+### Walkthrough: Implementing a Plugin
+
+See any plugin in `src/application/pipeline/plugins/` for a reference implementation. Each plugin is a singleton object implementing `ContractPlugin` with:
+
+1. **Domain types** — Add `ContractType` enum value and `DiagnosticCode` constant
+2. **Plugin file** — Implement `type`, `constraintName`, `diagnosticCode`, `validate()`, `check()`, and optionally `generate()` / `intrinsic`
+3. **Register** — Add to `createAllPlugins()` in `plugin-registry.ts`
+4. **Tests** — Every plugin needs validation, check, and generate tests
+
+All 6 existing plugins follow this pattern.
+
+---
+
+## How Contract Checking Works
+
+### Data Flow
+
+```
+PipelineService (orchestrator)
+    → reads config, discovers source files, creates TS program
+
+ScanService (scanner)
+    → walks AST with type checker via ASTViewPort
+    → extracts KindDefinitionView[] and InstanceDeclarationView[]
+
+ParseService (parser)
+    → builds ArchSymbol trees from scan output
+    → derives filesystem locations from member names
+    → purely structural (no I/O)
+
+BindService (binder)
+    → resolves symbol locations to files (directory/file/declaration)
+    → walks constraint trees from Kind definitions
+    → generates Contract[] via ConstraintProvider plugins
+    → propagates intrinsic constraints (e.g., pure: true)
+    → produces resolvedFiles: Map<location, files[]>
+
+CheckerService (checker)
+    → for each Contract:
+        → validate arguments (plugin.validate)
+        → evaluate against resolved files and imports (plugin.check)
+        → collect Diagnostic[]
+    → return all diagnostics
+```
+
+### TypeKind Member Resolution
+
+When TypeKind members are used inside a filesystem Kind, the binder resolves them differently from filesystem members:
+
+- **Filesystem members:** `readDirectory()` on the derived path (folder resolution) or single file (file resolution)
+- **TypeKind members:** collect all typed exports within the parent Kind's scope that match the TypeKind name (declaration resolution)
+
+Both resolution paths populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult`. The checker operates on this unified map — existing constraint plugins (`noDependency`, `noCycles`, etc.) work unchanged with TypeKind members.
+
+### What the Checker Receives
+
+The checker receives **pre-resolved data** — it does zero live I/O during checking:
+
+- `contracts: Contract[]` — all contracts to evaluate
+- `symbols: ArchSymbol[]` — all architectural symbols
+- `resolvedFiles: Map<string, string[]>` — location → file list mapping
+- `tsPort: TypeScriptPort` — for import resolution and interface analysis
+
+This separation means:
+- The checker is testable with mock data (no filesystem needed)
+- File resolution happens once, not per-contract
+- The checker focuses purely on evaluation logic

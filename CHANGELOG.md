@@ -1,0 +1,90 @@
+# Changelog
+
+All notable changes to KindScript will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2026-02-11
+
+### 🎉 First Stable Release
+
+KindScript 1.0.0 is the first production-ready release of architectural enforcement for TypeScript.
+
+### Added
+
+- **Recursive Ownership Model** - Complete 7-phase implementation:
+  - Phase 0: Explicit instance locations via `Instance<T, Path>`
+  - Phase 1: Container file resolution for `Instance<T>` and `Instance<T, Path>`
+  - Phase 2: Automatic overlap detection for sibling instances
+  - Phase 3: Exhaustiveness validation (opt-in via `exhaustive: true`)
+  - Phase 4: Ownership tree construction from scope containment
+  - Phase 5: Declaration-level containment checking
+  - Phase 6: Intra-file dependency validation
+
+- **Six Contract Types**:
+  - `noDependency` - Prevent dependencies between architectural layers
+  - `purity` - Enforce zero external dependencies (pure modules)
+  - `noCycles` - Detect circular dependencies
+  - `scope` - Validate instance scope containment
+  - `overlap` - Auto-generated for sibling instances (prevents file overlap)
+  - `exhaustiveness` - Ensure all project files belong to an instance
+
+- **TypeScript Compiler Integration**:
+  - Language Service Plugin for IDE integration
+  - CLI tool (`ksc`) for build pipelines
+  - Four-stage pipeline: scan → parse → bind → check
+
+- **Kind System**:
+  - `Kind` - Basic architectural abstractions
+  - `TypeKind<T>` - Generic architectural patterns with type parameters
+  - `Instance<T, Path>` - Explicit location syntax for instances
+  - Member-based composition via `MemberMap`
+
+### Changed
+
+- **Breaking**: Removed backward-compatibility `Diagnostic` getters (`.file`, `.line`, `.column`, `.scope`)
+  - Consumers now use `.source.file`, `.source.line`, `.source.column`, `.source.scope`
+
+- **API**: Added `exhaustive?: true` to `Constraints` type in public API
+
+### Documentation
+
+- 32 Architecture Decision Records (ADRs) documenting key design choices
+- 6 comprehensive documentation chapters
+- Interactive browser-based tutorial (7 lessons)
+- Complete testing guide with 342 tests across 31 test files
+
+### Internal
+
+- A+Apps+Pipeline architecture with onion layers
+- Domain layer: 100% pure (zero external dependencies)
+- Application layer: Four-stage compiler pipeline aligned with TypeScript stages
+- Infrastructure layer: Shared driven adapters only
+- Apps layer: CLI + Plugin with dedicated ports/adapters
+
+## [0.8.0-m8] - 2026-02-09
+
+### Changed
+
+- Pre-release milestone (m8) with recursive ownership work in progress
+
+## [0.8.0-m7] - 2026-02-08
+
+### Changed
+
+- Pre-release milestone (m7)
+
+---
+
+**Legend**:
+- 🎉 Major milestone
+- ✨ New feature
+- 🐛 Bug fix
+- 📚 Documentation
+- ⚠️ Breaking change
+- 🔧 Internal/refactor
+
+[1.0.0]: https://github.com/garrick0/kindscript/releases/tag/v1.0.0
+[0.8.0-m8]: https://github.com/garrick0/kindscript/releases/tag/v0.8.0-m8
+[0.8.0-m7]: https://github.com/garrick0/kindscript/releases/tag/v0.8.0-m7

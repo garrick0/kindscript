@@ -1,0 +1,34 @@
+# Hello KindScript
+
+KindScript enforces architectural rules at compile time. You define your architecture as TypeScript types, and KindScript checks that your code follows the rules.
+
+Let's start with a clean project that uses **Clean Architecture** with three layers:
+
+- **Domain** — business logic (innermost)
+- **Application** — orchestration
+- **Infrastructure** — external I/O (outermost)
+
+## What's in `src/context.ts`?
+
+Open `src/context.ts` in the editor. This file defines the architecture:
+
+1. **Kind types** declare each layer (`DomainLayer`, `ApplicationLayer`, `InfrastructureLayer`)
+2. **Members with locations** map each layer to a folder using tuple syntax: `[Kind, './path']`
+3. **Constraints** forbid imports from domain into infrastructure or application
+4. **Instance** declares this as a live instance of the architecture
+
+All APIs are pure types — zero runtime footprint.
+
+## Run the check
+
+In the terminal, run:
+
+```
+npx ksc check .
+```
+
+You should see **0 violations** — this project follows all the rules.
+
+:::tip
+`ksc` is the KindScript CLI. `check .` checks the current directory for architectural violations.
+:::
