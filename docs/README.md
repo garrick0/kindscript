@@ -7,7 +7,7 @@
 | 1 | [Architecture](01-architecture.md) | System overview, compiler pipeline, layers, data flow, source layout |
 | 2 | [Kind System](02-kind-system.md) | Kind syntax, TypeKind, instances, location resolution, scope validation, discovery |
 | 3 | [Constraints](03-constraints.md) | All 6 constraint types (3 user-declared + 3 structural), plugin architecture |
-| 4 | [Decisions](04-decisions.md) | Key decisions log (D1–D18: plugin vs LSP, drop .k.ts, unified Kind, etc.) |
+| 4 | [Decisions](decisions/) | Architecture Decision Records (32 ADRs: plugin vs LSP, drop .k.ts, unified Kind, etc.) |
 | 5 | [Examples](05-examples.md) | Real-world patterns: Clean Architecture, design systems, bounded contexts |
 | 6 | [Tutorial](06-tutorial.md) | Progressive walkthrough: first constraint to real-world modeling |
 
@@ -27,7 +27,7 @@
 3. [tests/README.md](../tests/README.md) — testing guide
 
 **Understanding a decision:**
-1. [04-decisions.md](04-decisions.md) — rationale for all major decisions
+1. [decisions/](decisions/) — browse 32 ADRs by topic or chronologically
 
 ---
 
@@ -39,8 +39,8 @@
 | How do I define a Kind? | [02-kind-system.md](02-kind-system.md) — Kind Definitions |
 | What constraints are available? | [03-constraints.md](03-constraints.md) — Constraint Types |
 | How do I add a new constraint? | [03-constraints.md](03-constraints.md) — Adding a New Constraint Type |
-| Why plugin instead of LSP? | [04-decisions.md](04-decisions.md) — D1 |
-| Why no .k.ts extension? | [04-decisions.md](04-decisions.md) — D9 |
+| Why plugin instead of LSP? | [decisions/0001-language-service-plugin-instead-of-custom-lsp.md](decisions/0001-language-service-plugin-instead-of-custom-lsp.md) |
+| Why no .k.ts extension? | [decisions/0009-drop-kts-piggyback-on-typescript-type-checker.md](decisions/0009-drop-kts-piggyback-on-typescript-type-checker.md) |
 | How do I model a design system? | [05-examples.md](05-examples.md) — Design System |
 | How do bounded contexts work? | [05-examples.md](05-examples.md) — Bounded Contexts |
 | How do I learn KindScript step by step? | [06-tutorial.md](06-tutorial.md) — Tutorial |
@@ -58,7 +58,10 @@ docs/                                Source of truth (checked in)
 ├── 01-architecture.md               System overview + pipeline + layers
 ├── 02-kind-system.md                Kind syntax + instances + discovery
 ├── 03-constraints.md                All 6 constraints + plugin architecture
-├── 04-decisions.md                  Key decisions log
+├── decisions/                       Architecture Decision Records (32 ADRs)
+│   ├── README.md                    ADR index
+│   ├── 0001-*.md                    Individual ADR files
+│   └── template.md                  Template for new ADRs
 ├── 05-examples.md                   Real-world modeling examples
 ├── 06-tutorial.md                   Progressive walkthrough + real-world narrative
 └── archive/                         Historical — do not use for implementation
@@ -90,7 +93,7 @@ Active design explorations and scratch documents live in `.working/` at the proj
 ## Contributing
 
 - **Update chapter files** when architectural decisions or constraints change
-- **Add new decisions** as numbered entries in `04-decisions.md`
+- **Add new ADRs** by copying `decisions/template.md` to a new numbered file
 - **Use `.working/`** for design explorations (not checked in)
 - **Uplift findings** from `.working/` into chapters when done, then archive the working doc
 - **Update this README** if chapters are added or reorganized

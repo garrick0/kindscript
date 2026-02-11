@@ -481,7 +481,7 @@ docs/                                # Source of truth (checked in)
 ├── 01-architecture.md               # System overview, pipeline, layers, data flow
 ├── 02-kind-system.md                # Kind syntax, TypeKind, instances, location resolution, scope validation, discovery
 ├── 03-constraints.md                # All 3 constraint types, plugin architecture
-├── 04-decisions.md                  # Key decisions log (Build/Wrap/Skip, etc.)
+├── decisions/                       # Architecture Decision Records (ADRs)
 ├── 05-examples.md                   # Real-world modeling examples
 ├── 06-tutorial.md                   # Progressive tutorial (static walkthrough + real-world narrative)
 └── archive/                         # Historical — do not use for implementation
@@ -498,7 +498,7 @@ docs/                                # Source of truth (checked in)
 | Understand the pipeline / architecture | `docs/01-architecture.md` |
 | Understand Kind syntax and instances | `docs/02-kind-system.md` |
 | Understand constraints or add a new one | `docs/03-constraints.md` |
-| Understand why a decision was made | `docs/04-decisions.md` |
+| Understand why a decision was made | `docs/decisions/` (32 ADRs) |
 | See real-world modeling examples | `docs/05-examples.md` |
 | Walk through KindScript step by step | `docs/06-tutorial.md` |
 | Try the interactive tutorial | `tutorial/` ([README](tutorial/README.md)) |
@@ -509,7 +509,7 @@ docs/                                # Source of truth (checked in)
 | Action | Where |
 |---|---|
 | Architecture, contracts, or Kind system changes | Update the relevant chapter file |
-| New architectural decision | Add entry to `docs/04-decisions.md` |
+| New architectural decision | Create new file in `docs/decisions/` using `template.md` |
 | New design exploration | Create in `.working/` (not checked in) |
 | Completed an exploration | Uplift findings into `docs/` chapters, then move working doc to `.working/archive/` |
 

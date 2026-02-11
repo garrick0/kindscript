@@ -195,7 +195,7 @@ Violations appear alongside regular TypeScript errors -- same format, same tooli
 | [Kind System](docs/02-kind-system.md) | Kind syntax, instances, location resolution, discovery |
 | [Constraints](docs/03-constraints.md) | All 6 constraint types, plugin architecture |
 | [Examples](docs/05-examples.md) | Real-world modeling (Clean Architecture, Atomic Design, monorepos) |
-| [Decisions](docs/04-decisions.md) | Key architectural decisions and rationale |
+| [Decisions](docs/decisions/) | Architecture Decision Records (32 ADRs) |
 
 ### Interactive notebooks
 
