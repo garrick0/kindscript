@@ -3,6 +3,7 @@ import { ScanResult } from '../scan/scan.types';
 import { KindDefinitionView, MemberValueView } from '../views';
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
+import { CarrierExpr } from '../../../domain/types/carrier';
 import { joinPath, dirnamePath, resolvePath } from '../../../infrastructure/path/path-utils';
 
 /**
@@ -14,8 +15,8 @@ import { joinPath, dirnamePath, resolvePath } from '../../../infrastructure/path
  * - Kind-type ArchSymbols
  *
  * The parser is purely structural — it builds the tree and computes
- * `id` paths, but does NOT resolve those paths to actual
- * files. Name resolution (resolvedFiles) is the Binder's responsibility.
+ * carrier expressions, but does NOT resolve carriers to actual files.
+ * Carrier resolution (resolvedFiles) is the Binder's responsibility.
  *
  * Analogous to TypeScript's Parser which takes tokens and builds
  * an AST of Nodes (no semantic info, no symbol table).
@@ -56,7 +57,7 @@ export class ParseService implements ParseUseCase {
       const symbol = new ArchSymbol(
         view.variableName,
         ArchSymbolKind.Instance,
-        resolvedRoot,
+        { type: 'path', path: resolvedRoot },
         members,
         view.kindTypeName,
         exportName,
@@ -80,7 +81,6 @@ export class ParseService implements ParseUseCase {
       kindDefs: scanResult.kindDefs,
       instanceSymbols,
       instanceTypeNames,
-      typeKindDefs: scanResult.typeKindDefs,
       errors,
     };
   }
@@ -88,6 +88,7 @@ export class ParseService implements ParseUseCase {
   /**
    * Build member ArchSymbols from a Kind definition tree and instance member values.
    * Pure domain logic — walks MemberValueView[] against Kind-defined members.
+   * Produces carrier expressions for each member.
    */
   private buildMemberTree(
     kindDef: KindDefinitionView,
@@ -108,10 +109,26 @@ export class ParseService implements ParseUseCase {
       const memberValue = memberValues.find(m => m.name === memberName);
 
       // Use explicit location from Kind definition when available;
-      // fall back to name-based derivation for TypeKind members
+      // fall back to name-based derivation
       const memberPath = property.location
         ? resolvePath(parentPath, property.location)
         : joinPath(parentPath, memberName);
+
+      // Determine carrier expression: wrapped Kind members get intersect(tagged, path)
+      const isWrapped = memberKindTypeName != null
+        && childKindDef?.wrapsTypeName != null;
+
+      const carrier: CarrierExpr = isWrapped
+        ? {
+            // Scoped tagged carrier: intersect the global tagged set with the parent's path.
+            // "All InstanceOf<K> declarations within the parent instance's scope."
+            type: 'intersect',
+            children: [
+              { type: 'tagged', kindTypeName: memberKindTypeName! },
+              { type: 'path', path: parentPath },
+            ],
+          }
+        : { type: 'path', path: memberPath };
 
       // Recurse if child Kind has properties and member value has children
       let childMembers = new Map<string, ArchSymbol>();
@@ -124,7 +141,7 @@ export class ParseService implements ParseUseCase {
       const memberSymbol = new ArchSymbol(
         memberName,
         ArchSymbolKind.Member,
-        memberPath,
+        carrier,
         childMembers,
         memberKindTypeName,
       );
