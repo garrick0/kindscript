@@ -2,6 +2,7 @@ import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { Contract } from '../../src/domain/entities/contract';
 import { ContractType } from '../../src/domain/types/contract-type';
+import { carrierKey } from '../../src/domain/types/carrier';
 
 describe('ArchSymbol', () => {
   describe('construction', () => {
@@ -11,17 +12,18 @@ describe('ArchSymbol', () => {
       expect(symbol.name).toBe('domain');
       expect(symbol.kind).toBe(ArchSymbolKind.Member);
       expect(symbol.members.size).toBe(0);
-      expect(symbol.id).toBeUndefined();
+      expect(symbol.carrier).toBeUndefined();
     });
 
-    it('creates a symbol with location', () => {
+    it('creates a symbol with carrier', () => {
       const symbol = new ArchSymbol(
         'domain',
         ArchSymbolKind.Member,
-        'src/domain'
+        { type: 'path', path: 'src/domain' }
       );
 
-      expect(symbol.id).toBe('src/domain');
+      expect(symbol.carrier).toEqual({ type: 'path', path: 'src/domain' });
+      expect(carrierKey(symbol.carrier!)).toBe('src/domain');
     });
 
     it('creates a symbol with members', () => {
@@ -32,7 +34,7 @@ describe('ArchSymbol', () => {
       const symbol = new ArchSymbol(
         'domain',
         ArchSymbolKind.Member,
-        'src/domain',
+        { type: 'path', path: 'src/domain' },
         members,
       );
 
@@ -185,7 +187,7 @@ describe('ArchSymbol', () => {
     });
 
     it('formats symbol with location', () => {
-      const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/domain');
+      const symbol = new ArchSymbol('domain', ArchSymbolKind.Member, { type: 'path', path: 'src/domain' });
 
       expect(symbol.toString()).toBe('member:domain @ src/domain');
     });
@@ -194,9 +196,9 @@ describe('ArchSymbol', () => {
   describe('layer structure modeling', () => {
     it('models Clean Architecture three-layer structure', () => {
       // Arrange: Create the three-layer architecture
-      const domain = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/ordering/domain');
-      const application = new ArchSymbol('application', ArchSymbolKind.Member, 'src/ordering/application');
-      const infrastructure = new ArchSymbol('infrastructure', ArchSymbolKind.Member, 'src/ordering/infrastructure');
+      const domain = new ArchSymbol('domain', ArchSymbolKind.Member, { type: 'path', path: 'src/ordering/domain' });
+      const application = new ArchSymbol('application', ArchSymbolKind.Member, { type: 'path', path: 'src/ordering/application' });
+      const infrastructure = new ArchSymbol('infrastructure', ArchSymbolKind.Member, { type: 'path', path: 'src/ordering/infrastructure' });
 
       const root = new ArchSymbol(
         'ordering', ArchSymbolKind.Member, undefined,
@@ -237,12 +239,12 @@ describe('ArchSymbol', () => {
 
     it('models nested layer structure', () => {
       // Arrange: Domain layer with sub-layers
-      const entities = new ArchSymbol('entities', ArchSymbolKind.Member, 'src/domain/entities');
-      const valueObjects = new ArchSymbol('valueObjects', ArchSymbolKind.Member, 'src/domain/value-objects');
-      const ports = new ArchSymbol('ports', ArchSymbolKind.Member, 'src/domain/ports');
+      const entities = new ArchSymbol('entities', ArchSymbolKind.Member, { type: 'path', path: 'src/domain/entities' });
+      const valueObjects = new ArchSymbol('valueObjects', ArchSymbolKind.Member, { type: 'path', path: 'src/domain/value-objects' });
+      const ports = new ArchSymbol('ports', ArchSymbolKind.Member, { type: 'path', path: 'src/domain/ports' });
 
       const domain = new ArchSymbol(
-        'domain', ArchSymbolKind.Member, 'src/domain',
+        'domain', ArchSymbolKind.Member, { type: 'path', path: 'src/domain' },
         new Map([
           ['entities', entities],
           ['valueObjects', valueObjects],
@@ -262,15 +264,15 @@ describe('ArchSymbol', () => {
 
     it('models multiple bounded contexts', () => {
       // Arrange: Multiple contexts, each with layers
-      const orderingDomain = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/ordering/domain');
-      const billingDomain = new ArchSymbol('domain', ArchSymbolKind.Member, 'src/billing/domain');
+      const orderingDomain = new ArchSymbol('domain', ArchSymbolKind.Member, { type: 'path', path: 'src/ordering/domain' });
+      const billingDomain = new ArchSymbol('domain', ArchSymbolKind.Member, { type: 'path', path: 'src/billing/domain' });
 
       const orderingContext = new ArchSymbol(
-        'ordering', ArchSymbolKind.Member, 'src/ordering',
+        'ordering', ArchSymbolKind.Member, { type: 'path', path: 'src/ordering' },
         new Map([['domain', orderingDomain]])
       );
       const billingContext = new ArchSymbol(
-        'billing', ArchSymbolKind.Member, 'src/billing',
+        'billing', ArchSymbolKind.Member, { type: 'path', path: 'src/billing' },
         new Map([['domain', billingDomain]])
       );
 
@@ -295,9 +297,9 @@ describe('ArchSymbol', () => {
 
     it('models hexagonal architecture (ports and adapters)', () => {
       // Arrange: Hexagonal architecture structure
-      const core = new ArchSymbol('core', ArchSymbolKind.Member, 'src/core');
-      const ports = new ArchSymbol('ports', ArchSymbolKind.Member, 'src/ports');
-      const adapters = new ArchSymbol('adapters', ArchSymbolKind.Member, 'src/adapters');
+      const core = new ArchSymbol('core', ArchSymbolKind.Member, { type: 'path', path: 'src/core' });
+      const ports = new ArchSymbol('ports', ArchSymbolKind.Member, { type: 'path', path: 'src/ports' });
+      const adapters = new ArchSymbol('adapters', ArchSymbolKind.Member, { type: 'path', path: 'src/adapters' });
 
       const app = new ArchSymbol(
         'application', ArchSymbolKind.Member, undefined,
@@ -315,9 +317,9 @@ describe('ArchSymbol', () => {
 
     it('models layered monolith with shared kernel', () => {
       // Arrange: Shared kernel + multiple contexts
-      const sharedKernel = new ArchSymbol('shared', ArchSymbolKind.Member, 'src/shared');
-      const orderingContext = new ArchSymbol('ordering', ArchSymbolKind.Member, 'src/ordering');
-      const billingContext = new ArchSymbol('billing', ArchSymbolKind.Member, 'src/billing');
+      const sharedKernel = new ArchSymbol('shared', ArchSymbolKind.Member, { type: 'path', path: 'src/shared' });
+      const orderingContext = new ArchSymbol('ordering', ArchSymbolKind.Member, { type: 'path', path: 'src/ordering' });
+      const billingContext = new ArchSymbol('billing', ArchSymbolKind.Member, { type: 'path', path: 'src/billing' });
 
       const system = new ArchSymbol(
         'system', ArchSymbolKind.Kind, undefined,
