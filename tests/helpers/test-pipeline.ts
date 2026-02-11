@@ -4,6 +4,7 @@ import { BindService } from '../../src/application/pipeline/bind/bind.service';
 import { CheckerService } from '../../src/application/pipeline/check/checker.service';
 import { CheckerResponse } from '../../src/application/pipeline/check/checker.response';
 import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
+import { CarrierResolver } from '../../src/application/pipeline/carrier/carrier-resolver';
 import { TypeScriptAdapter } from '../../src/infrastructure/typescript/typescript.adapter';
 import { FileSystemAdapter } from '../../src/infrastructure/filesystem/filesystem.adapter';
 import { ASTAdapter } from '../../src/infrastructure/ast/ast.adapter';
@@ -34,9 +35,10 @@ export function createTestPipeline(): TestPipeline {
   const astAdapter = new ASTAdapter();
   const configAdapter = new ConfigAdapter(fsAdapter);
   const plugins = createAllPlugins();
+  const carrierResolver = new CarrierResolver(fsAdapter);
   const scanService = new ScanService(astAdapter);
   const parseService = new ParseService();
-  const bindService = new BindService(plugins, fsAdapter);
+  const bindService = new BindService(plugins, carrierResolver);
   const checkService = new CheckerService(plugins, tsAdapter);
 
   return {

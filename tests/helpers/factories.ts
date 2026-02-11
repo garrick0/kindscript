@@ -17,7 +17,8 @@ export function makeSymbol(
   kind: ArchSymbolKind = ArchSymbolKind.Member,
   location?: string,
 ): ArchSymbol {
-  return new ArchSymbol(name, kind, location ?? `src/${name}`);
+  const path = location ?? `src/${name}`;
+  return new ArchSymbol(name, kind, { type: 'path', path });
 }
 
 // ---------------------------------------------------------------------------

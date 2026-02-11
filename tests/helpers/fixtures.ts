@@ -36,13 +36,13 @@ export const FIXTURES = {
   // Scope override fixtures
   SCOPE_OVERRIDE_CLEAN: path.join(FIXTURES_BASE, 'scope-override-clean'),
 
-  // TypeKind composability fixtures
-  TYPEKIND_COMPOSABILITY_CLEAN: path.join(FIXTURES_BASE, 'typekind-composability-clean'),
-  TYPEKIND_COMPOSABILITY_VIOLATION: path.join(FIXTURES_BASE, 'typekind-composability-violation'),
+  // Wrapped Kind composability fixtures
+  WRAPPED_KIND_COMPOSABILITY_CLEAN: path.join(FIXTURES_BASE, 'wrapped-kind-composability-clean'),
+  WRAPPED_KIND_COMPOSABILITY_VIOLATION: path.join(FIXTURES_BASE, 'wrapped-kind-composability-violation'),
 
-  // TypeKind purity fixtures (standalone TypeKind constraints)
-  TYPEKIND_PURITY_CLEAN: path.join(FIXTURES_BASE, 'typekind-purity-clean'),
-  TYPEKIND_PURITY_VIOLATION: path.join(FIXTURES_BASE, 'typekind-purity-violation'),
+  // Wrapped Kind purity fixtures (standalone wrapped Kind constraints)
+  WRAPPED_KIND_PURITY_CLEAN: path.join(FIXTURES_BASE, 'wrapped-kind-purity-clean'),
+  WRAPPED_KIND_PURITY_VIOLATION: path.join(FIXTURES_BASE, 'wrapped-kind-purity-violation'),
 
   // Explicit location fixtures
   EXPLICIT_LOCATION_EXTERNAL: path.join(FIXTURES_BASE, 'explicit-location-external'),

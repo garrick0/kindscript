@@ -6,6 +6,8 @@ import { MockFileSystemAdapter } from '../helpers/mocks/mock-filesystem.adapter'
 import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
 import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.port';
 import { ContractType } from '../../src/domain/types/contract-type';
+import { CarrierResolver } from '../../src/application/pipeline/carrier/carrier-resolver';
+import { carrierKey } from '../../src/domain/types/carrier';
 
 const mockChecker = {} as TypeChecker;
 const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
@@ -14,7 +16,7 @@ const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
 function classify(mockAST: MockASTAdapter, files: SourceFile[]) {
   const scanner = new ScanService(mockAST);
   const parser = new ParseService();
-  const binder = new BindService(createAllPlugins(), new MockFileSystemAdapter());
+  const binder = new BindService(createAllPlugins(), new CarrierResolver(new MockFileSystemAdapter()));
 
   const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
   const parseResult = parser.execute(scanResult);
@@ -295,7 +297,7 @@ describe('Pipeline - Kind Definition Parsing', () => {
       // Resolution is from declaredPath (default '.'), not from scope
       const instance = result.symbols.find(s => s.name === 'utils');
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src');
     });
 
     it('extracts mixed constraints from Kind type', () => {

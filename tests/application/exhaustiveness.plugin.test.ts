@@ -24,9 +24,9 @@ describe('exhaustivenessPlugin.check', () => {
   }
 
   function makeInstanceWithMembers(name: string, memberNames: string[]): ArchSymbol {
-    const instance = new ArchSymbol(name, ArchSymbolKind.Instance, `src/${name}`);
+    const instance = new ArchSymbol(name, ArchSymbolKind.Instance, { type: 'path', path: `src/${name}` });
     for (const m of memberNames) {
-      instance.members.set(m, new ArchSymbol(m, ArchSymbolKind.Member, `src/${name}/${m}`));
+      instance.members.set(m, new ArchSymbol(m, ArchSymbolKind.Member, { type: 'path', path: `src/${name}/${m}` }));
     }
     return instance;
   }
@@ -202,7 +202,7 @@ describe('exhaustivenessPlugin.check', () => {
 
 describe('exhaustivenessPlugin.generate', () => {
   it('generates contract for boolean true value', () => {
-    const instance = new ArchSymbol('app', ArchSymbolKind.Instance, 'src/app');
+    const instance = new ArchSymbol('app', ArchSymbolKind.Instance, { type: 'path', path: 'src/app' });
     const result = exhaustivenessPlugin.generate!(
       { kind: 'boolean' },
       instance,
@@ -216,7 +216,7 @@ describe('exhaustivenessPlugin.generate', () => {
   });
 
   it('returns error for non-boolean value', () => {
-    const instance = new ArchSymbol('app', ArchSymbolKind.Instance, 'src/app');
+    const instance = new ArchSymbol('app', ArchSymbolKind.Instance, { type: 'path', path: 'src/app' });
     const result = exhaustivenessPlugin.generate!(
       { kind: 'stringList', values: ['yes'] },
       instance,
@@ -232,7 +232,7 @@ describe('exhaustivenessPlugin.generate', () => {
 
 describe('exhaustivenessPlugin.validate', () => {
   it('accepts 1 arg', () => {
-    const s = new ArchSymbol('app', ArchSymbolKind.Instance, 'src/app');
+    const s = new ArchSymbol('app', ArchSymbolKind.Instance, { type: 'path', path: 'src/app' });
     expect(exhaustivenessPlugin.validate([s])).toBeNull();
   });
 

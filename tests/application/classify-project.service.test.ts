@@ -20,8 +20,7 @@ function makeScanResult(overrides?: Partial<ScanResult>): ScanResult {
   return {
     kindDefs: new Map(),
     instances: [],
-    typeKindDefs: new Map(),
-    typeKindInstances: [],
+    taggedExports: [],
     errors: [],
     ...overrides,
   };
@@ -33,7 +32,6 @@ function makeParseResult(overrides?: Partial<ParseResult>): ParseResult {
     kindDefs: new Map(),
     instanceSymbols: new Map(),
     instanceTypeNames: new Map(),
-    typeKindDefs: new Map(),
     errors: [],
     ...overrides,
   };
@@ -115,7 +113,7 @@ describe('PipelineService', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain('No Kind or TypeKind definitions found');
+      expect(result.error).toContain('No Kind definitions found');
     }
   });
 

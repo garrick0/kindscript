@@ -4,9 +4,11 @@ import { BindService } from '../../src/application/pipeline/bind/bind.service';
 import { MockASTAdapter } from '../helpers/mocks/mock-ast.adapter';
 import { MockFileSystemAdapter } from '../helpers/mocks/mock-filesystem.adapter';
 import { createAllPlugins } from '../../src/application/pipeline/plugins/plugin-registry';
+import { CarrierResolver } from '../../src/application/pipeline/carrier/carrier-resolver';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { ContractType } from '../../src/domain/types/contract-type';
 import { TypeChecker, SourceFile } from '../../src/application/ports/typescript.port';
+import { carrierKey } from '../../src/domain/types/carrier';
 
 const mockChecker = {} as TypeChecker;
 const sourceFile = (fileName: string): SourceFile => ({ fileName, text: '' });
@@ -16,7 +18,8 @@ function classify(mockAST: MockASTAdapter, files: SourceFile[], mockFS?: MockFil
   const fs = mockFS ?? new MockFileSystemAdapter();
   const scanner = new ScanService(mockAST);
   const parser = new ParseService();
-  const binder = new BindService(createAllPlugins(), fs);
+  const resolver = new CarrierResolver(fs);
+  const binder = new BindService(createAllPlugins(), resolver);
 
   const scanResult = scanner.execute({ sourceFiles: files, checker: mockChecker });
   const parseResult = parser.execute(scanResult);
@@ -95,7 +98,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       expect(instance).toBeDefined();
       expect(instance!.name).toBe('app');
-      expect(instance!.id).toBe('/project/src');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src');
       expect(instance!.kindTypeName).toBe('Ctx');
     });
 
@@ -116,10 +119,10 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/my-app/modules/ordering');
+      expect(carrierKey(instance!.carrier!)).toBe('/my-app/modules/ordering');
 
       const domain = instance!.findMember('domain');
-      expect(domain!.id).toBe('/my-app/modules/ordering/domain');
+      expect(carrierKey(domain!.carrier!)).toBe('/my-app/modules/ordering/domain');
     });
 
     it('derives member paths from file directory + member name', () => {
@@ -143,12 +146,12 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       const domain = instance!.findMember('domain');
       expect(domain).toBeDefined();
-      expect(domain!.id).toBe('/project/src/domain');
+      expect(carrierKey(domain!.carrier!)).toBe('/project/src/domain');
       expect(domain!.kindTypeName).toBe('DomainLayer');
 
       const infra = instance!.findMember('infra');
       expect(infra).toBeDefined();
-      expect(infra!.id).toBe('/project/src/infra');
+      expect(carrierKey(infra!.carrier!)).toBe('/project/src/infra');
       expect(infra!.kindTypeName).toBe('InfraLayer');
     });
 
@@ -183,16 +186,16 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       const domain = instance!.findMember('domain');
-      expect(domain!.id).toBe('/project/src/domain');
+      expect(carrierKey(domain!.carrier!)).toBe('/project/src/domain');
 
       const entities = domain!.findMember('entities');
       expect(entities).toBeDefined();
-      expect(entities!.id).toBe('/project/src/domain/entities');
+      expect(carrierKey(entities!.carrier!)).toBe('/project/src/domain/entities');
       expect(entities!.kindTypeName).toBe('EntitiesModule');
 
       const ports = domain!.findMember('ports');
       expect(ports).toBeDefined();
-      expect(ports!.id).toBe('/project/src/domain/ports');
+      expect(carrierKey(ports!.carrier!)).toBe('/project/src/domain/ports');
       expect(ports!.kindTypeName).toBe('PortsModule');
     });
 
@@ -256,17 +259,17 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const domain = instance!.findMember('domain');
       expect(domain).toBeDefined();
-      expect(domain!.id).toBe('/project/src/domain');
+      expect(carrierKey(domain!.carrier!)).toBe('/project/src/domain');
       expect(domain!.kindTypeName).toBe('DomainLayer');
 
       const entities = domain!.findMember('entities');
       expect(entities).toBeDefined();
-      expect(entities!.id).toBe('/project/src/domain/entities');
+      expect(carrierKey(entities!.carrier!)).toBe('/project/src/domain/entities');
       expect(entities!.kindTypeName).toBe('EntitiesModule');
 
       const ports = domain!.findMember('ports');
       expect(ports).toBeDefined();
-      expect(ports!.id).toBe('/project/src/domain/ports');
+      expect(carrierKey(ports!.carrier!)).toBe('/project/src/domain/ports');
       expect(ports!.kindTypeName).toBe('PortsModule');
     });
 
@@ -305,7 +308,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const infra = instance!.findMember('infra');
       expect(infra).toBeDefined();
-      expect(infra!.id).toBe('/project/src/infra');
+      expect(carrierKey(infra!.carrier!)).toBe('/project/src/infra');
     });
 
   });
@@ -329,7 +332,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.name === '_');
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src/utils');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/utils');
     });
 
     it('declaredPath "./subdir" resolves relative to declaration file', () => {
@@ -350,10 +353,10 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.name === 'ordering');
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src/ordering');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/ordering');
 
       const domain = instance!.findMember('domain');
-      expect(domain!.id).toBe('/project/src/ordering/domain');
+      expect(carrierKey(domain!.carrier!)).toBe('/project/src/ordering/domain');
     });
 
     it('declaredPath "../sibling" navigates up and resolves', () => {
@@ -374,7 +377,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.name === 'shared');
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src/shared');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/shared');
     });
 
     it('declaredPath with .ts extension resolves to file', () => {
@@ -395,7 +398,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.name === '_');
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src/Button.tsx');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/Button.tsx');
     });
 
     it('declaredPath with hash syntax resolves to file with exportName', () => {
@@ -416,7 +419,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.name === 'validate');
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src/handlers.ts');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/handlers.ts');
       expect(instance!.exportName).toBe('validateOrder');
     });
 
@@ -444,10 +447,10 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       const result = classify(mockAST, [sourceFile('/project/src/architecture.ts')]);
 
       const ordering = result.symbols.find(s => s.name === 'ordering');
-      expect(ordering!.id).toBe('/project/src/ordering');
+      expect(carrierKey(ordering!.carrier!)).toBe('/project/src/ordering');
 
       const shipping = result.symbols.find(s => s.name === 'shipping');
-      expect(shipping!.id).toBe('/project/src/shipping');
+      expect(carrierKey(shipping!.carrier!)).toBe('/project/src/shipping');
     });
 
     it('folder-level instance resolves files from directory', () => {
@@ -497,7 +500,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       expect(instance).toBeDefined();
       expect(instance!.name).toBe('_');
-      expect(instance!.id).toBe('/project/src/components/Button.tsx');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/components/Button.tsx');
     });
 
     it('folder-level instance with "." resolves to directory', () => {
@@ -517,7 +520,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       expect(instance).toBeDefined();
-      expect(instance!.id).toBe('/project/src');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src');
     });
 
     it('file-level instance has no members', () => {
@@ -539,7 +542,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       expect(instance).toBeDefined();
       expect(instance!.members.size).toBe(0);
-      expect(instance!.id).toBe('/project/src/atoms/Button.tsx');
+      expect(carrierKey(instance!.carrier!)).toBe('/project/src/atoms/Button.tsx');
     });
 
     it('file-scoped instance resolves to single file in resolvedFiles', () => {
@@ -603,16 +606,16 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       expect(instances).toHaveLength(2);
 
       const composite = instances.find(s => s.name === 'app');
-      expect(composite!.id).toBe('/project/src');
+      expect(composite!.carrier).toEqual({ type: 'path', path: '/project/src' });
 
       const leaf = instances.find(s => s.name === '_');
-      expect(leaf!.id).toBe('/project/src/atoms/Button.tsx');
+      expect(leaf!.carrier).toEqual({ type: 'path', path: '/project/src/atoms/Button.tsx' });
     });
   });
 
-  describe('TypeKind composability', () => {
-    it('TypeKind definition is detected by scanner', () => {
-      mockAST.withTypeKindDefinition('/project/src/context.ts', {
+  describe('Wrapped Kind composability', () => {
+    it('Wrapped Kind definition is detected by scanner', () => {
+      mockAST.withWrappedKindDefinition('/project/src/context.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
         wrappedTypeName: 'DeciderFn',
@@ -624,17 +627,17 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
         checker: mockChecker,
       });
 
-      expect(scanResult.typeKindDefs.has('Decider')).toBe(true);
-      expect(scanResult.typeKindDefs.get('Decider')!.wrappedTypeName).toBe('DeciderFn');
+      expect(scanResult.kindDefs.has('Decider')).toBe(true);
+      expect(scanResult.kindDefs.get('Decider')!.wrapsTypeName).toBe('DeciderFn');
     });
 
-    it('TypeKind instances are detected in pass 2', () => {
-      mockAST.withTypeKindDefinition('/project/src/context.ts', {
+    it('Tagged exports are detected in pass 2', () => {
+      mockAST.withWrappedKindDefinition('/project/src/context.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
       });
 
-      mockAST.withTypeKindInstance('/project/src/validate.ts', {
+      mockAST.withTaggedExport('/project/src/validate.ts', {
         exportName: 'validateOrder',
         kindTypeName: 'Decider',
       });
@@ -648,12 +651,12 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
         checker: mockChecker,
       });
 
-      expect(scanResult.typeKindInstances).toHaveLength(1);
-      expect(scanResult.typeKindInstances[0].view.exportName).toBe('validateOrder');
-      expect(scanResult.typeKindInstances[0].sourceFileName).toBe('/project/src/validate.ts');
+      expect(scanResult.taggedExports).toHaveLength(1);
+      expect(scanResult.taggedExports[0].view.exportName).toBe('validateOrder');
+      expect(scanResult.taggedExports[0].sourceFileName).toBe('/project/src/validate.ts');
     });
 
-    it('TypeKind members inside Kind resolve to matching typed exports', () => {
+    it('Wrapped Kind members inside Kind resolve to matching tagged exports', () => {
       // Kind definition with TypeKind members
       mockAST.withKindDefinition('/project/src/context.ts', {
         typeName: 'OrderModule',
@@ -673,26 +676,28 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
         members: [{ name: 'deciders' }, { name: 'effectors' }],
       });
 
-      // TypeKind definitions
-      mockAST.withTypeKindDefinition('/project/src/context.ts', {
+      // Wrapped Kind definitions
+      mockAST.withWrappedKindDefinition('/project/src/context.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
+        wrappedTypeName: 'DeciderFn',
       });
-      mockAST.withTypeKindDefinition('/project/src/context.ts', {
+      mockAST.withWrappedKindDefinition('/project/src/context.ts', {
         typeName: 'Effector',
         kindNameLiteral: 'Effector',
+        wrappedTypeName: 'EffectorFn',
       });
 
       // Typed exports within scope
-      mockAST.withTypeKindInstance('/project/src/validate.ts', {
+      mockAST.withTaggedExport('/project/src/validate.ts', {
         exportName: 'validateOrder',
         kindTypeName: 'Decider',
       });
-      mockAST.withTypeKindInstance('/project/src/apply.ts', {
+      mockAST.withTaggedExport('/project/src/apply.ts', {
         exportName: 'applyDiscount',
         kindTypeName: 'Decider',
       });
-      mockAST.withTypeKindInstance('/project/src/notify.ts', {
+      mockAST.withTaggedExport('/project/src/notify.ts', {
         exportName: 'notifyOrder',
         kindTypeName: 'Effector',
       });
@@ -709,7 +714,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       const deciders = instance!.findMember('deciders');
       expect(deciders).toBeDefined();
 
-      const deciderFiles = result.resolvedFiles.get(deciders!.id!);
+      const deciderFiles = result.resolvedFiles.get(carrierKey(deciders!.carrier!));
       expect(deciderFiles).toBeDefined();
       expect(deciderFiles!.sort()).toEqual([
         '/project/src/apply.ts',
@@ -718,12 +723,12 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       // effectors member should resolve to Effector-typed exports
       const effectors = instance!.findMember('effectors');
-      const effectorFiles = result.resolvedFiles.get(effectors!.id!);
+      const effectorFiles = result.resolvedFiles.get(carrierKey(effectors!.carrier!));
       expect(effectorFiles).toBeDefined();
       expect(effectorFiles).toEqual(['/project/src/notify.ts']);
     });
 
-    it('TypeKind members generate contracts via binder', () => {
+    it('Wrapped Kind members generate contracts via binder', () => {
       mockAST.withKindDefinition('/project/src/context.ts', {
         typeName: 'OrderModule',
         kindNameLiteral: 'OrderModule',
@@ -742,11 +747,11 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
         members: [{ name: 'deciders' }, { name: 'effectors' }],
       });
 
-      mockAST.withTypeKindDefinition('/project/src/context.ts', {
+      mockAST.withWrappedKindDefinition('/project/src/context.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
       });
-      mockAST.withTypeKindDefinition('/project/src/context.ts', {
+      mockAST.withWrappedKindDefinition('/project/src/context.ts', {
         typeName: 'Effector',
         kindNameLiteral: 'Effector',
       });
@@ -759,7 +764,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
       expect(result.contracts[0].args[1].name).toBe('effectors');
     });
 
-    it('TypeKind instances outside parent scope are excluded', () => {
+    it('Tagged exports outside parent scope are excluded', () => {
       mockAST.withKindDefinition('/project/src/orders/context.ts', {
         typeName: 'OrderModule',
         kindNameLiteral: 'OrderModule',
@@ -772,18 +777,19 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
         members: [{ name: 'deciders' }],
       });
 
-      mockAST.withTypeKindDefinition('/project/src/orders/context.ts', {
+      mockAST.withWrappedKindDefinition('/project/src/orders/context.ts', {
         typeName: 'Decider',
         kindNameLiteral: 'Decider',
+        wrappedTypeName: 'DeciderFn',
       });
 
       // This export is within scope
-      mockAST.withTypeKindInstance('/project/src/orders/validate.ts', {
+      mockAST.withTaggedExport('/project/src/orders/validate.ts', {
         exportName: 'validateOrder',
         kindTypeName: 'Decider',
       });
       // This export is OUTSIDE scope (different directory)
-      mockAST.withTypeKindInstance('/project/src/billing/charge.ts', {
+      mockAST.withTaggedExport('/project/src/billing/charge.ts', {
         exportName: 'chargeBilling',
         kindTypeName: 'Decider',
       });
@@ -796,7 +802,7 @@ describe('Pipeline - satisfies Instance<T> and Multi-file', () => {
 
       const instance = result.symbols.find(s => s.kind === ArchSymbolKind.Instance);
       const deciders = instance!.findMember('deciders');
-      const deciderFiles = result.resolvedFiles.get(deciders!.id!);
+      const deciderFiles = result.resolvedFiles.get(carrierKey(deciders!.carrier!));
 
       // Only the in-scope file should be included
       expect(deciderFiles).toEqual(['/project/src/orders/validate.ts']);
