@@ -1,14 +1,14 @@
 /**
- * TypeKind purity fixture — violation.
+ * Wrapped Kind purity fixture — violation.
  *
- * Decider has { pure: true } constraint directly on the TypeKind.
+ * Decider has { pure: true } constraint directly on the wrapped Kind.
  * The Decider export file imports from 'fs' — impure.
  */
 
-import type { Kind, Instance, TypeKind } from 'kindscript';
+import type { Kind, Instance, InstanceOf } from 'kindscript';
 
 type DeciderFn = (command: unknown) => unknown[];
-type Decider = TypeKind<"Decider", DeciderFn, { pure: true }>;
+type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
 
 type OrderModule = Kind<"OrderModule", {
   deciders: Decider;

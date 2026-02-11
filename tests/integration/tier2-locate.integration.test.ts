@@ -4,6 +4,7 @@ import { ContractType } from '../../src/domain/types/contract-type';
 import { DiagnosticCode } from '../../src/domain/constants/diagnostic-codes';
 import { runPipeline } from '../helpers/test-pipeline';
 import { FIXTURES } from '../helpers/fixtures';
+import { carrierKey } from '../../src/domain/types/carrier';
 
 describe('Tier 2 Locate Integration Tests', () => {
   describe('locate-clean-arch fixture (no violations)', () => {
@@ -17,17 +18,17 @@ describe('Tier 2 Locate Integration Tests', () => {
       const instances = classifyResult.symbols.filter(s => s.kind === ArchSymbolKind.Instance);
       expect(instances).toHaveLength(1);
       expect(instances[0].name).toBe('app');
-      expect(instances[0].id).toBe(path.join(fixturePath, 'src'));
+      expect(carrierKey(instances[0].carrier!)).toBe(path.join(fixturePath, 'src'));
 
       const domain = instances[0].findMember('domain');
       expect(domain).toBeDefined();
-      expect(domain!.id).toBe(path.join(fixturePath, 'src/domain'));
+      expect(carrierKey(domain!.carrier!)).toBe(path.join(fixturePath, 'src/domain'));
       expect(domain!.kind).toBe(ArchSymbolKind.Member);
       expect(domain!.kindTypeName).toBe('DomainLayer');
 
       const infra = instances[0].findMember('infrastructure');
       expect(infra).toBeDefined();
-      expect(infra!.id).toBe(path.join(fixturePath, 'src/infrastructure'));
+      expect(carrierKey(infra!.carrier!)).toBe(path.join(fixturePath, 'src/infrastructure'));
       expect(infra!.kind).toBe(ArchSymbolKind.Member);
     });
 
@@ -70,25 +71,25 @@ describe('Tier 2 Locate Integration Tests', () => {
       const instances = classifyResult.symbols.filter(s => s.kind === ArchSymbolKind.Instance);
       expect(instances).toHaveLength(1);
       expect(instances[0].name).toBe('app');
-      expect(instances[0].id).toBe(path.join(fixturePath, 'src'));
+      expect(carrierKey(instances[0].carrier!)).toBe(path.join(fixturePath, 'src'));
 
       // First level: domain
       const domain = instances[0].findMember('domain');
       expect(domain).toBeDefined();
-      expect(domain!.id).toBe(path.join(fixturePath, 'src/domain'));
+      expect(carrierKey(domain!.carrier!)).toBe(path.join(fixturePath, 'src/domain'));
       expect(domain!.kind).toBe(ArchSymbolKind.Member);
       expect(domain!.kindTypeName).toBe('DomainLayer');
 
       // Second level: entities, ports
       const entities = domain!.findMember('entities');
       expect(entities).toBeDefined();
-      expect(entities!.id).toBe(path.join(fixturePath, 'src/domain/entities'));
+      expect(carrierKey(entities!.carrier!)).toBe(path.join(fixturePath, 'src/domain/entities'));
       expect(entities!.kind).toBe(ArchSymbolKind.Member);
       expect(entities!.kindTypeName).toBe('EntitiesModule');
 
       const ports = domain!.findMember('ports');
       expect(ports).toBeDefined();
-      expect(ports!.id).toBe(path.join(fixturePath, 'src/domain/ports'));
+      expect(carrierKey(ports!.carrier!)).toBe(path.join(fixturePath, 'src/domain/ports'));
       expect(ports!.kind).toBe(ArchSymbolKind.Member);
       expect(ports!.kindTypeName).toBe('PortsModule');
     });
@@ -113,7 +114,7 @@ describe('Tier 2 Locate Integration Tests', () => {
 
       const domain = instances[0].findMember('domain');
       expect(domain).toBeDefined();
-      expect(domain!.id).toBe(path.join(fixturePath, 'src/domain'));
+      expect(carrierKey(domain!.carrier!)).toBe(path.join(fixturePath, 'src/domain'));
       expect(domain!.kind).toBe(ArchSymbolKind.Member);
     });
 
@@ -136,15 +137,15 @@ describe('Tier 2 Locate Integration Tests', () => {
       expect(instances).toHaveLength(1);
       expect(instances[0].name).toBe('app');
       // context.ts is at fixture root, path './src' resolves to fixture/src
-      expect(instances[0].id).toBe(path.join(fixturePath, 'src'));
+      expect(carrierKey(instances[0].carrier!)).toBe(path.join(fixturePath, 'src'));
 
       const domain = instances[0].findMember('domain');
       expect(domain).toBeDefined();
-      expect(domain!.id).toBe(path.join(fixturePath, 'src/domain'));
+      expect(carrierKey(domain!.carrier!)).toBe(path.join(fixturePath, 'src/domain'));
 
       const infra = instances[0].findMember('infrastructure');
       expect(infra).toBeDefined();
-      expect(infra!.id).toBe(path.join(fixturePath, 'src/infrastructure'));
+      expect(carrierKey(infra!.carrier!)).toBe(path.join(fixturePath, 'src/infrastructure'));
     });
 
     it('generates contracts from external context file', () => {
@@ -176,28 +177,28 @@ describe('Tier 2 Locate Integration Tests', () => {
       // Ordering context
       const ordering = instances.find(s => s.name === 'ordering');
       expect(ordering).toBeDefined();
-      expect(ordering!.id).toBe(path.join(fixturePath, 'src/ordering'));
+      expect(carrierKey(ordering!.carrier!)).toBe(path.join(fixturePath, 'src/ordering'));
 
       const orderDomain = ordering!.findMember('domain');
       expect(orderDomain).toBeDefined();
-      expect(orderDomain!.id).toBe(path.join(fixturePath, 'src/ordering/domain'));
+      expect(carrierKey(orderDomain!.carrier!)).toBe(path.join(fixturePath, 'src/ordering/domain'));
 
       const orderInfra = ordering!.findMember('infrastructure');
       expect(orderInfra).toBeDefined();
-      expect(orderInfra!.id).toBe(path.join(fixturePath, 'src/ordering/infrastructure'));
+      expect(carrierKey(orderInfra!.carrier!)).toBe(path.join(fixturePath, 'src/ordering/infrastructure'));
 
       // Billing context
       const billing = instances.find(s => s.name === 'billing');
       expect(billing).toBeDefined();
-      expect(billing!.id).toBe(path.join(fixturePath, 'src/billing'));
+      expect(carrierKey(billing!.carrier!)).toBe(path.join(fixturePath, 'src/billing'));
 
       const billingDomain = billing!.findMember('domain');
       expect(billingDomain).toBeDefined();
-      expect(billingDomain!.id).toBe(path.join(fixturePath, 'src/billing/domain'));
+      expect(carrierKey(billingDomain!.carrier!)).toBe(path.join(fixturePath, 'src/billing/domain'));
 
       const billingAdapters = billing!.findMember('adapters');
       expect(billingAdapters).toBeDefined();
-      expect(billingAdapters!.id).toBe(path.join(fixturePath, 'src/billing/adapters'));
+      expect(carrierKey(billingAdapters!.carrier!)).toBe(path.join(fixturePath, 'src/billing/adapters'));
     });
 
     it('classifies contracts for both instances', () => {

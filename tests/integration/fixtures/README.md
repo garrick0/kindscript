@@ -129,25 +129,25 @@ Tests scope validation on leaf Kinds.
 
 ---
 
-### TypeKind Composability
-Tests TypeKind members inside filesystem Kinds with cross-scope constraints.
+### Wrapped Kind Composability
+Tests wrapped Kind members inside filesystem Kinds with cross-scope constraints.
 
 | Fixture | Purpose | Violation |
 |---------|---------|-----------|
-| `typekind-composability-clean` | Decider + Effector TypeKinds with noDependency satisfied | None |
-| `typekind-composability-violation` | Decider imports from Effector file | Forbidden dependency (KS70001) |
+| `wrapped-kind-composability-clean` | Decider + Effector wrapped Kinds with noDependency satisfied | None |
+| `wrapped-kind-composability-violation` | Decider imports from Effector file | Forbidden dependency (KS70001) |
 
 **Used by:** tier2-contracts.integration, cli.e2e
 
 ---
 
-### TypeKind Standalone Constraints
-Tests standalone constraints on TypeKind definitions (e.g., purity).
+### Wrapped Kind Standalone Constraints
+Tests standalone constraints on wrapped Kind definitions (e.g., purity).
 
 | Fixture | Purpose | Violation |
 |---------|---------|-----------|
-| `typekind-purity-clean` | TypeKind with `pure: true` constraint, no impure imports | None |
-| `typekind-purity-violation` | TypeKind with `pure: true` constraint, Decider file imports `fs` | Impure import (KS70003) |
+| `wrapped-kind-purity-clean` | Wrapped Kind with `pure: true` constraint, no impure imports | None |
+| `wrapped-kind-purity-violation` | Wrapped Kind with `pure: true` constraint, Decider file imports `fs` | Impure import (KS70003) |
 
 **Used by:** tier2-contracts.integration, cli.e2e
 
@@ -219,8 +219,8 @@ design-system-clean/
 | `design-system-*` (2 fixtures) | 1 each | 0 | 1 each |
 | `scope-override-clean` | 1 | 1 | 2 |
 | `scope-mismatch-violation` | 1 | 1 | 2 |
-| `typekind-composability-*` (2 fixtures) | 1 each | 1 each | 2 each |
-| `typekind-purity-*` (2 fixtures) | 1 each | 1 each | 2 each |
+| `wrapped-kind-composability-*` (2 fixtures) | 1 each | 1 each | 2 each |
+| `wrapped-kind-purity-*` (2 fixtures) | 1 each | 1 each | 2 each |
 | `overlap-violation` | 1 | 1 | 2 |
 | `exhaustiveness-violation` | 1 | 1 | 2 |
 
@@ -296,8 +296,8 @@ grep -r "FIXTURES\." tests/ | sort | uniq
 | noDependency | clean-arch-valid | clean-arch-violation | KS70001 |
 | purity | purity-clean | purity-violation | KS70003 |
 | noCycles | (none) | no-cycles-violation | KS70004 |
-| noDependency (TypeKind) | typekind-composability-clean | typekind-composability-violation | KS70001 |
-| purity (TypeKind) | typekind-purity-clean | typekind-purity-violation | KS70003 |
+| noDependency (wrapped Kind) | wrapped-kind-composability-clean | wrapped-kind-composability-violation | KS70001 |
+| purity (wrapped Kind) | wrapped-kind-purity-clean | wrapped-kind-purity-violation | KS70003 |
 | scope validation | scope-override-clean | scope-mismatch-violation | KS70005 |
 | overlap | (none) | overlap-violation | KS70006 |
 | exhaustiveness | (none) | exhaustiveness-violation | KS70007 |
