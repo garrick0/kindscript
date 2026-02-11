@@ -45,6 +45,7 @@ Thumbs.db
 
 # npm auth
 .npmrc
+!website/.npmrc
 
 # npm pack artifacts
 *.tgz
