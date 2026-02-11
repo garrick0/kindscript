@@ -1,0 +1,136 @@
+name: Publish to NPM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty to use package.json version)'
+        required: false
+        type: string
+      tag:
+        description: 'NPM dist-tag (latest, beta, next, etc.)'
+        required: false
+        default: 'latest'
+        type: string
+      dry-run:
+        description: 'Dry run (test without publishing)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git tags
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Bump version (if specified)
+        if: inputs.version != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version ${{ inputs.version }} --no-git-tag-version
+          git add package.json
+          git commit -m "chore: bump version to ${{ inputs.version }}"
+          git tag -a "v${{ inputs.version }}" -m "Release ${{ inputs.version }}"
+
+      - name: Get package version
+        id: package
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Dry run check
+        if: inputs.dry-run
+        run: |
+          echo "🔍 DRY RUN MODE - Not actually publishing"
+          npm publish --dry-run --tag ${{ inputs.tag }}
+
+      - name: Publish to npm
+        if: "!inputs.dry-run"
+        run: npm publish --tag ${{ inputs.tag }} --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Push version commit and tag
+        if: inputs.version != '' && !inputs.dry-run
+        run: |
+          git push origin main
+          git push origin "v${{ inputs.version }}"
+
+      - name: Create GitHub Release
+        if: "!inputs.dry-run"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.package.outputs.version }}';
+            const tag = `v${version}`;
+
+            // Check if release already exists
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              console.log(`Release ${tag} already exists, skipping creation`);
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+
+            // Read CHANGELOG.md to extract release notes
+            const fs = require('fs');
+            let body = '';
+            try {
+              const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+              const releaseSection = changelog.match(new RegExp(`## \\[${version}\\][\\s\\S]*?(?=## \\[|$)`));
+              body = releaseSection ? releaseSection[0] : `Release ${version}`;
+            } catch (e) {
+              body = `Release ${version}\n\nSee [CHANGELOG.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CHANGELOG.md) for details.`;
+            }
+
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `KindScript ${version}`,
+              body: body,
+              draft: false,
+              prerelease: version.includes('-')
+            });
+
+      - name: Summary
+        if: "!inputs.dry-run"
+        run: |
+          echo "### ✅ Published to NPM" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package:** kindscript@${{ steps.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** ${{ inputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **NPM:** https://www.npmjs.com/package/kindscript/v/${{ steps.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Release:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.package.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Install with: \`npm install kindscript@${{ inputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
