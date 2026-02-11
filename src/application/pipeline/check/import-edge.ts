@@ -22,19 +22,6 @@ export class ImportEdge {
   ) {}
 
   /**
-   * Value object equality - two edges are equal if all properties match.
-   */
-  equals(other: ImportEdge): boolean {
-    return (
-      this.sourceFile === other.sourceFile &&
-      this.targetFile === other.targetFile &&
-      this.importPath === other.importPath &&
-      this.line === other.line &&
-      this.column === other.column
-    );
-  }
-
-  /**
    * Human-readable representation of the import edge.
    */
   toString(): string {

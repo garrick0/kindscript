@@ -5,6 +5,7 @@ import { BindUseCase } from './bind/bind.types';
 import { CheckerUseCase } from './check/checker.use-case';
 import { ProgramPort } from './program';
 import { FileSystemPort } from '../ports/filesystem.port';
+import { buildOwnershipTree } from './ownership-tree';
 
 /**
  * KindScript Pipeline — orchestrates the four compiler stages.
@@ -63,6 +64,9 @@ export class PipelineService implements PipelineUseCase {
       ...bindResult.errors,
     ];
 
+    // --- Build ownership tree ---
+    const ownershipTree = buildOwnershipTree(parseResult.symbols);
+
     // --- Stage 4: Check ---
     if (bindResult.contracts.length === 0) {
       const result: PipelineSuccess = {
@@ -82,6 +86,9 @@ export class PipelineService implements PipelineUseCase {
       config: setup.config,
       program: setup.program,
       resolvedFiles: bindResult.resolvedFiles,
+      containerFiles: bindResult.containerFiles,
+      ownershipTree,
+      declarationOwnership: bindResult.declarationOwnership,
     });
 
     const result: PipelineSuccess = {

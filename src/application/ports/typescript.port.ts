@@ -1,5 +1,6 @@
 import { Program } from '../../domain/entities/program';
 import { ImportEdge } from '../pipeline/check/import-edge';
+import { IntraFileEdge } from '../pipeline/check/intra-file-edge';
 import { CompilerOptions } from '../../domain/types/compiler-options';
 
 /**
@@ -37,9 +38,8 @@ export interface CompilerPort {
  */
 export interface CodeAnalysisPort {
   getImports(sourceFile: SourceFile, checker: TypeChecker): ImportEdge[];
+  getIntraFileReferences(sourceFile: SourceFile, checker: TypeChecker): IntraFileEdge[];
   getImportModuleSpecifiers(program: Program, sourceFile: SourceFile): Array<{ moduleName: string; line: number; column: number }>;
-  getExportedInterfaceNames(program: Program, sourceFile: SourceFile): string[];
-  hasClassImplementing(program: Program, sourceFile: SourceFile, interfaceName: string): boolean;
 }
 
 /**

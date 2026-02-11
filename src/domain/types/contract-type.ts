@@ -16,4 +16,10 @@ export enum ContractType {
 
   /** Validates that an instance's resolved location matches the Kind's scope (folder or file) */
   Scope = 'scope',
+
+  /** Detects when two sibling members within the same instance claim the same file */
+  Overlap = 'overlap',
+
+  /** Tracks unassigned files within an instance's scope */
+  Exhaustiveness = 'exhaustiveness',
 }

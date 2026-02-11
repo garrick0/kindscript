@@ -1,4 +1,4 @@
-import { TypeNodeView } from '../../ports/ast.port';
+import { TypeNodeView } from '../views';
 import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { Contract } from '../../../domain/entities/contract';
 

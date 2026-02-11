@@ -39,6 +39,7 @@ export const noDependencyPlugin: ContractPlugin = {
     const fromFilePaths = ctx.resolvedFiles.get(fromLocation) ?? [];
     const toFiles = new Set(ctx.resolvedFiles.get(toLocation) ?? []);
 
+    // Cross-file import checks
     for (const { sourceFile } of getSourceFilesForPaths(ctx, fromFilePaths)) {
       const imports = ctx.tsPort.getImports(sourceFile, ctx.checker);
 
@@ -50,6 +51,35 @@ export const noDependencyPlugin: ContractPlugin = {
             SourceRef.at(imp.sourceFile, imp.line, imp.column),
             contract.toReference(),
           ));
+        }
+      }
+    }
+
+    // Intra-file reference checks (for TypeKind members sharing a file)
+    if (ctx.declarationOwnership) {
+      const sharedFiles = fromFilePaths.filter(f => toFiles.has(f));
+
+      for (const filePath of sharedFiles) {
+        const fileOwnership = ctx.declarationOwnership.get(filePath);
+        if (!fileOwnership) continue;
+
+        const sfEntry = getSourceFilesForPaths(ctx, [filePath])[0];
+        if (!sfEntry) continue;
+
+        const edges = ctx.tsPort.getIntraFileReferences(sfEntry.sourceFile, ctx.checker);
+
+        for (const edge of edges) {
+          const fromOwner = fileOwnership.get(edge.fromDeclaration);
+          const toOwner = fileOwnership.get(edge.toDeclaration);
+
+          if (fromOwner === fromLocation && toOwner === toLocation) {
+            diagnostics.push(new Diagnostic(
+              `Forbidden dependency: ${fromSymbol.name} → ${toSymbol.name} (${edge.fromDeclaration} → ${edge.toDeclaration})`,
+              DiagnosticCode.ForbiddenDependency,
+              SourceRef.at(filePath, edge.line, edge.column),
+              contract.toReference(),
+            ));
+          }
         }
       }
     }

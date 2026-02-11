@@ -25,7 +25,7 @@ export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase 
         diagnostics,
         elapsedMs: Date.now() - startTime,
       };
-    } catch {
+    } catch (_e: unknown) {
       // Never crash — return empty diagnostics on error
       return {
         diagnostics: [],
@@ -47,10 +47,10 @@ export class GetPluginDiagnosticsService implements GetPluginDiagnosticsUseCase 
    * (the definition file containing the Kind/Instance is a regular .ts file).
    */
   private isRelevantToFile(diagnostic: Diagnostic, fileName: string): boolean {
-    if (!diagnostic.file && diagnostic.scope) {
+    if (!diagnostic.source.file && diagnostic.source.scope) {
       return true;
     }
-    const normalizedDiagFile = diagnostic.file.replace(/\\/g, '/');
+    const normalizedDiagFile = diagnostic.source.file.replace(/\\/g, '/');
     const normalizedFileName = fileName.replace(/\\/g, '/');
     return normalizedDiagFile === normalizedFileName;
   }

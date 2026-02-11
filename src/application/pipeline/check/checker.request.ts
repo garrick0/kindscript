@@ -2,6 +2,7 @@ import { ArchSymbol } from '../../../domain/entities/arch-symbol';
 import { Contract } from '../../../domain/entities/contract';
 import { Program } from '../../../domain/entities/program';
 import { KindScriptConfig } from '../../ports/config.port';
+import { OwnershipTree } from '../ownership-tree';
 
 /**
  * Request DTO for the Checker stage.
@@ -26,4 +27,22 @@ export interface CheckerRequest {
    * Built by the Parser stage.
    */
   resolvedFiles: Map<string, string[]>;
+
+  /**
+   * Instance root → ALL files in scope (for containment checking).
+   * Built by the Binder stage.
+   */
+  containerFiles?: Map<string, string[]>;
+
+  /**
+   * The ownership tree — parent-child relationships between instances.
+   * Built by the Pipeline between bind and check stages.
+   */
+  ownershipTree?: OwnershipTree;
+
+  /**
+   * file → Map<declarationName, symbolId> — which member owns each typed declaration.
+   * Built by the Binder for TypeKind member resolution.
+   */
+  declarationOwnership?: Map<string, Map<string, string>>;
 }

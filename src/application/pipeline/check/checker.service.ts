@@ -37,6 +37,9 @@ export class CheckerService implements CheckerUseCase {
       program: request.program,
       checker: this.tsPort.getTypeChecker(request.program),
       resolvedFiles: request.resolvedFiles,
+      containerFiles: request.containerFiles,
+      ownershipTree: request.ownershipTree,
+      declarationOwnership: request.declarationOwnership,
     };
 
     for (const contract of request.contracts) {

@@ -22,18 +22,6 @@ export class Diagnostic {
     public readonly relatedContract?: ContractReference,
   ) {}
 
-  /** File where the violation occurred (empty string for structural violations). */
-  get file(): string { return this.source.file; }
-
-  /** Line number (1-indexed, 0 for structural violations). */
-  get line(): number { return this.source.line; }
-
-  /** Column number (0-indexed). */
-  get column(): number { return this.source.column; }
-
-  /** Scope label for structural violations. */
-  get scope(): string | undefined { return this.source.scope; }
-
   /**
    * Human-readable representation of this diagnostic.
    */

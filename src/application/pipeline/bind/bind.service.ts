@@ -45,6 +45,12 @@ export class BindService implements BindUseCase {
     // 1. Name resolution — resolve symbols to code files
     const resolvedFiles = this.resolveMembers(parseResult.symbols, scanResult);
 
+    // 1b. Container resolution — resolve instance roots to total owned file set
+    const containerFiles = this.resolveContainers(parseResult.symbols);
+
+    // 1c. Declaration ownership — map typed exports to their owning member symbol
+    const declarationOwnership = this.buildDeclarationOwnership(parseResult.symbols, scanResult);
+
     // 2. Generate contracts from Kind constraints
     for (const [kindName, kindDef] of parseResult.kindDefs) {
       const instances = parseResult.instanceSymbols.get(kindName);
@@ -103,10 +109,34 @@ export class BindService implements BindUseCase {
       }
     }
 
-    // 4. Generate contracts from TypeKind constraints (standalone, not inside a parent Kind)
-    this.generateTypeKindContracts(scanResult, contracts, resolvedFiles, errors);
+    // 4. Generate overlap contracts for sibling members within each instance
+    //    Skip folder-TypeKind pairs — they classify on orthogonal axes
+    //    (location vs type annotation), so shared files are composition, not overlap.
+    const isTypeKindMember = (m: ArchSymbol) =>
+      m.kindTypeName != null && scanResult.typeKindDefs.has(m.kindTypeName);
 
-    return { contracts, resolvedFiles, errors };
+    for (const [, instances] of parseResult.instanceSymbols) {
+      for (const instanceSymbol of instances) {
+        const members = instanceSymbol.getAllMembers();
+        for (let i = 0; i < members.length; i++) {
+          for (let j = i + 1; j < members.length; j++) {
+            if (isTypeKindMember(members[i]) !== isTypeKindMember(members[j])) continue;
+
+            contracts.push(new Contract(
+              ContractType.Overlap,
+              `overlap:${members[i].name}/${members[j].name}`,
+              [members[i], members[j]],
+              `instance:${instanceSymbol.name}`,
+            ));
+          }
+        }
+      }
+    }
+
+    // 5. Generate contracts from TypeKind constraints (standalone, not inside a parent Kind)
+    this.generateTypeKindContracts(scanResult, contracts, resolvedFiles);
+
+    return { contracts, resolvedFiles, containerFiles, declarationOwnership, errors };
   }
 
   /**
@@ -136,13 +166,9 @@ export class BindService implements BindUseCase {
         // Check if this is a TypeKind member — handled separately below
         if (s.kindTypeName && scanResult.typeKindDefs.has(s.kindTypeName)) continue;
 
-        if (this.fsPort.directoryExists(s.id)) {
-          resolvedFiles.set(
-            s.id,
-            this.fsPort.readDirectory(s.id, true),
-          );
-        } else if (this.fsPort.fileExists(s.id)) {
-          resolvedFiles.set(s.id, [s.id]);
+        const files = this.resolvePathToFiles(s.id);
+        if (files) {
+          resolvedFiles.set(s.id, files);
         }
       }
     }
@@ -161,7 +187,7 @@ export class BindService implements BindUseCase {
         const matchingFiles = new Set<string>();
         for (const tki of scanResult.typeKindInstances) {
           if (tki.view.kindTypeName === member.kindTypeName &&
-              tki.sourceFileName.startsWith(parentScope)) {
+              this.isUnderScope(tki.sourceFileName, parentScope)) {
             matchingFiles.add(tki.sourceFileName);
           }
         }
@@ -176,6 +202,64 @@ export class BindService implements BindUseCase {
   }
 
   /**
+   * Resolve instance roots to total owned file sets.
+   * One readDirectory() call per folder-scoped instance.
+   */
+  private resolveContainers(symbols: ArchSymbol[]): Map<string, string[]> {
+    const containerFiles = new Map<string, string[]>();
+
+    for (const symbol of symbols) {
+      if (symbol.kind !== ArchSymbolKind.Instance) continue;
+      const root = symbol.id;
+      if (!root || containerFiles.has(root)) continue;
+
+      const files = this.resolvePathToFiles(root);
+      if (files) {
+        containerFiles.set(root, files);
+      }
+    }
+
+    return containerFiles;
+  }
+
+  /**
+   * Build declaration-level ownership mapping for intra-file dependency checking.
+   *
+   * For each TypeKind member in each instance, maps the typed export
+   * declarations back to the member's symbol ID. This lets the checker
+   * know which declarations belong to which member when checking
+   * intra-file noDependency constraints.
+   */
+  private buildDeclarationOwnership(
+    symbols: ArchSymbol[],
+    scanResult: ScanResult,
+  ): Map<string, Map<string, string>> {
+    const ownership = new Map<string, Map<string, string>>();
+
+    for (const instanceSymbol of symbols) {
+      if (instanceSymbol.kind !== ArchSymbolKind.Instance) continue;
+      const parentScope = instanceSymbol.id;
+      if (!parentScope) continue;
+
+      for (const member of instanceSymbol.members.values()) {
+        if (!member.kindTypeName || !member.id) continue;
+        if (!scanResult.typeKindDefs.has(member.kindTypeName)) continue;
+
+        for (const tki of scanResult.typeKindInstances) {
+          if (tki.view.kindTypeName !== member.kindTypeName) continue;
+          if (!this.isUnderScope(tki.sourceFileName, parentScope)) continue;
+
+          const fileMap = ownership.get(tki.sourceFileName) ?? new Map<string, string>();
+          fileMap.set(tki.view.exportName, member.id);
+          ownership.set(tki.sourceFileName, fileMap);
+        }
+      }
+    }
+
+    return ownership;
+  }
+
+  /**
    * Generate contracts from TypeKind definitions that have their own constraints.
    *
    * For each TypeKind with constraints, create a synthetic ArchSymbol per file
@@ -187,7 +271,6 @@ export class BindService implements BindUseCase {
     scanResult: ScanResult,
     contracts: Contract[],
     resolvedFiles: Map<string, string[]>,
-    _errors: string[],
   ): void {
     for (const [tkName, tkDef] of scanResult.typeKindDefs) {
       if (!tkDef.constraints) continue;
@@ -276,5 +359,21 @@ export class BindService implements BindUseCase {
       contracts.push(...result.contracts);
       errors.push(...result.errors);
     }
+  }
+
+  /** Resolve a path to its file list (directory → recursive listing, file → single-element). */
+  private resolvePathToFiles(path: string): string[] | undefined {
+    if (this.fsPort.directoryExists(path)) {
+      return this.fsPort.readDirectory(path, true);
+    }
+    if (this.fsPort.fileExists(path)) {
+      return [path];
+    }
+    return undefined;
+  }
+
+  /** Check that filePath starts with scope at a path segment boundary. */
+  private isUnderScope(filePath: string, scope: string): boolean {
+    return filePath.startsWith(scope + '/') || filePath === scope;
   }
 }

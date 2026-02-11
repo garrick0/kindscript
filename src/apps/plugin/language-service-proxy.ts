@@ -60,7 +60,7 @@ export function createLanguageServiceProxy(
       );
 
       return [...tsDiags, ...ksDiags];
-    } catch (e) {
+    } catch (e: unknown) {
       logger.info(`[kindscript] Error in getSemanticDiagnostics: ${e}`);
       return tsDiags;
     }
@@ -90,7 +90,7 @@ export function createLanguageServiceProxy(
       );
 
       return [...tsFixes, ...ksFixes];
-    } catch (e) {
+    } catch (e: unknown) {
       logger.info(`[kindscript] Error in getCodeFixesAtPosition: ${e}`);
       return tsFixes;
     }

@@ -6,6 +6,7 @@ import {
 } from '../../application/ports/typescript.port';
 import { Program } from '../../domain/entities/program';
 import { ImportEdge } from '../../application/pipeline/check/import-edge';
+import { IntraFileEdge } from '../../application/pipeline/check/intra-file-edge';
 import { CompilerOptions } from '../../domain/types/compiler-options';
 
 /**
@@ -91,6 +92,74 @@ export class TypeScriptAdapter implements TypeScriptPort {
     return edges;
   }
 
+  getIntraFileReferences(sourceFile: SourceFile, checker: TypeChecker): IntraFileEdge[] {
+    const tsChecker = checker as unknown as ts.TypeChecker;
+    const tsProgram = this.checkerToProgram.get(tsChecker);
+    if (!tsProgram) {
+      throw new Error(
+        'TypeChecker not associated with a Program. Was getTypeChecker() called on this adapter?'
+      );
+    }
+
+    const tsSourceFile = tsProgram.getSourceFile(sourceFile.fileName);
+    if (!tsSourceFile) return [];
+
+    // Collect top-level declaration symbols and their bodies
+    const topLevelSymbols = new Map<ts.Symbol, string>();
+    const topLevelBodies: Array<{ name: string; body: ts.Node }> = [];
+
+    for (const stmt of tsSourceFile.statements) {
+      if (ts.isFunctionDeclaration(stmt) && stmt.name) {
+        const sym = tsChecker.getSymbolAtLocation(stmt.name);
+        if (sym) topLevelSymbols.set(sym, stmt.name.text);
+        if (stmt.body) topLevelBodies.push({ name: stmt.name.text, body: stmt.body });
+      } else if (ts.isVariableStatement(stmt)) {
+        for (const decl of stmt.declarationList.declarations) {
+          if (!ts.isIdentifier(decl.name)) continue;
+          const sym = tsChecker.getSymbolAtLocation(decl.name);
+          if (sym) topLevelSymbols.set(sym, decl.name.text);
+          if (decl.initializer) topLevelBodies.push({ name: decl.name.text, body: decl.initializer });
+        }
+      } else if (ts.isClassDeclaration(stmt) && stmt.name) {
+        const sym = tsChecker.getSymbolAtLocation(stmt.name);
+        if (sym) topLevelSymbols.set(sym, stmt.name.text);
+        topLevelBodies.push({ name: stmt.name.text, body: stmt });
+      }
+    }
+
+    // Walk each body, find references to other top-level declarations
+    const edges: IntraFileEdge[] = [];
+    const seen = new Set<string>();
+
+    for (const { name: fromName, body } of topLevelBodies) {
+      const walk = (node: ts.Node): void => {
+        if (ts.isIdentifier(node)) {
+          const sym = tsChecker.getSymbolAtLocation(node);
+          if (sym && topLevelSymbols.has(sym)) {
+            const toName = topLevelSymbols.get(sym)!;
+            if (toName !== fromName) {
+              const key = `${fromName}->${toName}:${node.getStart()}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                const pos = ts.getLineAndCharacterOfPosition(tsSourceFile, node.getStart());
+                edges.push({
+                  fromDeclaration: fromName,
+                  toDeclaration: toName,
+                  line: pos.line + 1,
+                  column: pos.character,
+                });
+              }
+            }
+          }
+        }
+        ts.forEachChild(node, walk);
+      };
+      ts.forEachChild(body, walk);
+    }
+
+    return edges;
+  }
+
   getImportModuleSpecifiers(program: Program, sourceFile: SourceFile): Array<{ moduleName: string; line: number; column: number }> {
     const tsSourceFile = this.getTsSourceFile(program, sourceFile);
     if (!tsSourceFile) return [];
@@ -100,46 +169,6 @@ export class TypeScriptAdapter implements TypeScriptPort {
       line: imp.line,
       column: imp.column,
     }));
-  }
-
-  getExportedInterfaceNames(program: Program, sourceFile: SourceFile): string[] {
-    const tsSourceFile = this.getTsSourceFile(program, sourceFile);
-    if (!tsSourceFile) return [];
-
-    const names: string[] = [];
-
-    for (const stmt of tsSourceFile.statements) {
-      if (
-        ts.isInterfaceDeclaration(stmt) &&
-        stmt.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) &&
-        stmt.name
-      ) {
-        names.push(stmt.name.text);
-      }
-    }
-
-    return names;
-  }
-
-  hasClassImplementing(program: Program, sourceFile: SourceFile, interfaceName: string): boolean {
-    const tsSourceFile = this.getTsSourceFile(program, sourceFile);
-    if (!tsSourceFile) return false;
-
-    for (const stmt of tsSourceFile.statements) {
-      if (ts.isClassDeclaration(stmt) && stmt.heritageClauses) {
-        for (const clause of stmt.heritageClauses) {
-          if (clause.token === ts.SyntaxKind.ImplementsKeyword) {
-            for (const type of clause.types) {
-              if (ts.isIdentifier(type.expression) && type.expression.text === interfaceName) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return false;
   }
 
   private walkImportDeclarations(

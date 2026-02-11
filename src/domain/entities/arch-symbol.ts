@@ -31,17 +31,6 @@ export class ArchSymbol {
   ) {}
 
   /**
-   * Value equality - two symbols are equal if name, kind, and location match.
-   */
-  equals(other: ArchSymbol): boolean {
-    return (
-      this.name === other.name &&
-      this.kind === other.kind &&
-      this.id === other.id
-    );
-  }
-
-  /**
    * Find a direct child member by name.
    */
   findMember(name: string): ArchSymbol | undefined {

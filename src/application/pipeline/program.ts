@@ -40,7 +40,12 @@ export class ProgramFactory implements ProgramPort {
 
   create(projectRoot: string): ProgramSetup | { error: string } {
     // 1. Read kindscript.json (optional — used for settings only)
-    const ksConfig = this.configPort.readKindScriptConfig(projectRoot) ?? {};
+    let ksConfig: KindScriptConfig;
+    try {
+      ksConfig = this.configPort.readKindScriptConfig(projectRoot) ?? {};
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
 
     // 2. Read tsconfig.json and merge compiler options
     const tsconfigPath = this.fsPort.resolvePath(projectRoot, 'tsconfig.json');

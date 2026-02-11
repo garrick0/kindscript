@@ -5,12 +5,16 @@ import { Diagnostic } from '../../../domain/entities/diagnostic';
 import { Program } from '../../../domain/entities/program';
 import { ContractType } from '../../../domain/types/contract-type';
 import { ConstraintProvider } from './constraint-provider';
+import type { OwnershipTree } from '../ownership-tree';
 
 export interface CheckContext {
   tsPort: TypeScriptPort;
   program: Program;
   checker: TypeChecker;
   resolvedFiles: Map<string, string[]>;
+  containerFiles?: Map<string, string[]>;
+  ownershipTree?: OwnershipTree;
+  declarationOwnership?: Map<string, Map<string, string>>;
 }
 
 export interface CheckResult {

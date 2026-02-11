@@ -17,36 +17,33 @@ export class ConfigAdapter implements ConfigPort {
 
   readKindScriptConfig(projectPath: string): KindScriptConfig | undefined {
     const configPath = this.fsPort.joinPath(projectPath, 'kindscript.json');
+    const raw = this.fsPort.readFile(configPath);
+    if (!raw) return undefined;
     try {
-      const raw = this.fsPort.readFile(configPath);
-      if (!raw) return undefined;
       return JSON.parse(raw) as KindScriptConfig;
-    } catch {
-      return undefined;
+    } catch (_e: unknown) {
+      throw new Error(`Failed to parse kindscript.json at ${configPath}: invalid JSON`);
     }
   }
 
   readTSConfig(path: string): TSConfig | undefined {
-    try {
-      const configFile = ts.readConfigFile(path, (p) => this.fsPort.readFile(p) ?? '');
-      if (configFile.error) return undefined;
+    const configFile = ts.readConfigFile(path, (p) => this.fsPort.readFile(p) ?? '');
+    if (configFile.error) return undefined;
+    if (!configFile.config) return undefined;
 
-      const parsed = ts.parseJsonConfigFileContent(
-        configFile.config,
-        ts.sys,
-        this.fsPort.dirname(path)
-      );
+    const parsed = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      this.fsPort.dirname(path)
+    );
 
-      return {
-        compilerOptions: this.simplifyCompilerOptions(parsed.options),
-        include: configFile.config.include,
-        exclude: configFile.config.exclude,
-        files: parsed.fileNames,
-        references: configFile.config.references,
-      };
-    } catch {
-      return undefined;
-    }
+    return {
+      compilerOptions: this.simplifyCompilerOptions(parsed.options),
+      include: configFile.config.include,
+      exclude: configFile.config.exclude,
+      files: parsed.fileNames,
+      references: configFile.config.references,
+    };
   }
 
   private simplifyCompilerOptions(options: ts.CompilerOptions): TSConfig['compilerOptions'] {

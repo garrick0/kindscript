@@ -107,7 +107,11 @@ export class ParseService implements ParseUseCase {
       // Find corresponding member value from the instance declaration
       const memberValue = memberValues.find(m => m.name === memberName);
 
-      const memberPath = joinPath(parentPath, memberName);
+      // Use explicit location from Kind definition when available;
+      // fall back to name-based derivation for TypeKind members
+      const memberPath = property.location
+        ? resolvePath(parentPath, property.location)
+        : joinPath(parentPath, memberName);
 
       // Recurse if child Kind has properties and member value has children
       let childMembers = new Map<string, ArchSymbol>();

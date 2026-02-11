@@ -12,6 +12,10 @@ export interface BindResult {
   contracts: Contract[];
   /** Additional resolved files from TypeKind constraint binding */
   resolvedFiles: Map<string, string[]>;
+  /** Instance root → ALL files in scope (for containment checking) */
+  containerFiles: Map<string, string[]>;
+  /** file → Map<declarationName, symbolId> — which member owns each typed declaration */
+  declarationOwnership: Map<string, Map<string, string>>;
   errors: string[];
 }
 

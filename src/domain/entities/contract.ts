@@ -27,28 +27,6 @@ export class Contract {
   ) {}
 
   /**
-   * Check if this contract equals another contract.
-   */
-  equals(other: Contract): boolean {
-    return (
-      this.type === other.type &&
-      this.name === other.name &&
-      this.argsEqual(other.args)
-    );
-  }
-
-  /**
-   * Check if the args arrays are equal (same symbols in same order).
-   */
-  private argsEqual(otherArgs: ArchSymbol[]): boolean {
-    if (this.args.length !== otherArgs.length) {
-      return false;
-    }
-
-    return this.args.every((arg, i) => arg.equals(otherArgs[i]));
-  }
-
-  /**
    * Create a ContractReference pointing to this contract.
    */
   toReference(): ContractReference {

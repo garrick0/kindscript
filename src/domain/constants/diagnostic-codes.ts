@@ -4,6 +4,8 @@ export const DiagnosticCode = {
   ImpureImport: 70003,
   CircularDependency: 70004,
   ScopeMismatch: 70005,
+  MemberOverlap: 70006,
+  UnassignedCode: 70007,
   InvalidContract: 70099,
 } as const;
 

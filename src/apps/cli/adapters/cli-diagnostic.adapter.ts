@@ -27,12 +27,7 @@ export class CLIDiagnosticAdapter implements DiagnosticPort {
   }
 
   formatDiagnostic(diagnostic: Diagnostic): string {
-    let result: string;
-    if (diagnostic.scope && !diagnostic.file) {
-      result = `[${diagnostic.scope}] - error KS${diagnostic.code}: ${diagnostic.message}`;
-    } else {
-      result = `${diagnostic.file}:${diagnostic.line}:${diagnostic.column} - error KS${diagnostic.code}: ${diagnostic.message}`;
-    }
+    let result = diagnostic.toString();
 
     if (diagnostic.relatedContract) {
       result += `\n  Contract '${diagnostic.relatedContract.contractName}' (${diagnostic.relatedContract.contractType})`;

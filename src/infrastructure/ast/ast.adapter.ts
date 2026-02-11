@@ -1,9 +1,10 @@
 import * as ts from 'typescript';
+import { ASTViewPort } from '../../application/ports/ast.port';
 import {
-  ASTViewPort, ASTExtractionResult, TypeNodeView,
+  ASTExtractionResult, TypeNodeView,
   KindDefinitionView, MemberValueView, InstanceDeclarationView,
-  TypeKindDefinitionView, TypeKindInstanceView,
-} from '../../application/ports/ast.port';
+  TypeKindDefinitionView, TypeKindInstanceView, DeclarationView,
+} from '../../application/pipeline/views';
 import { SourceFile, TypeChecker } from '../../application/ports/typescript.port';
 
 /**
@@ -49,7 +50,7 @@ export class ASTAdapter implements ASTViewPort {
       }
 
       // Second type arg: member properties
-      const members: Array<{ name: string; typeName?: string }> = [];
+      const members: Array<{ name: string; typeName?: string; location?: string }> = [];
       if (type.typeArguments && type.typeArguments.length >= 2) {
         const membersArg = type.typeArguments[1];
         if (ts.isTypeLiteralNode(membersArg)) {
@@ -57,14 +58,26 @@ export class ASTAdapter implements ASTViewPort {
             if (ts.isPropertySignature(member) && member.name) {
               const name = ts.isIdentifier(member.name) ? member.name.text : member.name.getText();
               let memberTypeName: string | undefined;
+              let memberLocation: string | undefined;
               if (member.type) {
-                if (ts.isTypeReferenceNode(member.type) && ts.isIdentifier(member.type.typeName)) {
+                if (ts.isTupleTypeNode(member.type) && member.type.elements.length === 2) {
+                  // Tuple syntax: [KindType, './path']
+                  const typeElem = member.type.elements[0];
+                  const pathElem = member.type.elements[1];
+                  if (ts.isTypeReferenceNode(typeElem) && ts.isIdentifier(typeElem.typeName)) {
+                    memberTypeName = typeElem.typeName.text;
+                  }
+                  const pathStr = this.getStringLiteralFromType(pathElem);
+                  if (pathStr !== undefined) {
+                    memberLocation = pathStr;
+                  }
+                } else if (ts.isTypeReferenceNode(member.type) && ts.isIdentifier(member.type.typeName)) {
                   memberTypeName = member.type.typeName.text;
                 } else if (member.type.kind === ts.SyntaxKind.StringKeyword) {
                   memberTypeName = 'string';
                 }
               }
-              members.push({ name, typeName: memberTypeName });
+              members.push({ name, typeName: memberTypeName, location: memberLocation });
             }
           }
         }
@@ -113,9 +126,6 @@ export class ASTAdapter implements ASTViewPort {
               }
             }
           }
-        } else if (fourthArg.kind !== ts.SyntaxKind.NeverKeyword &&
-                   !(ts.isTypeLiteralNode(fourthArg) && fourthArg.members.length === 0)) {
-          // Not a recognized 4th arg — skip error for empty object {}
         }
       }
 
@@ -275,6 +285,76 @@ export class ASTAdapter implements ASTViewPort {
     return { data: results, errors };
   }
 
+  getTopLevelDeclarations(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<DeclarationView[]> {
+    const tsSourceFile = this.toTsSourceFile(sourceFile);
+    if (!tsSourceFile) return { data: [], errors: [] };
+
+    const declarations: DeclarationView[] = [];
+
+    for (const stmt of tsSourceFile.statements) {
+      const exported = ts.canHaveModifiers(stmt)
+        ? (ts.getModifiers(stmt)?.some(m => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)
+        : false;
+      const pos = tsSourceFile.getLineAndCharacterOfPosition(stmt.getStart());
+
+      if (ts.isFunctionDeclaration(stmt) && stmt.name) {
+        declarations.push({
+          name: stmt.name.text,
+          kind: 'function',
+          exported,
+          line: pos.line + 1,
+          column: pos.character,
+        });
+      } else if (ts.isVariableStatement(stmt)) {
+        for (const decl of stmt.declarationList.declarations) {
+          if (!ts.isIdentifier(decl.name)) continue;
+          const declKind = (stmt.declarationList.flags & ts.NodeFlags.Const) ? 'const' as const : 'let' as const;
+          declarations.push({
+            name: decl.name.text,
+            kind: declKind,
+            exported,
+            line: pos.line + 1,
+            column: pos.character,
+          });
+        }
+      } else if (ts.isClassDeclaration(stmt) && stmt.name) {
+        declarations.push({
+          name: stmt.name.text,
+          kind: 'class',
+          exported,
+          line: pos.line + 1,
+          column: pos.character,
+        });
+      } else if (ts.isInterfaceDeclaration(stmt)) {
+        declarations.push({
+          name: stmt.name.text,
+          kind: 'interface',
+          exported,
+          line: pos.line + 1,
+          column: pos.character,
+        });
+      } else if (ts.isTypeAliasDeclaration(stmt)) {
+        declarations.push({
+          name: stmt.name.text,
+          kind: 'type',
+          exported,
+          line: pos.line + 1,
+          column: pos.character,
+        });
+      } else if (ts.isEnumDeclaration(stmt)) {
+        declarations.push({
+          name: stmt.name.text,
+          kind: 'enum',
+          exported,
+          line: pos.line + 1,
+          column: pos.character,
+        });
+      }
+    }
+
+    return { data: declarations, errors: [] };
+  }
+
   /**
    * Resolve a type annotation node to the name of the referenced type.
    * Handles aliases through the type checker.
@@ -291,13 +371,13 @@ export class ASTAdapter implements ASTViewPort {
           if (symbol.flags & ts.SymbolFlags.Alias) {
             try {
               return checker.getAliasedSymbol(symbol).name;
-            } catch {
+            } catch (_e: unknown) {
               return symbol.name;
             }
           }
           return symbol.name;
         }
-      } catch {
+      } catch (_e: unknown) {
         // Fall through to string matching
       }
     }
@@ -324,14 +404,14 @@ export class ASTAdapter implements ASTViewPort {
             try {
               const aliased = checker.getAliasedSymbol(symbol);
               return aliased.name === expectedName;
-            } catch {
+            } catch (_e: unknown) {
               // Module couldn't be resolved — local name already checked above
               return false;
             }
           }
           return false;
         }
-      } catch {
+      } catch (_e: unknown) {
         // Fall through to string matching
       }
     }

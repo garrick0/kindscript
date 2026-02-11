@@ -14,17 +14,19 @@ export function convertToTSDiagnostic(
   program: Program,
   typescript: typeof ts
 ): ts.Diagnostic {
+  // Invariant: program.handle is always a ts.Program in the plugin context.
+  // Safe even if undefined — optional chaining on getSourceFile() handles that.
   const tsProgram = program.handle as ts.Program;
-  const sourceFile = diagnostic.file ? tsProgram?.getSourceFile(diagnostic.file) : undefined;
+  const sourceFile = diagnostic.source.file ? tsProgram?.getSourceFile(diagnostic.source.file) : undefined;
 
   let start: number | undefined;
   let length: number | undefined;
 
-  if (sourceFile && diagnostic.line > 0) {
+  if (sourceFile && diagnostic.source.line > 0) {
     const lineStarts = sourceFile.getLineStarts();
-    const lineIndex = diagnostic.line - 1;
+    const lineIndex = diagnostic.source.line - 1;
     if (lineIndex < lineStarts.length) {
-      start = lineStarts[lineIndex] + diagnostic.column;
+      start = lineStarts[lineIndex] + diagnostic.source.column;
       // Length: span the entire line content for visibility
       const lineEnd = lineIndex + 1 < lineStarts.length
         ? lineStarts[lineIndex + 1]

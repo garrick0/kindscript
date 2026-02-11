@@ -26,7 +26,7 @@ export type TypeNodeView =
 export interface KindDefinitionView {
   typeName: string;
   kindNameLiteral: string;
-  members: Array<{ name: string; typeName?: string }>;
+  members: Array<{ name: string; typeName?: string; location?: string }>;
   constraints?: TypeNodeView;
   scope?: 'folder' | 'file';
   /** If the 4th type arg has `wraps`, this Kind is also a wrapped Kind (TypeKind-equivalent) */
@@ -70,6 +70,18 @@ export interface TypeKindDefinitionView {
 export interface TypeKindInstanceView {
   exportName: string;
   kindTypeName: string;
+}
+
+/**
+ * View of a top-level declaration within a file.
+ * Used for file-scoped instance containment.
+ */
+export interface DeclarationView {
+  name: string;
+  kind: 'function' | 'const' | 'let' | 'class' | 'interface' | 'type' | 'enum';
+  exported: boolean;
+  line: number;
+  column: number;
 }
 
 /**

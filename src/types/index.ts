@@ -27,6 +27,9 @@ export type Constraints<Members = Record<string, never>> = {
 
   /** Forbid circular dependencies between the listed members */
   noCycles?: ReadonlyArray<keyof Members & string>;
+
+  /** Require all files in the instance scope to be assigned to a member */
+  exhaustive?: true;
 };
 
 /**
@@ -77,7 +80,7 @@ export type KindRef = { readonly __kindscript_ref?: string };
 export type Kind<
   N extends string = string,
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  Members extends Record<string, KindRef> = {},
+  Members extends Record<string, KindRef | readonly [KindRef, string]> = {},
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   _Constraints extends Constraints<Members> = {},
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -103,9 +106,11 @@ export type Kind<
  */
 export type MemberMap<T extends KindRef> = {
   [K in keyof T as K extends 'kind' | 'location' | '__kindscript_ref' | '__kindscript_brand' ? never : K]:
-    T[K] extends KindRef
-      ? MemberMap<T[K]> | Record<string, never>
-      : never;
+    T[K] extends readonly [infer K2 extends KindRef, string]
+      ? MemberMap<K2> | Record<string, never>
+      : T[K] extends KindRef
+        ? MemberMap<T[K]> | Record<string, never>
+        : never;
 };
 
 /**
