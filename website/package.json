@@ -11,9 +11,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "build:search": "pagefind --site .next/server/app --output-path public/_pagefind"
+    "build:search": "pagefind --site .next/server/app --output-path public/_pagefind",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:unit:watch": "vitest tests/unit",
+    "test:unit:ui": "vitest --ui tests/unit",
+    "test:snapshots": "vitest run tests/snapshots",
+    "test:snapshots:update": "vitest run tests/snapshots -u",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@formspree/react": "^2.5.1",
     "@monaco-editor/react": "^4.7",
     "@webcontainer/api": "^1.6",
     "@xterm/addon-fit": "^0.10",
@@ -29,10 +39,13 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/ui": "^2.1",
     "pagefind": "^1",
-    "typescript": "^5.5"
+    "typescript": "^5.5",
+    "vitest": "^2.1"
   }
 }
