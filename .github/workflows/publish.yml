@@ -72,8 +72,6 @@ jobs:
       - name: Publish to npm
         if: "!inputs.dry-run"
         run: npm publish --tag ${{ inputs.tag }} --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Push version commit and tag
         if: inputs.version != '' && !inputs.dry-run
