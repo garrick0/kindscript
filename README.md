@@ -11,7 +11,7 @@ Define architectural patterns as types. Enforce them at compile time.
 [![Tests](https://img.shields.io/badge/tests-350%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org/)
 
-[Documentation](docs/) · [Notebooks](notebooks/) · [Examples](docs/05-examples.md)
+[Documentation](https://kindscript.ai/docs) · [Interactive Tutorial](https://kindscript.ai/tutorial) · [Examples](docs/05-examples.md) · [Agent](https://kindscript.ai/agent)
 
 </div>
 
