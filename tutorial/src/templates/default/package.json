@@ -1,0 +1,11 @@
+{
+  "name": "kindscript-lesson",
+  "private": true,
+  "scripts": {
+    "check": "ksc check ."
+  },
+  "dependencies": {
+    "kindscript": "file:./kindscript",
+    "typescript": "~5.5.0"
+  }
+}

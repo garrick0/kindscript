@@ -51,3 +51,9 @@ Thumbs.db
 
 # Working notes
 .working/
+
+# Tutorial (TutorialKit / Astro)
+tutorial/dist/
+tutorial/node_modules/
+tutorial/.astro/
+tutorial/src/templates/default/kindscript/dist/
