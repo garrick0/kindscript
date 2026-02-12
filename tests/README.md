@@ -12,7 +12,8 @@ This directory contains the complete test suite for KindScript, organized to mir
 - **Integration Tests** (`tests/integration/`) - Multi-component tests with real I/O
 - **Helpers** (`tests/helpers/`) - Shared utilities, factories, mocks
 
-**Current Stats:** 31 test files, 342 tests, 100% passing
+**Current Stats:** 33 test files, 381 tests, 100% passing
+**Test Runner:** Vitest v2.1.0 (migrated from Jest)
 
 ---
 
@@ -82,20 +83,25 @@ tests/
 
 ## Running Tests
 
+KindScript uses [Vitest](https://vitest.dev/) as its test runner.
+
 ```bash
-# Run all tests
+# Run all tests (381 tests)
 npm test
 
-# Run with coverage
-npm test -- --coverage
+# Run with coverage report
+npm run test:coverage
 
-# Run specific test file
+# Interactive UI mode (recommended for development)
+npm run test:ui
+
+# Watch mode (re-runs tests on file changes)
+npm run test:watch
+
+# Run specific test file (by name substring)
 npm test -- check-contracts-service
 
-# Run tests in watch mode
-npm test -- --watch
-
-# Run by layer
+# Run tests by layer
 npm test -- tests/domain
 npm test -- tests/application
 npm test -- tests/infrastructure
@@ -103,6 +109,23 @@ npm test -- tests/cli
 npm test -- tests/plugin
 npm test -- tests/integration
 ```
+
+---
+
+## Test Framework
+
+**Vitest** - Fast, ESM-native test runner with Jest-compatible API.
+
+**Why Vitest:**
+- ⚡ 20-40% faster than Jest
+- 🎯 Native ESM support
+- 🔄 Jest-compatible API (describe, it, expect, etc.)
+- 🎨 Interactive UI mode for debugging
+- 📊 Fast, accurate V8 coverage
+
+**Mocking:** Use `vi.fn()` and `vi.spyOn()` (Vitest's Jest-compatible mocking API).
+
+**Configuration:** See `vitest.config.ts` for coverage thresholds and test environment settings.
 
 ---
 
