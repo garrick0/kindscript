@@ -13,9 +13,11 @@ export const FIXTURES_DIR = path.resolve(__dirname, '../../integration/fixtures'
 
 /**
  * Execute a CLI command and return the result
+ * Uses tsx to handle ESM module resolution
  */
 export function run(args: string[]): { stdout: string; stderr: string; exitCode: number } {
-  const result = spawnSync('node', [CLI_PATH, ...args], {
+  const tsxPath = path.resolve(__dirname, '../../../node_modules/.bin/tsx');
+  const result = spawnSync(tsxPath, [CLI_PATH, ...args], {
     encoding: 'utf-8',
     stdio: ['pipe', 'pipe', 'pipe'],
   });
