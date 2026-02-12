@@ -1,6 +1,12 @@
 name: Deploy Website to Vercel
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'docs/**'
+      - 'src/types/index.ts'
   workflow_dispatch:
     inputs:
       environment:

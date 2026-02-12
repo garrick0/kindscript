@@ -488,34 +488,79 @@ cd tutorial && npm install && npm start     # Dev server at localhost:4321
 
 ## Website and Deployment
 
-The KindScript documentation website has been extracted to its own repository following the Tailwind Labs model:
+The KindScript documentation website lives in this repository at `website/`:
 
-**Website Repository:** https://github.com/samuelgleeson/kindscript-website (PUBLIC)
 **Live Site:** https://kindscript.ai
+**Local Path:** `~/dev/kindscript/website/`
 
-The website combines:
-- KindScript OSS documentation (pulled from this repo's `docs/` at build time)
-- Interactive tutorial (pulled from this repo)
-- KindScript Agent product pages
+The website is a Next.js application that combines:
+- KindScript OSS documentation (from `docs/` - same repo)
+- Interactive tutorial with WebContainer + Monaco editor
+- Agent product pages
 - Company/about pages
 
-### Content Pipeline
+### Website Structure
 
-Documentation in this repository (`docs/`) is pulled at build time by the website repo using sparse git clones. When you update docs here, the website automatically rebuilds.
+```
+website/
+├── src/
+│   ├── app/                    # Next.js app router
+│   │   ├── docs/              # Documentation (Nextra)
+│   │   ├── tutorial/          # Interactive tutorial
+│   │   ├── agent/             # Agent product page
+│   │   ├── about/             # About page
+│   │   └── privacy/           # Privacy page
+│   ├── components/
+│   │   └── tutorial/          # WebContainer components
+│   └── lib/
+│       └── lessons/           # Tutorial lessons (21 total)
+├── public/
+│   └── lessons/               # Lesson MDX files
+├── tests/                     # Test suite (76 tests)
+├── scripts/
+│   └── generate-lessons.mjs   # Lesson index generator
+└── vercel.json                # Vercel config (CORS headers)
+```
 
-**Trigger workflow:** `.github/workflows/trigger-website-rebuild.yml` triggers a rebuild of kindscript.ai whenever `docs/` or `src/types/index.ts` changes.
+### Deployment
 
-### When Documentation Changes
+**Workflow:** `.github/workflows/deploy-website.yml`
 
-1. Push changes to `docs/` in this repo
-2. The trigger workflow automatically rebuilds kindscript.ai
-3. New docs appear within minutes
+The website deploys automatically to Vercel when:
+- Changes are pushed to `website/`
+- Changes are pushed to `docs/`
+- Changes are pushed to `src/types/index.ts`
+- Manual workflow dispatch
 
-No manual deployment needed — the content pipeline handles it automatically.
+No content pipeline or cross-repo triggers needed — everything is in the same repo.
 
-### Tutorial
+### Working with the Website
 
-The standalone TutorialKit tutorial in `tutorial/` remains in this repo as an alternative implementation. The canonical interactive tutorial is at https://kindscript.ai/tutorial (WebContainer + Monaco).
+```bash
+# Development
+cd website
+npm run dev              # Starts dev server (generates lessons first)
+
+# Testing
+npm test                 # Run all tests (76 tests)
+npm run test:e2e        # Run E2E tests
+
+# Building
+npm run build            # Build for production (generates lessons first)
+npm run generate:lessons # Manually regenerate lesson index
+```
+
+### Tutorial Lessons
+
+The website includes 21 interactive tutorial lessons organized in 8 parts:
+- Part 1: noDependency (3 lessons)
+- Part 2: purity (2 lessons)
+- Part 3: noCycles (2 lessons)
+- Part 4: Design System - Atoms (4 lessons)
+- Part 5: Design System - Molecules (4 lessons)
+- Part 6: Wrapped Kinds (3 lessons)
+- Part 7: Scaling Your Architecture (2 lessons)
+- Part 8: Real-World Capstone (1 lesson)
 
 ---
 
