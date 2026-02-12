@@ -49,6 +49,18 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify build output
+        run: |
+          if [ ! -f "dist/types/index.d.ts" ]; then
+            echo "❌ Build failed - dist/types/index.d.ts not found"
+            exit 1
+          fi
+          if [ ! -f "dist/types/index.js" ]; then
+            echo "❌ Build failed - dist/types/index.js not found"
+            exit 1
+          fi
+          echo "✓ Build output verified"
+
       - name: Run tests
         run: npm test
 
