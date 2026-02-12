@@ -211,6 +211,3 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
     </div>
   );
 }
-
-  return <>{children}</>;
-}
