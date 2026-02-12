@@ -47,4 +47,9 @@ type TypeKind<N, T, C = {}> = Kind<N, {}, C, { wraps: T }>;  // sugar
 - 2 new E2E tests for TypeKind standalone purity
 - 26 test files, 263 tests, 100% passing
 
+**Subsequent decisions:**
+- [D34](0034-instanceof-tagged-export-mechanism.md) completes the unification by removing `TypeKind` from the public API and introducing `InstanceOf<K>` as the tagged export mechanism
+- [D35](0035-two-pass-scanner-model.md) restructures the scanner around the unified model (two-pass extraction)
+- [D33](0033-carrier-based-resolution.md) replaces `symbol.id` with algebraic `CarrierExpr`, which was enabled by the unified model
+
 ---

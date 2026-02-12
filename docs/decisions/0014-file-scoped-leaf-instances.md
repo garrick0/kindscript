@@ -4,7 +4,9 @@ Date: 2026-02-08
 Status: Superseded by D24
 
 **Date:** 2026-02-08
-**Status:** Done
+**Status:** Superseded by [D24](0024-instancet-path-explicit-location-replaces-convention-based-derivation.md)
+
+> **Note:** This decision was superseded by D24, which replaced convention-based scope derivation (leaf vs composite) with explicit `Instance<T, Path>` location declarations. The heuristic described below is no longer used — users now declare locations explicitly.
 
 ### Context
 

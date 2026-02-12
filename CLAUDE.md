@@ -546,7 +546,7 @@ docs/                                # Source of truth (checked in)
 | Understand the pipeline / architecture | `docs/01-architecture.md` |
 | Understand Kind syntax and instances | `docs/02-kind-system.md` |
 | Understand constraints or add a new one | `docs/03-constraints.md` |
-| Understand why a decision was made | `docs/decisions/` (32 ADRs) |
+| Understand why a decision was made | `docs/decisions/` (35 ADRs) |
 | See real-world modeling examples | `docs/05-examples.md` |
 | Walk through KindScript step by step | `docs/06-tutorial.md` |
 | Try the interactive tutorial | `tutorial/` ([README](tutorial/README.md)) |

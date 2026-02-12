@@ -16,6 +16,9 @@ Each ADR follows this structure:
 
 | ADR | Title | Date | Status |
 |-----|-------|------|--------|
+| [ADR-0035](0035-two-pass-scanner-model.md) | Two-Pass Scanner Model | 2026-02-11 | Done |
+| [ADR-0034](0034-instanceof-tagged-export-mechanism.md) | InstanceOf\<K\> Tagged Export Mechanism | 2026-02-11 | Done |
+| [ADR-0033](0033-carrier-based-resolution.md) | Carrier-Based Resolution | 2026-02-11 | Done |
 | [ADR-0032](0032-declarationownership-for-typekind-member-attribution.md) | DeclarationOwnership for TypeKind Member Attribution | 2026-02-11 | Done |
 | [ADR-0031](0031-intrinsic-constraint-propagation-pattern.md) | Intrinsic Constraint Propagation Pattern | 2026-02-10 | Done |
 | [ADR-0030](0030-pure-path-utilities-extracted-to-infrastructure.md) | Pure Path Utilities Extracted to Infrastructure | 2026-02-10 | Done |
