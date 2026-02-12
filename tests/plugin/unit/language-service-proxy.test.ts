@@ -19,10 +19,10 @@ interface MockLanguageService {
 
 function createMockLanguageService(): MockLanguageService {
   return {
-    getSemanticDiagnostics: jest.fn().mockReturnValue([]),
-    getCodeFixesAtPosition: jest.fn().mockReturnValue([]),
-    getSyntacticDiagnostics: jest.fn().mockReturnValue([]),
-    getCompletionsAtPosition: jest.fn().mockReturnValue(null),
+    getSemanticDiagnostics: vi.fn().mockReturnValue([]),
+    getCodeFixesAtPosition: vi.fn().mockReturnValue([]),
+    getSyntacticDiagnostics: vi.fn().mockReturnValue([]),
+    getCompletionsAtPosition: vi.fn().mockReturnValue(null),
   };
 }
 
@@ -109,10 +109,10 @@ describe('Language Service Proxy', () => {
     mockLS = createMockLanguageService();
     mockInfo = createMockPluginCreateInfo(mockLS);
     mockDiagnosticsService = {
-      execute: jest.fn().mockReturnValue({ diagnostics: [], elapsedMs: 0 }),
+      execute: vi.fn().mockReturnValue({ diagnostics: [], elapsedMs: 0 }),
     };
     mockCodeFixesService = {
-      execute: jest.fn().mockReturnValue({ fixes: [] }),
+      execute: vi.fn().mockReturnValue({ fixes: [] }),
     };
   });
 
