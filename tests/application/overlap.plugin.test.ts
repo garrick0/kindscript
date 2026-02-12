@@ -7,13 +7,12 @@ import { makeSymbol, overlap } from '../helpers/factories';
 describe('overlapPlugin.check', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(resolvedFiles?: Map<string, string[]>): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles: resolvedFiles ?? new Map(),
     };
   }
 
@@ -29,12 +28,10 @@ describe('overlapPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/shared/utils.ts', 'src/domain/entity.ts']],
-      ['src/infrastructure', ['src/shared/utils.ts', 'src/infrastructure/db.ts']],
-    ]);
+    domain.files = ['src/shared/utils.ts', 'src/domain/entity.ts'];
+    infra.files = ['src/shared/utils.ts', 'src/infrastructure/db.ts'];
 
-    const result = overlapPlugin.check(overlap(domain, infra), makeContext(resolvedFiles));
+    const result = overlapPlugin.check(overlap(domain, infra), makeContext());
 
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(70006);
@@ -47,12 +44,10 @@ describe('overlapPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/entity.ts']],
-      ['src/infrastructure', ['src/infrastructure/db.ts']],
-    ]);
+    domain.files = ['src/domain/entity.ts'];
+    infra.files = ['src/infrastructure/db.ts'];
 
-    const result = overlapPlugin.check(overlap(domain, infra), makeContext(resolvedFiles));
+    const result = overlapPlugin.check(overlap(domain, infra), makeContext());
 
     expect(result.diagnostics).toHaveLength(0);
   });
@@ -61,12 +56,10 @@ describe('overlapPlugin.check', () => {
     const a = makeSymbol('a');
     const b = makeSymbol('b');
 
-    const resolvedFiles = new Map([
-      ['src/a', ['src/shared/x.ts', 'src/shared/y.ts', 'src/a/own.ts']],
-      ['src/b', ['src/shared/x.ts', 'src/shared/y.ts', 'src/b/own.ts']],
-    ]);
+    a.files = ['src/shared/x.ts', 'src/shared/y.ts', 'src/a/own.ts'];
+    b.files = ['src/shared/x.ts', 'src/shared/y.ts', 'src/b/own.ts'];
 
-    const result = overlapPlugin.check(overlap(a, b), makeContext(resolvedFiles));
+    const result = overlapPlugin.check(overlap(a, b), makeContext());
 
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].message).toContain('2 file(s)');
@@ -75,6 +68,9 @@ describe('overlapPlugin.check', () => {
   it('handles symbols with no resolved files', () => {
     const a = makeSymbol('a');
     const b = makeSymbol('b');
+
+    a.files = [];
+    b.files = [];
 
     const result = overlapPlugin.check(overlap(a, b), makeContext());
 
@@ -86,12 +82,10 @@ describe('overlapPlugin.check', () => {
     const b = makeSymbol('b');
 
     const shared = ['f1.ts', 'f2.ts', 'f3.ts', 'f4.ts'];
-    const resolvedFiles = new Map([
-      ['src/a', shared],
-      ['src/b', shared],
-    ]);
+    a.files = shared;
+    b.files = shared;
 
-    const result = overlapPlugin.check(overlap(a, b), makeContext(resolvedFiles));
+    const result = overlapPlugin.check(overlap(a, b), makeContext());
 
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].message).toContain('...');

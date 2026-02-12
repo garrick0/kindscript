@@ -164,6 +164,31 @@ describe('Tier 2 Locate Integration Tests', () => {
     });
   });
 
+  describe('wrapped-kind-direct-annotation fixture', () => {
+    it('detects direct Kind type annotations without InstanceOf<K>', () => {
+      const fixturePath = FIXTURES.WRAPPED_KIND_DIRECT_ANNOTATION;
+      const { classifyResult } = runPipeline(fixturePath);
+
+      expect(classifyResult.errors).toHaveLength(0);
+
+      // Should find annotated exports via direct Kind type name
+      const instances = classifyResult.symbols.filter(s => s.kind === ArchSymbolKind.Instance);
+      expect(instances).toHaveLength(1);
+      expect(instances[0].name).toBe('order');
+    });
+
+    it('generates purity contract from direct annotation', () => {
+      const fixturePath = FIXTURES.WRAPPED_KIND_DIRECT_ANNOTATION;
+      const { classifyResult, checkResult } = runPipeline(fixturePath);
+
+      // Should have purity contract from wrapped Kind constraint
+      const purityContracts = classifyResult.contracts.filter(c => c.type === ContractType.Purity);
+      expect(purityContracts.length).toBeGreaterThanOrEqual(1);
+
+      expect(checkResult.violationsFound).toBe(0);
+    });
+  });
+
   describe('locate-multi-instance fixture', () => {
     it('classifies two Instance<T> declarations across definition files', () => {
       const fixturePath = FIXTURES.LOCATE_MULTI_INSTANCE;

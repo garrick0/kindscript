@@ -18,7 +18,9 @@ export function makeSymbol(
   location?: string,
 ): ArchSymbol {
   const path = location ?? `src/${name}`;
-  return new ArchSymbol(name, kind, { type: 'path', path });
+  const symbol = new ArchSymbol(name, kind, { type: 'path', path });
+  symbol.files = [path];
+  return symbol;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,17 +85,15 @@ export function exhaustiveness(instanceSymbol: ArchSymbol, name?: string): Contr
 // CheckContractsRequest builder
 // ---------------------------------------------------------------------------
 
-/** Builds a CheckerRequest with sensible defaults. Pass `contracts` and optionally override `program` or `resolvedFiles`. */
+/** Builds a CheckerRequest with sensible defaults. Pass `contracts` and optionally override `program`. */
 export function makeCheckRequest(
   contracts: Contract[],
   program?: Program,
-  resolvedFiles?: Map<string, string[]>,
 ) {
   return {
     symbols: [] as ArchSymbol[],
     contracts,
     config: {},
     program: program ?? new Program([], {}),
-    resolvedFiles: resolvedFiles ?? new Map<string, string[]>(),
   };
 }

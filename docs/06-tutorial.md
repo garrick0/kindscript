@@ -358,7 +358,7 @@ Both live in the same directory. You want: "no Decider may depend on an Effector
 A wrapped Kind associates a TypeScript type with architectural meaning by using `{ wraps: T }` in the Kind's 4th parameter:
 
 ```typescript
-import type { Kind, Instance, InstanceOf } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 import type { DeciderFn, EffectorFn } from './types';
 
 type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
@@ -377,23 +377,29 @@ export const order = {
 } satisfies Instance<OrderModule, '.'>;
 ```
 
-Functions declare their role via `InstanceOf` type annotation:
+Functions declare their role via direct type annotation:
 
 ```typescript
-import type { InstanceOf } from 'kindscript';
+import type { Kind } from 'kindscript';
 
-export const validateOrder: InstanceOf<Decider> = (command) => {
+type DeciderFn = (command: unknown) => readonly unknown[];
+type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
+
+export const validateOrder: Decider = (command) => {
   // ... pure decision logic
   return [{ type: 'OrderValidated', data: command }];
 };
 
-export const notifyOrder: InstanceOf<Effector> = (event) => {
+type EffectorFn = (event: unknown) => void;
+type Effector = Kind<"Effector", {}, {}, { wraps: EffectorFn }>;
+
+export const notifyOrder: Effector = (event) => {
   // ... side-effectful notification
   console.log('Notifying:', event.type);
 };
 ```
 
-The `: InstanceOf<Decider>` annotation is both the TypeScript type **and** the KindScript architectural declaration. No `satisfies`, no `register()`.
+The direct type annotation (`: Decider`) is both the TypeScript type **and** the KindScript architectural declaration. No `satisfies`, no `register()`.
 
 ### Catching a violation
 
@@ -407,7 +413,7 @@ src/apply-discount.ts:3:0 - error KS70001: Forbidden dependency: deciders → ef
 Found 1 architectural violation(s).
 ```
 
-**Key insight:** The binder and checker needed zero changes to support wrapped Kinds. The `resolvedFiles` abstraction hides whether a member is a directory or a typed-export group. Existing constraint plugins work unchanged.
+**Key insight:** After binding, each symbol directly owns its resolved files. The abstraction hides whether a member is a directory or a typed-export group. Existing constraint plugins work unchanged.
 
 ---
 
@@ -418,7 +424,7 @@ Found 1 architectural violation(s).
 | `Kind<N, Members, Constraints>` | Defines an architectural pattern with named members and constraints |
 | `Kind<N, {}, C, { wraps: T }>` | Wraps a TypeScript type with architectural meaning (declaration-level) |
 | `Instance<T, Path>` | Maps a structural Kind to real directories on disk (Path is the location) |
-| `InstanceOf<K>` | Tags an export as an instance of a wrapped Kind |
+| Direct type annotation (`: K`) | Marks an export as an instance of a wrapped Kind |
 | `noDependency` | Forbids imports between members |
 | `purity` | Forbids I/O imports in pure members |
 | `noCycles` | Detects circular dependencies between members |

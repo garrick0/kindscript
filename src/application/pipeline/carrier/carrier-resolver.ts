@@ -2,11 +2,11 @@ import { CarrierExpr } from '../../../domain/types/carrier';
 import { FileSystemPort } from '../../ports/filesystem.port';
 
 /**
- * Scan context needed for resolving tagged carriers.
- * Just the slice of ScanResult required for tagged export filtering.
+ * Scan context needed for resolving annotation carriers.
+ * Just the slice of ScanResult required for annotated export filtering.
  */
 export interface ScanContext {
-  taggedExports: Array<{
+  annotatedExports: Array<{
     sourceFileName: string;
     view: { kindTypeName: string };
   }>;
@@ -16,8 +16,8 @@ export interface ScanContext {
  * CarrierResolver — resolves carrier expressions to file sets.
  *
  * Translates algebraic CarrierExpr values into concrete file lists
- * through filesystem probing (for path carriers) and tagged export
- * filtering (for tagged carriers), with algebraic operations (union,
+ * through filesystem probing (for path carriers) and annotated export
+ * filtering (for annotation carriers), with algebraic operations (union,
  * exclude, intersect) composed recursively.
  *
  * This is an application-layer service that collaborates with the Binder.
@@ -30,7 +30,7 @@ export class CarrierResolver {
    * Resolve a carrier expression to its constituent files.
    *
    * @param carrier - The carrier expression to resolve
-   * @param scanContext - Required for tagged carriers; optional for path-only carriers
+   * @param scanContext - Required for annotation carriers; optional for path-only carriers
    * @returns Array of file paths that belong to this carrier
    */
   resolve(carrier: CarrierExpr, scanContext?: ScanContext): string[] {
@@ -38,11 +38,11 @@ export class CarrierResolver {
       case 'path':
         return this.resolvePath(carrier.path);
 
-      case 'tagged': {
+      case 'annotation': {
         if (!scanContext) {
-          throw new Error('Tagged carriers require scan context');
+          throw new Error('Annotation carriers require scan context');
         }
-        return this.resolveTagged(carrier, scanContext);
+        return this.resolveAnnotation(carrier, scanContext);
       }
 
       case 'union':
@@ -71,18 +71,18 @@ export class CarrierResolver {
   }
 
   /**
-   * Resolve a tagged carrier to all files containing InstanceOf<K> declarations.
+   * Resolve an annotation carrier to all files containing annotated declarations.
    * Scopeless — returns ALL matching exports globally.
-   * Scoping is expressed via intersect(tagged, path) in the algebra.
+   * Scoping is expressed via intersect(annotation, path) in the algebra.
    */
-  private resolveTagged(
-    carrier: CarrierExpr & { type: 'tagged' },
+  private resolveAnnotation(
+    carrier: CarrierExpr & { type: 'annotation' },
     ctx: ScanContext,
   ): string[] {
     const matchingFiles = new Set<string>();
-    for (const tki of ctx.taggedExports) {
-      if (tki.view.kindTypeName === carrier.kindTypeName) {
-        matchingFiles.add(tki.sourceFileName);
+    for (const entry of ctx.annotatedExports) {
+      if (entry.view.kindTypeName === carrier.kindTypeName) {
+        matchingFiles.add(entry.sourceFileName);
       }
     }
     return Array.from(matchingFiles);
@@ -118,20 +118,20 @@ export class CarrierResolver {
   /**
    * Resolve an intersect carrier — files common to all children.
    *
-   * Optimization: intersect(tagged, path) is the common "scoped tagged carrier"
-   * pattern. Use path as a filter on tagged results rather than resolving both
+   * Optimization: intersect(annotation, path) is the common "scoped annotation carrier"
+   * pattern. Use path as a filter on annotation results rather than resolving both
    * independently (avoids needing the directory to exist for filtering-only paths).
    */
   private resolveIntersect(children: readonly CarrierExpr[], ctx?: ScanContext): string[] {
-    // Optimization for intersect(tagged, path): use path as a filter, not a file source
-    const taggedChild = children.find(c => c.type === 'tagged');
+    // Optimization for intersect(annotation, path): use path as a filter, not a file source
+    const annotationChild = children.find(c => c.type === 'annotation');
     const pathChild = children.find(c => c.type === 'path');
 
-    if (children.length === 2 && taggedChild && pathChild) {
-      // Special case: intersect(tagged, path) — resolve tagged, filter by path boundary
-      const taggedFiles = this.resolve(taggedChild, ctx);
+    if (children.length === 2 && annotationChild && pathChild) {
+      // Special case: intersect(annotation, path) — resolve annotation, filter by path boundary
+      const annotationFiles = this.resolve(annotationChild, ctx);
       const scopePath = (pathChild as { type: 'path'; path: string }).path;
-      return taggedFiles.filter(f => f.startsWith(scopePath + '/') || f === scopePath);
+      return annotationFiles.filter(f => f.startsWith(scopePath + '/') || f === scopePath);
     }
 
     // General case: resolve all children and intersect

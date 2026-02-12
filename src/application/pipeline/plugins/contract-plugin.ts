@@ -11,10 +11,7 @@ export interface CheckContext {
   tsPort: TypeScriptPort;
   program: Program;
   checker: TypeChecker;
-  resolvedFiles: Map<string, string[]>;
-  containerFiles?: Map<string, string[]>;
   ownershipTree?: OwnershipTree;
-  declarationOwnership?: Map<string, Map<string, string>>;
 }
 
 export interface CheckResult {

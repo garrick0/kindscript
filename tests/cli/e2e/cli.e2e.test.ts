@@ -4,11 +4,11 @@ import { run, FIXTURES_DIR } from './helpers';
 
 describe('CLI E2E', () => {
   describe('--version', () => {
-    it('outputs 1.0.1', () => {
+    it('outputs 2.0.0', () => {
       const result = run(['--version']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toBe('1.0.1');
+      expect(result.stdout.trim()).toBe('2.0.0');
     });
   });
 

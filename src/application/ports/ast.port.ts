@@ -1,7 +1,7 @@
 import { SourceFile, TypeChecker } from './typescript.port';
 import {
   KindDefinitionView, InstanceDeclarationView,
-  TaggedExportView, DeclarationView, ASTExtractionResult,
+  AnnotatedExportView, DeclarationView, ASTExtractionResult,
 } from '../pipeline/views';
 
 /**
@@ -13,6 +13,6 @@ import {
 export interface ASTViewPort {
   getKindDefinitions(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<KindDefinitionView[]>;
   getInstanceDeclarations(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<InstanceDeclarationView[]>;
-  getTaggedExports(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<TaggedExportView[]>;
+  getAnnotatedExports(sourceFile: SourceFile, checker: TypeChecker, wrappedKindNames?: Set<string>): ASTExtractionResult<AnnotatedExportView[]>;
   getTopLevelDeclarations(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<DeclarationView[]>;
 }

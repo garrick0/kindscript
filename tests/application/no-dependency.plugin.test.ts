@@ -8,13 +8,12 @@ import { makeSymbol, noDependency } from '../helpers/factories';
 describe('noDependencyPlugin.check', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(resolvedFiles?: Map<string, string[]>): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles: resolvedFiles ?? new Map(),
     };
   }
 
@@ -35,12 +34,10 @@ describe('noDependencyPlugin.check', () => {
       .withSourceFile('src/infrastructure/database.ts', 'export class Db {}')
       .withImport('src/domain/service.ts', 'src/infrastructure/database.ts', '../infrastructure/database', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-      ['src/infrastructure', ['src/infrastructure/database.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
+    infra.files = ['src/infrastructure/database.ts'];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
 
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(70001);
@@ -57,12 +54,10 @@ describe('noDependencyPlugin.check', () => {
       .withSourceFile('src/infrastructure/repo.ts', 'import { Entity } from "../domain/entity";')
       .withImport('src/infrastructure/repo.ts', 'src/domain/entity.ts', '../domain/entity', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/entity.ts']],
-      ['src/infrastructure', ['src/infrastructure/repo.ts']],
-    ]);
+    domain.files = ['src/domain/entity.ts'];
+    infra.files = ['src/infrastructure/repo.ts'];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
@@ -77,12 +72,10 @@ describe('noDependencyPlugin.check', () => {
       .withImport('src/domain/service.ts', 'src/infrastructure/database.ts', '../infrastructure/database', 1)
       .withImport('src/domain/service.ts', 'src/infrastructure/cache.ts', '../infrastructure/cache', 2);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-      ['src/infrastructure', ['src/infrastructure/database.ts', 'src/infrastructure/cache.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
+    infra.files = ['src/infrastructure/database.ts', 'src/infrastructure/cache.ts'];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(2);
   });
 
@@ -97,12 +90,10 @@ describe('noDependencyPlugin.check', () => {
       .withImport('src/domain/a.ts', 'src/infrastructure/db.ts', '../infrastructure/db', 1)
       .withImport('src/domain/b.ts', 'src/infrastructure/db.ts', '../infrastructure/db', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/a.ts', 'src/domain/b.ts']],
-      ['src/infrastructure', ['src/infrastructure/db.ts']],
-    ]);
+    domain.files = ['src/domain/a.ts', 'src/domain/b.ts'];
+    infra.files = ['src/infrastructure/db.ts'];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(2);
   });
 
@@ -115,18 +106,18 @@ describe('noDependencyPlugin.check', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withImport('src/domain/service.ts', 'src/domain/entity.ts', './entity', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/entity.ts', 'src/domain/service.ts']],
-      ['src/infrastructure', []],
-    ]);
+    domain.files = ['src/domain/entity.ts', 'src/domain/service.ts'];
+    infra.files = [];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('handles symbol with no declared location', () => {
     const domain = makeSymbol('domain', ArchSymbolKind.Member, undefined);
     const infra = makeSymbol('infrastructure');
+
+    domain.files = [];
 
     const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(0);
@@ -141,12 +132,10 @@ describe('noDependencyPlugin.check', () => {
       .withSourceFile('src/domain-extensions/helper.ts', '')
       .withImport('src/domain/service.ts', 'src/domain-extensions/helper.ts', '../domain-extensions/helper', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-      ['src/infrastructure', []],
-    ]);
+    domain.files = ['src/domain/service.ts'];
+    infra.files = [];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
@@ -156,12 +145,10 @@ describe('noDependencyPlugin.check', () => {
 
     mockTS.withSourceFile('src/infrastructure/db.ts', '');
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/orphan.ts']],
-      ['src/infrastructure', ['src/infrastructure/db.ts']],
-    ]);
+    domain.files = ['src/domain/orphan.ts'];
+    infra.files = ['src/infrastructure/db.ts'];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(0);
     expect(result.filesAnalyzed).toBe(1);
   });
@@ -175,18 +162,19 @@ describe('noDependencyPlugin.check', () => {
       .withSourceFile('/abs/src/infrastructure/database.ts', '')
       .withImport('/abs/src/domain/service.ts', '/abs/src/infrastructure/database.ts', '../infrastructure/database', 1);
 
-    const resolvedFiles = new Map([
-      ['/abs/src/domain', ['/abs/src/domain/service.ts']],
-      ['/abs/src/infrastructure', ['/abs/src/infrastructure/database.ts']],
-    ]);
+    domain.files = ['/abs/src/domain/service.ts'];
+    infra.files = ['/abs/src/infrastructure/database.ts'];
 
-    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext(resolvedFiles));
+    const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(1);
   });
 
   it('handles empty directory', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
+
+    domain.files = [];
+    infra.files = [];
 
     const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
     expect(result.diagnostics).toHaveLength(0);
@@ -196,17 +184,12 @@ describe('noDependencyPlugin.check', () => {
 describe('noDependencyPlugin.check (intra-file)', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(
-    resolvedFiles: Map<string, string[]>,
-    declarationOwnership: Map<string, Map<string, string>>,
-  ): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles,
-      declarationOwnership,
     };
   }
 
@@ -226,21 +209,15 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
 
-    const resolvedFiles = new Map([
-      ['src/order/deciders', ['src/order/decider.ts']],
-      ['src/order/evolvers', ['src/order/decider.ts']],
-    ]);
+    deciders.files = ['src/order/decider.ts'];
+    evolvers.files = ['src/order/decider.ts'];
 
-    const declarationOwnership = new Map([
-      ['src/order/decider.ts', new Map([
-        ['decide', 'src/order/deciders'],
-        ['evolve', 'src/order/evolvers'],
-      ])],
-    ]);
+    deciders.declarations = new Map([['src/order/decider.ts', new Set(['decide'])]]);
+    evolvers.declarations = new Map([['src/order/decider.ts', new Set(['evolve'])]]);
 
     const result = noDependencyPlugin.check(
       noDependency(deciders, evolvers),
-      makeContext(resolvedFiles, declarationOwnership),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(1);
@@ -259,22 +236,15 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'parseCommand', 5, 10);
 
-    const resolvedFiles = new Map([
-      ['src/order/deciders', ['src/order/decider.ts']],
-      ['src/order/evolvers', ['src/order/decider.ts']],
-    ]);
+    deciders.files = ['src/order/decider.ts'];
+    evolvers.files = ['src/order/decider.ts'];
 
-    // parseCommand is not owned by any member (unassigned)
-    const declarationOwnership = new Map([
-      ['src/order/decider.ts', new Map([
-        ['decide', 'src/order/deciders'],
-        ['evolve', 'src/order/evolvers'],
-      ])],
-    ]);
+    deciders.declarations = new Map([['src/order/decider.ts', new Set(['decide'])]]);
+    evolvers.declarations = new Map([['src/order/decider.ts', new Set(['evolve'])]]);
 
     const result = noDependencyPlugin.check(
       noDependency(deciders, evolvers),
-      makeContext(resolvedFiles, declarationOwnership),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
@@ -288,22 +258,15 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'deepClone', 8, 4);
 
-    const resolvedFiles = new Map([
-      ['src/order/deciders', ['src/order/decider.ts']],
-      ['src/order/evolvers', ['src/order/decider.ts']],
-    ]);
+    deciders.files = ['src/order/decider.ts'];
+    evolvers.files = ['src/order/decider.ts'];
 
-    // deepClone is unassigned (not in ownership map)
-    const declarationOwnership = new Map([
-      ['src/order/decider.ts', new Map([
-        ['decide', 'src/order/deciders'],
-        ['evolve', 'src/order/evolvers'],
-      ])],
-    ]);
+    deciders.declarations = new Map([['src/order/decider.ts', new Set(['decide'])]]);
+    evolvers.declarations = new Map([['src/order/decider.ts', new Set(['evolve'])]]);
 
     const result = noDependencyPlugin.check(
       noDependency(deciders, evolvers),
-      makeContext(resolvedFiles, declarationOwnership),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
@@ -318,28 +281,21 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10)
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve2', 8, 10);
 
-    const resolvedFiles = new Map([
-      ['src/order/deciders', ['src/order/decider.ts']],
-      ['src/order/evolvers', ['src/order/decider.ts']],
-    ]);
+    deciders.files = ['src/order/decider.ts'];
+    evolvers.files = ['src/order/decider.ts'];
 
-    const declarationOwnership = new Map([
-      ['src/order/decider.ts', new Map([
-        ['decide', 'src/order/deciders'],
-        ['evolve', 'src/order/evolvers'],
-        ['evolve2', 'src/order/evolvers'],
-      ])],
-    ]);
+    deciders.declarations = new Map([['src/order/decider.ts', new Set(['decide'])]]);
+    evolvers.declarations = new Map([['src/order/decider.ts', new Set(['evolve', 'evolve2'])]]);
 
     const result = noDependencyPlugin.check(
       noDependency(deciders, evolvers),
-      makeContext(resolvedFiles, declarationOwnership),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(2);
   });
 
-  it('skips intra-file check when no declarationOwnership', () => {
+  it('skips intra-file check when symbols have no declarations', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
@@ -347,25 +303,16 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
 
-    const resolvedFiles = new Map([
-      ['src/order/deciders', ['src/order/decider.ts']],
-      ['src/order/evolvers', ['src/order/decider.ts']],
-    ]);
+    deciders.files = ['src/order/decider.ts'];
+    evolvers.files = ['src/order/decider.ts'];
 
-    // No declarationOwnership → intra-file checks skipped
-    const program = new Program([], {});
-    const ctx: CheckContext = {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-      resolvedFiles,
-    };
+    // No declarations set → intra-file checks skipped
 
-    const result = noDependencyPlugin.check(noDependency(deciders, evolvers), ctx);
+    const result = noDependencyPlugin.check(noDependency(deciders, evolvers), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
-  it('skips intra-file check when file has no ownership entries', () => {
+  it('skips intra-file check when file has no declarations for either symbol', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
@@ -373,17 +320,15 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
 
-    const resolvedFiles = new Map([
-      ['src/order/deciders', ['src/order/decider.ts']],
-      ['src/order/evolvers', ['src/order/decider.ts']],
-    ]);
+    deciders.files = ['src/order/decider.ts'];
+    evolvers.files = ['src/order/decider.ts'];
 
-    // declarationOwnership exists but has no entry for this file
-    const declarationOwnership = new Map<string, Map<string, string>>();
+    // Declarations exist but for a different file
+    deciders.declarations = new Map([['src/other/file.ts', new Set(['decide'])]]);
 
     const result = noDependencyPlugin.check(
       noDependency(deciders, evolvers),
-      makeContext(resolvedFiles, declarationOwnership),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
@@ -397,16 +342,12 @@ describe('noDependencyPlugin.check (intra-file)', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withSourceFile('src/infrastructure/db.ts', '');
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-      ['src/infrastructure', ['src/infrastructure/db.ts']],
-    ]);
-
-    const declarationOwnership = new Map<string, Map<string, string>>();
+    domain.files = ['src/domain/service.ts'];
+    infra.files = ['src/infrastructure/db.ts'];
 
     const result = noDependencyPlugin.check(
       noDependency(domain, infra),
-      makeContext(resolvedFiles, declarationOwnership),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);

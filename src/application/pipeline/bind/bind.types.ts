@@ -7,15 +7,12 @@ import { ScanResult } from '../scan/scan.types';
  *
  * Contracts generated from constraint trees and intrinsic propagation.
  * Each Contract connects ArchSymbols to the rules they must obey.
+ *
+ * File resolution data lives directly on ArchSymbol (symbol.files,
+ * symbol.declarations) — populated during binding.
  */
 export interface BindResult {
   contracts: Contract[];
-  /** Resolved files for all members (filesystem + wrapped Kind) */
-  resolvedFiles: Map<string, string[]>;
-  /** Instance root → ALL files in scope (for containment checking) */
-  containerFiles: Map<string, string[]>;
-  /** file → Map<declarationName, carrierKey> — which member owns each typed declaration */
-  declarationOwnership: Map<string, Map<string, string>>;
   errors: string[];
 }
 

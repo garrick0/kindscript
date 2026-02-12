@@ -9,13 +9,12 @@ import { makeSymbol, noCycles } from '../helpers/factories';
 describe('noCyclesPlugin.check', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(resolvedFiles?: Map<string, string[]>): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles: resolvedFiles ?? new Map(),
     };
   }
 
@@ -37,12 +36,10 @@ describe('noCyclesPlugin.check', () => {
       .withImport('src/domain/a.ts', 'src/infra/b.ts', '../infra/b', 1)
       .withImport('src/infra/b.ts', 'src/domain/a.ts', '../domain/a', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/a.ts']],
-      ['src/infra', ['src/infra/b.ts']],
-    ]);
+    domain.files = ['src/domain/a.ts'];
+    infra.files = ['src/infra/b.ts'];
 
-    const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext(resolvedFiles));
+    const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext());
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(70004);
     expect(result.diagnostics[0].message).toContain('Circular dependency');
@@ -61,13 +58,11 @@ describe('noCyclesPlugin.check', () => {
       .withImport('src/b/y.ts', 'src/c/z.ts', '../c/z', 1)
       .withImport('src/c/z.ts', 'src/a/x.ts', '../a/x', 1);
 
-    const resolvedFiles = new Map([
-      ['src/a', ['src/a/x.ts']],
-      ['src/b', ['src/b/y.ts']],
-      ['src/c', ['src/c/z.ts']],
-    ]);
+    a.files = ['src/a/x.ts'];
+    b.files = ['src/b/y.ts'];
+    c.files = ['src/c/z.ts'];
 
-    const result = noCyclesPlugin.check(noCycles([a, b, c]), makeContext(resolvedFiles));
+    const result = noCyclesPlugin.check(noCycles([a, b, c]), makeContext());
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(70004);
   });
@@ -81,18 +76,18 @@ describe('noCyclesPlugin.check', () => {
       .withSourceFile('src/infra/b.ts', '')
       .withImport('src/infra/b.ts', 'src/domain/a.ts', '../domain/a', 1);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/a.ts']],
-      ['src/infra', ['src/infra/b.ts']],
-    ]);
+    domain.files = ['src/domain/a.ts'];
+    infra.files = ['src/infra/b.ts'];
 
-    const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext(resolvedFiles));
+    const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('handles missing locations', () => {
     const domain = makeSymbol('domain', ArchSymbolKind.Member, undefined);
     const infra = makeSymbol('infra');
+
+    domain.files = [];
 
     const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext());
     expect(result.diagnostics).toHaveLength(0);
@@ -102,12 +97,10 @@ describe('noCyclesPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infra');
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/a.ts']],
-      ['src/infra', ['src/infra/b.ts']],
-    ]);
+    domain.files = ['src/domain/a.ts'];
+    infra.files = ['src/infra/b.ts'];
 
-    const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext(resolvedFiles));
+    const result = noCyclesPlugin.check(noCycles([domain, infra]), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
@@ -131,13 +124,11 @@ describe('noCyclesPlugin.check', () => {
       .withImport('src/a/x.ts', 'src/b/y.ts', '../b/y', 1)
       .withImport('src/b/y.ts', 'src/c/z.ts', '../c/z', 1);
 
-    const resolvedFiles = new Map([
-      ['src/a', ['src/a/x.ts']],
-      ['src/b', ['src/b/y.ts']],
-      ['src/c', ['src/c/z.ts']],
-    ]);
+    a.files = ['src/a/x.ts'];
+    b.files = ['src/b/y.ts'];
+    c.files = ['src/c/z.ts'];
 
-    const result = noCyclesPlugin.check(noCycles([a, b, c]), makeContext(resolvedFiles));
+    const result = noCyclesPlugin.check(noCycles([a, b, c]), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 });

@@ -1,0 +1,36 @@
+# Boundaries Between Roles
+
+Wrapped Kinds aren't just about purity. You can also enforce **dependency rules between different roles**.
+
+## The Setup
+
+Our order module now has two wrapped Kind roles:
+
+- **Deciders** — pure functions that process commands and produce events
+- **Effectors** — functions that perform side effects (send emails, update databases)
+
+Look at `src/context.ts`. The `OrderModule` Kind has both as members, with a constraint:
+
+```typescript
+noDependency: [["deciders", "effectors"]]
+```
+
+This means: **Deciders cannot import from Effectors.** The command processing logic must stay independent of side-effect execution.
+
+## The Violation
+
+Look at `src/apply-discount.ts`. It's a Decider, but it imports `NOTIFICATION_PREFIX` from `src/notify-order.ts` — an Effector.
+
+Run `npx ksc check .` to see the error.
+
+You should see error **KS70001** — a forbidden dependency between `deciders` and `effectors`, just like the directory-level violations from Part 1. But here, the boundary is between **tagged exports**, not directories.
+
+## Fix It
+
+Edit `src/apply-discount.ts` to remove the import from `notify-order.ts`. The decider should produce events without knowing how they'll be handled.
+
+:::tip
+This pattern — separating "what happens" (deciders) from "what to do about it" (effectors) — is the core of event-sourcing and CQRS architectures. KindScript enforces this separation at compile time.
+:::
+
+Run `npx ksc check .` to verify.

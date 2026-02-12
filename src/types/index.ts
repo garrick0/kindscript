@@ -63,7 +63,7 @@ export type KindRef = { readonly __kindscript_ref?: string };
  * // Structural Kind — used with satisfies Instance<T, Path>
  * type DomainLayer = Kind<"DomainLayer", {}, { pure: true }>;
  *
- * // Wrapped Kind — used as type annotation on exports via InstanceOf<K>
+ * // Wrapped Kind — used as type annotation directly
  * type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
  * ```
  *
@@ -137,21 +137,4 @@ export type MemberMap<T extends KindRef> = {
  */
 export type Instance<T extends KindRef, _Path extends string = string> = MemberMap<T>;
 
-/**
- * Phantom tag for sub-file exports that belong to a wrapped Kind.
- *
- * Use `InstanceOf<K>` as a type annotation on exported declarations to
- * declare them as instances of a wrapped Kind. KindScript's scanner
- * detects these annotations and assigns the export to the appropriate
- * member.
- *
- * ```typescript
- * type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
- *
- * export const validateOrder: InstanceOf<Decider> = (cmd) => { ... };
- * ```
- *
- * @typeParam K - The wrapped Kind type this export belongs to
- */
-export type InstanceOf<K extends KindRef> = K;
 

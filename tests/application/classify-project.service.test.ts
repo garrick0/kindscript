@@ -20,7 +20,7 @@ function makeScanResult(overrides?: Partial<ScanResult>): ScanResult {
   return {
     kindDefs: new Map(),
     instances: [],
-    taggedExports: [],
+    annotatedExports: [],
     errors: [],
     ...overrides,
   };
@@ -40,9 +40,6 @@ function makeParseResult(overrides?: Partial<ParseResult>): ParseResult {
 function makeBindResult(overrides?: Partial<BindResult>): BindResult {
   return {
     contracts: [],
-    resolvedFiles: new Map(),
-    containerFiles: new Map(),
-    declarationOwnership: new Map(),
     errors: [],
     ...overrides,
   };

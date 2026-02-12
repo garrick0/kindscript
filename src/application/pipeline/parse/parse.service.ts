@@ -16,7 +16,7 @@ import { joinPath, dirnamePath, resolvePath } from '../../../infrastructure/path
  *
  * The parser is purely structural — it builds the tree and computes
  * carrier expressions, but does NOT resolve carriers to actual files.
- * Carrier resolution (resolvedFiles) is the Binder's responsibility.
+ * Carrier resolution (symbol.files) is the Binder's responsibility.
  *
  * Analogous to TypeScript's Parser which takes tokens and builds
  * an AST of Nodes (no semantic info, no symbol table).
@@ -54,13 +54,16 @@ export class ParseService implements ParseUseCase {
       // Build member tree from Kind definition + instance member values
       const members = this.buildMemberTree(kindDef, resolvedRoot, view.members, scanResult.kindDefs);
 
+      const carrier: CarrierExpr = exportName
+        ? { type: 'path', path: resolvedRoot, exportName }
+        : { type: 'path', path: resolvedRoot };
+
       const symbol = new ArchSymbol(
         view.variableName,
         ArchSymbolKind.Instance,
-        { type: 'path', path: resolvedRoot },
+        carrier,
         members,
         view.kindTypeName,
-        exportName,
       );
 
       symbols.push(symbol);
@@ -120,11 +123,11 @@ export class ParseService implements ParseUseCase {
 
       const carrier: CarrierExpr = isWrapped
         ? {
-            // Scoped tagged carrier: intersect the global tagged set with the parent's path.
-            // "All InstanceOf<K> declarations within the parent instance's scope."
+            // Scoped annotation carrier: intersect the global annotation set with the parent's path.
+            // "All annotated declarations within the parent instance's scope."
             type: 'intersect',
             children: [
-              { type: 'tagged', kindTypeName: memberKindTypeName! },
+              { type: 'annotation', kindTypeName: memberKindTypeName! },
               { type: 'path', path: parentPath },
             ],
           }

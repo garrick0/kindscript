@@ -3,7 +3,6 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { carrierKey } from '../../../../domain/types/carrier';
 import { generateFromTuplePairs } from '../generator-helpers';
 
 export const noDependencyPlugin: ContractPlugin = {
@@ -30,14 +29,11 @@ export const noDependencyPlugin: ContractPlugin = {
     const [fromSymbol, toSymbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
-    const fromKey = fromSymbol.carrier ? carrierKey(fromSymbol.carrier) : undefined;
-    const toKey = toSymbol.carrier ? carrierKey(toSymbol.carrier) : undefined;
-    if (!fromKey || !toKey) {
+    const fromFilePaths = fromSymbol.files;
+    const toFiles = new Set(toSymbol.files);
+    if (fromFilePaths.length === 0) {
       return { diagnostics, filesAnalyzed: 0 };
     }
-
-    const fromFilePaths = ctx.resolvedFiles.get(fromKey) ?? [];
-    const toFiles = new Set(ctx.resolvedFiles.get(toKey) ?? []);
 
     // Cross-file import checks
     for (const { sourceFile } of getSourceFilesForPaths(ctx, fromFilePaths)) {
@@ -56,30 +52,29 @@ export const noDependencyPlugin: ContractPlugin = {
     }
 
     // Intra-file reference checks (for wrapped Kind members sharing a file)
-    if (ctx.declarationOwnership) {
-      const sharedFiles = fromFilePaths.filter(f => toFiles.has(f));
+    const sharedFiles = fromFilePaths.filter(f => toFiles.has(f));
 
-      for (const filePath of sharedFiles) {
-        const fileOwnership = ctx.declarationOwnership.get(filePath);
-        if (!fileOwnership) continue;
+    for (const filePath of sharedFiles) {
+      const fromDecls = fromSymbol.declarations?.get(filePath);
+      const toDecls = toSymbol.declarations?.get(filePath);
+      if (!fromDecls && !toDecls) continue;
 
-        const sfEntry = getSourceFilesForPaths(ctx, [filePath])[0];
-        if (!sfEntry) continue;
+      const sfEntry = getSourceFilesForPaths(ctx, [filePath])[0];
+      if (!sfEntry) continue;
 
-        const edges = ctx.tsPort.getIntraFileReferences(sfEntry.sourceFile, ctx.checker);
+      const edges = ctx.tsPort.getIntraFileReferences(sfEntry.sourceFile, ctx.checker);
 
-        for (const edge of edges) {
-          const fromOwner = fileOwnership.get(edge.fromDeclaration);
-          const toOwner = fileOwnership.get(edge.toDeclaration);
+      for (const edge of edges) {
+        const isFromOwned = fromDecls?.has(edge.fromDeclaration) ?? false;
+        const isToOwned = toDecls?.has(edge.toDeclaration) ?? false;
 
-          if (fromOwner === fromKey && toOwner === toKey) {
-            diagnostics.push(new Diagnostic(
-              `Forbidden dependency: ${fromSymbol.name} → ${toSymbol.name} (${edge.fromDeclaration} → ${edge.toDeclaration})`,
-              DiagnosticCode.ForbiddenDependency,
-              SourceRef.at(filePath, edge.line, edge.column),
-              contract.toReference(),
-            ));
-          }
+        if (isFromOwned && isToOwned) {
+          diagnostics.push(new Diagnostic(
+            `Forbidden dependency: ${fromSymbol.name} → ${toSymbol.name} (${edge.fromDeclaration} → ${edge.toDeclaration})`,
+            DiagnosticCode.ForbiddenDependency,
+            SourceRef.at(filePath, edge.line, edge.column),
+            contract.toReference(),
+          ));
         }
       }
     }

@@ -42,17 +42,17 @@ describe('CarrierResolver', () => {
     });
   });
 
-  describe('tagged carriers', () => {
+  describe('annotation carriers', () => {
     it('filters by kindTypeName', () => {
       const scanContext: ScanContext = {
-        taggedExports: [
+        annotatedExports: [
           { sourceFileName: '/project/src/a.ts', view: { kindTypeName: 'Decider' } },
           { sourceFileName: '/project/src/b.ts', view: { kindTypeName: 'Decider' } },
           { sourceFileName: '/project/src/c.ts', view: { kindTypeName: 'Effector' } },
         ],
       };
 
-      const carrier: CarrierExpr = { type: 'tagged', kindTypeName: 'Decider' };
+      const carrier: CarrierExpr = { type: 'annotation', kindTypeName: 'Decider' };
       const result = resolver.resolve(carrier, scanContext);
 
       expect(result.sort()).toEqual([
@@ -62,15 +62,15 @@ describe('CarrierResolver', () => {
     });
 
     it('throws when scan context is missing', () => {
-      const carrier: CarrierExpr = { type: 'tagged', kindTypeName: 'Decider' };
+      const carrier: CarrierExpr = { type: 'annotation', kindTypeName: 'Decider' };
 
-      expect(() => resolver.resolve(carrier)).toThrow('Tagged carriers require scan context');
+      expect(() => resolver.resolve(carrier)).toThrow('Annotation carriers require scan context');
     });
 
     it('returns empty when no matching exports', () => {
-      const scanContext: ScanContext = { taggedExports: [] };
+      const scanContext: ScanContext = { annotatedExports: [] };
 
-      const carrier: CarrierExpr = { type: 'tagged', kindTypeName: 'Decider' };
+      const carrier: CarrierExpr = { type: 'annotation', kindTypeName: 'Decider' };
       const result = resolver.resolve(carrier, scanContext);
 
       expect(result).toEqual([]);
@@ -178,9 +178,9 @@ describe('CarrierResolver', () => {
       expect(result).toEqual([]);
     });
 
-    it('handles intersect(tagged, path) — scoped tagged carrier pattern', () => {
+    it('handles intersect(tagged, path) — scoped annotation carrier pattern', () => {
       const scanContext: ScanContext = {
-        taggedExports: [
+        annotatedExports: [
           { sourceFileName: '/project/src/orders/validate.ts', view: { kindTypeName: 'Decider' } },
           { sourceFileName: '/project/src/billing/charge.ts', view: { kindTypeName: 'Decider' } },
         ],
@@ -189,7 +189,7 @@ describe('CarrierResolver', () => {
       const carrier: CarrierExpr = {
         type: 'intersect',
         children: [
-          { type: 'tagged', kindTypeName: 'Decider' },
+          { type: 'annotation', kindTypeName: 'Decider' },
           { type: 'path', path: '/project/src/orders' },
         ],
       };
@@ -199,9 +199,9 @@ describe('CarrierResolver', () => {
       expect(result).toEqual(['/project/src/orders/validate.ts']);
     });
 
-    it('filters tagged exports by path boundary', () => {
+    it('filters annotated exports by path boundary', () => {
       const scanContext: ScanContext = {
-        taggedExports: [
+        annotatedExports: [
           { sourceFileName: '/project/src/domain/entity.ts', view: { kindTypeName: 'Pure' } },
           { sourceFileName: '/project/src/domain-extensions/helper.ts', view: { kindTypeName: 'Pure' } },
         ],
@@ -210,7 +210,7 @@ describe('CarrierResolver', () => {
       const carrier: CarrierExpr = {
         type: 'intersect',
         children: [
-          { type: 'tagged', kindTypeName: 'Pure' },
+          { type: 'annotation', kindTypeName: 'Pure' },
           { type: 'path', path: '/project/src/domain' },
         ],
       };
@@ -223,7 +223,7 @@ describe('CarrierResolver', () => {
 
     it('returns empty when no overlap', () => {
       const scanContext: ScanContext = {
-        taggedExports: [
+        annotatedExports: [
           { sourceFileName: '/project/src/billing/charge.ts', view: { kindTypeName: 'Decider' } },
         ],
       };
@@ -231,7 +231,7 @@ describe('CarrierResolver', () => {
       const carrier: CarrierExpr = {
         type: 'intersect',
         children: [
-          { type: 'tagged', kindTypeName: 'Decider' },
+          { type: 'annotation', kindTypeName: 'Decider' },
           { type: 'path', path: '/project/src/orders' },
         ],
       };
@@ -245,7 +245,7 @@ describe('CarrierResolver', () => {
   describe('nested carriers', () => {
     it('handles union of intersects', () => {
       const scanContext: ScanContext = {
-        taggedExports: [
+        annotatedExports: [
           { sourceFileName: '/project/src/a/x.ts', view: { kindTypeName: 'Pure' } },
           { sourceFileName: '/project/src/b/y.ts', view: { kindTypeName: 'Pure' } },
         ],
@@ -257,14 +257,14 @@ describe('CarrierResolver', () => {
           {
             type: 'intersect',
             children: [
-              { type: 'tagged', kindTypeName: 'Pure' },
+              { type: 'annotation', kindTypeName: 'Pure' },
               { type: 'path', path: '/project/src/a' },
             ],
           },
           {
             type: 'intersect',
             children: [
-              { type: 'tagged', kindTypeName: 'Pure' },
+              { type: 'annotation', kindTypeName: 'Pure' },
               { type: 'path', path: '/project/src/b' },
             ],
           },
@@ -279,10 +279,10 @@ describe('CarrierResolver', () => {
       ]);
     });
 
-    it('handles exclude with tagged base', () => {
+    it('handles exclude with annotation base', () => {
       mockFS.withFile('/project/src/tests/test.ts', '');
       const scanContext: ScanContext = {
-        taggedExports: [
+        annotatedExports: [
           { sourceFileName: '/project/src/pure.ts', view: { kindTypeName: 'Pure' } },
           { sourceFileName: '/project/src/tests/test.ts', view: { kindTypeName: 'Pure' } },
         ],
@@ -290,11 +290,11 @@ describe('CarrierResolver', () => {
 
       const carrier: CarrierExpr = {
         type: 'exclude',
-        base: { type: 'tagged', kindTypeName: 'Pure' },
+        base: { type: 'annotation', kindTypeName: 'Pure' },
         excluded: {
           type: 'intersect',
           children: [
-            { type: 'tagged', kindTypeName: 'Pure' },
+            { type: 'annotation', kindTypeName: 'Pure' },
             { type: 'path', path: '/project/src/tests' },
           ],
         },

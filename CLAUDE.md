@@ -43,7 +43,7 @@ src/
 ├── application/
 │   ├── ports/                                  # 4 driven ports (typescript, filesystem, config, ast)
 │   ├── pipeline/                               # Four-stage compiler pipeline
-│   │   ├── scan/                               # Stage 1: AST → raw views (Pass 1: Kind defs + instances, Pass 2: InstanceOf<K> tagged exports)
+│   │   ├── scan/                               # Stage 1: AST → raw views (Pass 1: Kind defs + instances, Pass 2: wrapped Kind exports)
 │   │   │   ├── scan.types.ts                   # ScanRequest, ScanResult, ScanUseCase
 │   │   │   └── scan.service.ts                 # ScanService (uses ASTViewPort)
 │   │   ├── parse/                              # Stage 2: views → ArchSymbol trees (pure structural)
@@ -72,7 +72,7 @@ src/
 │   │   │   ├── scope/                          # scopePlugin
 │   │   │   ├── overlap/                        # overlapPlugin (auto-generated for siblings)
 │   │   │   └── exhaustiveness/                 # exhaustivenessPlugin (opt-in exhaustive: true)
-│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, InstanceOfView, DeclarationView, etc.)
+│   │   ├── views.ts                            # Pipeline view DTOs (TypeNodeView, KindDefinitionView, AnnotatedExportView, DeclarationView, etc.)
 │   │   ├── ownership-tree.ts                   # OwnershipTree, OwnershipNode, buildOwnershipTree()
 │   │   ├── program.ts                          # ProgramPort, ProgramFactory, ProgramSetup
 │   │   ├── pipeline.types.ts                   # PipelineRequest, PipelineResponse, PipelineUseCase
@@ -385,10 +385,10 @@ it('checks contracts', () => {
 - Removed `isFileInSymbol()` from path-utils (replaced by set membership on resolved files)
 - Carrier algebra: `path`, `tagged`, `union`, `exclude`, `intersect` (scoped tagged carriers expressed as `intersect(tagged, path)`)
 
-**Previous:** Unified Kind model — eliminated TypeKind in favor of `wrapsTypeName` + `InstanceOf<K>`
+**Previous:** Unified Kind model — eliminated TypeKind in favor of `wrapsTypeName` + direct Kind annotations
 - Removed `TypeKind<N, T, C>` from public API; wrapped Kinds now use `Kind<N, {}, C, { wraps: T }>`
-- Introduced `InstanceOf<K>` as the tagged export type for wrapped Kind members
-- Scanner now uses two passes: Pass 1 extracts Kind definitions + instances, Pass 2 extracts `InstanceOf<K>` tagged exports
+- Wrapped Kind exports use direct type annotation (e.g., `export const x: Decider = ...`)
+- Scanner uses two passes: Pass 1 extracts Kind definitions + instances, Pass 2 extracts wrapped Kind exports
 - Removed `TypeKindDefinitionView`, `TypeKindInstanceView`, `ScannedTypeKindInstance` view DTOs
 - Renamed fixtures: `typekind-*` to `wrapped-kind-*`, `TYPEKIND_*` to `WRAPPED_KIND_*`
 
@@ -423,7 +423,7 @@ it('checks contracts', () => {
 
 ### Source Code
 
-- `src/types/index.ts` - Public API (Kind, Constraints, Instance<T, Path>, InstanceOf<K>, MemberMap, KindConfig, KindRef)
+- `src/types/index.ts` - Public API (Kind, Constraints, Instance<T, Path>, MemberMap, KindConfig, KindRef)
 - `src/domain/entities/arch-symbol.ts` - Core domain entity
 - `src/domain/types/carrier.ts` - CarrierExpr type, carrierKey(), hasTaggedAtom()
 - `src/application/pipeline/scan/scan.service.ts` - Stage 1: AST extraction
@@ -435,7 +435,7 @@ it('checks contracts', () => {
 - `src/application/pipeline/plugins/contract-plugin.ts` - ContractPlugin interface + helpers
 - `src/application/pipeline/plugins/generator-helpers.ts` - Shared generate() helpers
 - `src/application/pipeline/plugins/plugin-registry.ts` - createAllPlugins()
-- `src/application/pipeline/views.ts` - Pipeline view DTOs (TypeNodeView, KindDefinitionView, InstanceOfView, etc.)
+- `src/application/pipeline/views.ts` - Pipeline view DTOs (TypeNodeView, KindDefinitionView, AnnotatedExportView, etc.)
 - `src/application/pipeline/program.ts` - ProgramPort, ProgramFactory, ProgramSetup
 - `src/application/pipeline/pipeline.service.ts` - Pipeline orchestrator (caching + 4 stages)
 - `src/application/pipeline/pipeline.types.ts` - PipelineRequest/Response/UseCase

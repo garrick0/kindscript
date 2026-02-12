@@ -70,16 +70,14 @@ describe('CheckerService - Dispatcher', () => {
       .withImport('src/domain/service.ts', 'src/infrastructure/db.ts', '../infrastructure/db', 1)
       .withImport('src/domain/service.ts', 'src/application/handler.ts', '../application/handler', 2);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-      ['src/infrastructure', ['src/infrastructure/db.ts']],
-      ['src/application', ['src/application/handler.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
+    infra.files = ['src/infrastructure/db.ts'];
+    app.files = ['src/application/handler.ts'];
 
     const result = service.execute(makeCheckRequest([
       noDependency(domain, infra),
       noDependency(domain, app),
-    ], undefined, resolvedFiles));
+    ]));
     expect(result.contractsChecked).toBe(2);
     expect(result.violationsFound).toBe(2);
   });
@@ -93,12 +91,10 @@ describe('CheckerService - Dispatcher', () => {
       .withSourceFile('src/domain/b.ts', '')
       .withSourceFile('src/domain/c.ts', '');
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/a.ts', 'src/domain/b.ts', 'src/domain/c.ts']],
-      ['src/infrastructure', []],
-    ]);
+    domain.files = ['src/domain/a.ts', 'src/domain/b.ts', 'src/domain/c.ts'];
+    infra.files = [];
 
-    const result = service.execute(makeCheckRequest([noDependency(domain, infra)], undefined, resolvedFiles));
+    const result = service.execute(makeCheckRequest([noDependency(domain, infra)]));
     expect(result.filesAnalyzed).toBe(3);
   });
 });

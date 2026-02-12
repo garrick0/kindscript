@@ -9,13 +9,12 @@ import { makeSymbol, purity } from '../helpers/factories';
 describe('purityPlugin.check', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(resolvedFiles?: Map<string, string[]>): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles: resolvedFiles ?? new Map(),
     };
   }
 
@@ -34,11 +33,9 @@ describe('purityPlugin.check', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'fs', 1, 0);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
 
-    const result = purityPlugin.check(purity(domain), makeContext(resolvedFiles));
+    const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(70003);
     expect(result.diagnostics[0].message).toContain('fs');
@@ -51,11 +48,9 @@ describe('purityPlugin.check', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'node:fs', 2, 0);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
 
-    const result = purityPlugin.check(purity(domain), makeContext(resolvedFiles));
+    const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(70003);
   });
@@ -67,11 +62,9 @@ describe('purityPlugin.check', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'fs/promises', 1, 0);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
 
-    const result = purityPlugin.check(purity(domain), makeContext(resolvedFiles));
+    const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(1);
   });
 
@@ -82,11 +75,9 @@ describe('purityPlugin.check', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', './entity', 1, 0);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
 
-    const result = purityPlugin.check(purity(domain), makeContext(resolvedFiles));
+    const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
@@ -97,16 +88,15 @@ describe('purityPlugin.check', () => {
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'lodash', 1, 0);
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/service.ts']],
-    ]);
+    domain.files = ['src/domain/service.ts'];
 
-    const result = purityPlugin.check(purity(domain), makeContext(resolvedFiles));
+    const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('handles empty directory', () => {
     const domain = makeSymbol('domain');
+    domain.files = [];
 
     const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(0);
@@ -114,6 +104,7 @@ describe('purityPlugin.check', () => {
 
   it('handles symbol with no declared location', () => {
     const domain = makeSymbol('domain', ArchSymbolKind.Member, undefined);
+    domain.files = [];
 
     const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(0);
@@ -122,12 +113,9 @@ describe('purityPlugin.check', () => {
 
   it('skips files where getSourceFile returns undefined', () => {
     const domain = makeSymbol('domain');
+    domain.files = ['src/domain/orphan.ts'];
 
-    const resolvedFiles = new Map([
-      ['src/domain', ['src/domain/orphan.ts']],
-    ]);
-
-    const result = purityPlugin.check(purity(domain), makeContext(resolvedFiles));
+    const result = purityPlugin.check(purity(domain), makeContext());
     expect(result.diagnostics).toHaveLength(0);
     expect(result.filesAnalyzed).toBe(1);
   });

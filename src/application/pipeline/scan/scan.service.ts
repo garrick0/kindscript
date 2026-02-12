@@ -1,4 +1,4 @@
-import { ScanRequest, ScanResult, ScannedInstance, ScannedTaggedExport, ScanUseCase } from './scan.types';
+import { ScanRequest, ScanResult, ScannedInstance, ScannedAnnotatedExport, ScanUseCase } from './scan.types';
 import { ASTViewPort } from '../../ports/ast.port';
 import { KindDefinitionView } from '../views';
 
@@ -12,7 +12,7 @@ import { KindDefinitionView } from '../views';
  *
  * Uses two-pass scanning:
  * - Pass 1: Kind defs, Instance declarations
- * - Pass 2: InstanceOf<K> tagged exports (needs known wrapped Kind names from Pass 1)
+ * - Pass 2: Annotated exports (needs known wrapped Kind names from Pass 1)
  *
  * Analogous to TypeScript's Scanner which reads source characters
  * and produces tokens.
@@ -40,17 +40,25 @@ export class ScanService implements ScanUseCase {
       }
     }
 
-    // Pass 2: InstanceOf<K> tagged exports
-    const taggedExports: ScannedTaggedExport[] = [];
-
-    for (const sourceFile of request.sourceFiles) {
-      const taggedResult = this.astPort.getTaggedExports(sourceFile, request.checker);
-      errors.push(...taggedResult.errors);
-      for (const tagged of taggedResult.data) {
-        taggedExports.push({ view: tagged, sourceFileName: sourceFile.fileName });
+    // Extract wrapped Kind names from Pass 1 for direct type annotation detection
+    const wrappedKindNames = new Set<string>();
+    for (const [name, kindDef] of kindDefs) {
+      if (kindDef.wrapsTypeName) {
+        wrappedKindNames.add(name);
       }
     }
 
-    return { kindDefs, instances, taggedExports, errors };
+    // Pass 2: Annotated exports (direct Kind type annotations)
+    const annotatedExports: ScannedAnnotatedExport[] = [];
+
+    for (const sourceFile of request.sourceFiles) {
+      const annotatedResult = this.astPort.getAnnotatedExports(sourceFile, request.checker, wrappedKindNames);
+      errors.push(...annotatedResult.errors);
+      for (const annotated of annotatedResult.data) {
+        annotatedExports.push({ view: annotated, sourceFileName: sourceFile.fileName });
+      }
+    }
+
+    return { kindDefs, instances, annotatedExports, errors };
   }
 }

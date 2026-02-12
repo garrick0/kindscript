@@ -9,7 +9,7 @@ import { ScanResult } from '../scan/scan.types';
  * raw views. This is KindScript's equivalent of an AST — pure structure,
  * no resolved files or semantic bindings.
  *
- * Name resolution (resolvedFiles) is the Binder's responsibility.
+ * Name resolution (symbol.files) is the Binder's responsibility.
  */
 export interface ParseResult {
   /** All architectural symbols (Kind + Instance + Member) */

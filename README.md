@@ -127,7 +127,7 @@ error KS70004: Circular dependency detected: domain → infra → domain
 **Wrapped Kind composability** -- group exports by architectural role and enforce constraints between groups:
 
 ```typescript
-import type { Kind, InstanceOf } from 'kindscript';
+import type { Kind } from 'kindscript';
 
 type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
 type Effector = Kind<"Effector", {}, {}, { wraps: EffectorFn }>;
@@ -139,9 +139,9 @@ type OrderModule = Kind<"OrderModule", {
   noDependency: [["deciders", "effectors"]];
 }>;
 
-// Export declarations using InstanceOf
-export const applyDiscount: InstanceOf<Decider> = (order) => { /* ... */ };
-export const notifyOrder: InstanceOf<Effector> = (order) => { /* ... */ };
+// Export declarations using direct Kind type annotation
+export const applyDiscount: Decider = (order) => { /* ... */ };
+export const notifyOrder: Effector = (order) => { /* ... */ };
 ```
 ```
 src/domain/apply-discount.ts:1:1 - error KS70001: Forbidden dependency: deciders → effectors (src/domain/apply-discount.ts → src/domain/notify-order.ts)

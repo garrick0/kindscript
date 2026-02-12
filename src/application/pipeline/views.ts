@@ -55,9 +55,9 @@ export interface InstanceDeclarationView {
 }
 
 /**
- * View of an exported declaration tagged with `InstanceOf<K>`.
+ * View of an exported declaration annotated with a wrapped Kind type.
  */
-export interface TaggedExportView {
+export interface AnnotatedExportView {
   exportName: string;
   kindTypeName: string;
 }

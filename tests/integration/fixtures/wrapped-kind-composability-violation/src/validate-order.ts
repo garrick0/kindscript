@@ -1,8 +1,8 @@
-import type { Kind, InstanceOf } from 'kindscript';
+import type { Kind } from 'kindscript';
 
 type DeciderFn = (command: unknown) => unknown[];
 type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
 
-export const validateOrder: InstanceOf<Decider> = (cmd) => {
+export const validateOrder: Decider = (cmd) => {
   return [{ type: 'OrderValidated', data: cmd }];
 };

@@ -1,6 +1,6 @@
 {
   "name": "kindscript",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Architectural enforcement for TypeScript",
   "main": "dist/types/index.js",
   "types": "dist/types/index.d.ts",

@@ -11,13 +11,12 @@ import { makeSymbol, scope } from '../helpers/factories';
 describe('scopePlugin.check', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(resolvedFiles?: Map<string, string[]>): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles: resolvedFiles ?? new Map(),
     };
   }
 
@@ -32,18 +31,18 @@ describe('scopePlugin.check', () => {
   it('passes when folder scope matches a directory location', () => {
     const sym = makeSymbol('ordering', ArchSymbolKind.Instance, 'src/ordering');
     const contract = scope(sym, 'folder');
-    const resolvedFiles = new Map([['src/ordering', ['src/ordering/entity.ts']]]);
+    sym.files = ['src/ordering/entity.ts'];
 
-    const result = scopePlugin.check(contract, makeContext(resolvedFiles));
+    const result = scopePlugin.check(contract, makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('fails when folder scope but location is a file', () => {
     const sym = makeSymbol('ordering', ArchSymbolKind.Instance, 'src/ordering.ts');
     const contract = scope(sym, 'folder');
-    const resolvedFiles = new Map([['src/ordering.ts', ['src/ordering.ts']]]);
+    sym.files = ['src/ordering.ts'];
 
-    const result = scopePlugin.check(contract, makeContext(resolvedFiles));
+    const result = scopePlugin.check(contract, makeContext());
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(DiagnosticCode.ScopeMismatch);
     expect(result.diagnostics[0].message).toContain('folder scope');
@@ -53,6 +52,7 @@ describe('scopePlugin.check', () => {
   it('fails when folder scope but directory not found', () => {
     const sym = makeSymbol('ordering', ArchSymbolKind.Instance, 'src/ordering');
     const contract = scope(sym, 'folder');
+    sym.files = [];
 
     const result = scopePlugin.check(contract, makeContext());
     expect(result.diagnostics).toHaveLength(1);
@@ -63,18 +63,18 @@ describe('scopePlugin.check', () => {
   it('passes when file scope matches a file location', () => {
     const sym = makeSymbol('button', ArchSymbolKind.Instance, 'src/Button.tsx');
     const contract = scope(sym, 'file');
-    const resolvedFiles = new Map([['src/Button.tsx', ['src/Button.tsx']]]);
+    sym.files = ['src/Button.tsx'];
 
-    const result = scopePlugin.check(contract, makeContext(resolvedFiles));
+    const result = scopePlugin.check(contract, makeContext());
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('fails when file scope but location is a folder', () => {
     const sym = makeSymbol('button', ArchSymbolKind.Instance, 'src/components');
     const contract = scope(sym, 'file');
-    const resolvedFiles = new Map([['src/components', ['src/components/Button.tsx']]]);
+    sym.files = ['src/components/Button.tsx'];
 
-    const result = scopePlugin.check(contract, makeContext(resolvedFiles));
+    const result = scopePlugin.check(contract, makeContext());
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0].code).toBe(DiagnosticCode.ScopeMismatch);
     expect(result.diagnostics[0].message).toContain('file scope');
@@ -84,6 +84,7 @@ describe('scopePlugin.check', () => {
   it('fails when file scope but file not found', () => {
     const sym = makeSymbol('button', ArchSymbolKind.Instance, 'src/Button.tsx');
     const contract = scope(sym, 'file');
+    sym.files = [];
 
     const result = scopePlugin.check(contract, makeContext());
     expect(result.diagnostics).toHaveLength(1);

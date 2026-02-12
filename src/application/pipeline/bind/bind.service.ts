@@ -7,7 +7,7 @@ import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
 import { Contract } from '../../../domain/entities/contract';
 import { ContractType } from '../../../domain/types/contract-type';
 import type { ConstraintProvider } from '../plugins/constraint-provider';
-import { carrierKey, hasTaggedAtom } from '../../../domain/types/carrier';
+import { carrierKey, hasAnnotationAtom } from '../../../domain/types/carrier';
 import { CarrierResolver } from '../carrier/carrier-resolver';
 
 /**
@@ -16,8 +16,9 @@ import { CarrierResolver } from '../carrier/carrier-resolver';
  * This is the third pipeline stage. It performs two binding operations:
  *
  * 1. **Carrier resolution** — resolves each symbol's carrier expression
- *    to actual code files, producing `resolvedFiles`. Delegates to
- *    CarrierResolver for algebraic dispatch.
+ *    to actual code files, populating `symbol.files` and
+ *    `symbol.declarations`. Delegates to CarrierResolver for
+ *    algebraic dispatch.
  *
  * 2. **Constraint binding** — walks constraint trees and generates
  *    Contracts that connect symbols to the rules they must obey.
@@ -42,14 +43,11 @@ export class BindService implements BindUseCase {
     const contracts: Contract[] = [];
     const errors: string[] = [];
 
-    // 1. Name resolution — resolve symbols to code files
-    const resolvedFiles = this.resolveMembers(parseResult.symbols, scanResult);
+    // 1. Carrier resolution — populate symbol.files on all symbols
+    this.resolveCarriers(parseResult.symbols, scanResult);
 
-    // 1b. Container resolution — resolve instance roots to total owned file set
-    const containerFiles = this.resolveContainers(parseResult.symbols);
-
-    // 1c. Declaration ownership — map typed exports to their owning member symbol
-    const declarationOwnership = this.buildDeclarationOwnership(parseResult.symbols, scanResult);
+    // 1b. Declaration ownership — populate member.declarations for annotation carriers
+    this.resolveDeclarations(parseResult.symbols, scanResult);
 
     // 2. Generate contracts from Kind constraints
     for (const [kindName, kindDef] of parseResult.kindDefs) {
@@ -110,14 +108,14 @@ export class BindService implements BindUseCase {
     }
 
     // 4. Generate overlap contracts for sibling members within each instance
-    //    Skip path-tagged pairs — they classify on orthogonal axes
+    //    Skip path-annotation pairs — they classify on orthogonal axes
     //    (location vs type annotation), so shared files are composition, not overlap.
     for (const [, instances] of parseResult.instanceSymbols) {
       for (const instanceSymbol of instances) {
         const members = instanceSymbol.getAllMembers();
         for (let i = 0; i < members.length; i++) {
           for (let j = i + 1; j < members.length; j++) {
-            if (hasTaggedAtom(members[i].carrier!) !== hasTaggedAtom(members[j].carrier!)) continue;
+            if (hasAnnotationAtom(members[i].carrier!) !== hasAnnotationAtom(members[j].carrier!)) continue;
 
             contracts.push(new Contract(
               ContractType.Overlap,
@@ -131,113 +129,99 @@ export class BindService implements BindUseCase {
     }
 
     // 5. Generate contracts from wrapped Kind constraints (standalone, not inside a parent Kind)
-    this.generateWrappedKindContracts(scanResult, parseResult, contracts, resolvedFiles);
+    this.generateWrappedKindContracts(scanResult, parseResult, contracts);
 
-    return { contracts, resolvedFiles, containerFiles, declarationOwnership, errors };
+    return { contracts, errors };
   }
 
   /**
-   * Unified carrier resolution — resolves each symbol's carrier expression
+   * Carrier resolution — resolves each symbol's carrier expression
    * to actual code files by delegating to CarrierResolver.
+   * Populates symbol.files directly on each symbol.
    */
-  private resolveMembers(
+  private resolveCarriers(
     symbols: ArchSymbol[],
     scanResult: ScanResult,
-  ): Map<string, string[]> {
-    const resolvedFiles = new Map<string, string[]>();
+  ): void {
+    const resolvedByKey = new Map<string, string[]>();
 
     for (const symbol of symbols) {
       for (const s of [symbol, ...symbol.descendants()]) {
         if (!s.carrier) continue;
         const key = carrierKey(s.carrier);
-        if (resolvedFiles.has(key)) continue;
 
-        const files = this.resolver.resolve(s.carrier, { taggedExports: scanResult.taggedExports });
-        if (files.length > 0) {
-          resolvedFiles.set(key, files);
+        // Resolve (or reuse cached result for same carrier key)
+        let files: string[];
+        if (resolvedByKey.has(key)) {
+          files = resolvedByKey.get(key)!;
+        } else {
+          files = this.resolver.resolve(s.carrier, { annotatedExports: scanResult.annotatedExports });
+          resolvedByKey.set(key, files);
+        }
+
+        // Populate symbol.files
+        s.files = files;
+
+        // Populate symbol.declarations for path carriers with exportName
+        if (s.carrier.type === 'path' && s.carrier.exportName && files.length > 0) {
+          const declMap = new Map<string, Set<string>>();
+          declMap.set(s.carrier.path, new Set([s.carrier.exportName]));
+          s.declarations = declMap;
         }
       }
     }
-
-    return resolvedFiles;
   }
 
   /**
-   * Resolve instance roots to total owned file sets.
-   * One readDirectory() call per folder-scoped instance.
-   */
-  private resolveContainers(symbols: ArchSymbol[]): Map<string, string[]> {
-    const containerFiles = new Map<string, string[]>();
-
-    for (const symbol of symbols) {
-      if (symbol.kind !== ArchSymbolKind.Instance) continue;
-      if (!symbol.carrier) continue;
-      const key = carrierKey(symbol.carrier);
-      if (containerFiles.has(key)) continue;
-
-      const files = this.resolver.resolve(symbol.carrier);
-      if (files.length > 0) {
-        containerFiles.set(key, files);
-      }
-    }
-
-    return containerFiles;
-  }
-
-  /**
-   * Build declaration-level ownership mapping for intra-file dependency checking.
+   * Populate declaration-level ownership on annotation-carrier member symbols.
    *
-   * For each wrapped Kind member in each instance, maps the tagged export
-   * declarations back to the member's carrier key. This lets the checker
-   * know which declarations belong to which member when checking
-   * intra-file noDependency constraints.
+   * For each wrapped Kind member in each instance, maps the annotated export
+   * declarations back to the member symbol's declarations field.
+   * This lets the checker know which declarations belong to which member
+   * when checking intra-file noDependency constraints.
    */
-  private buildDeclarationOwnership(
+  private resolveDeclarations(
     symbols: ArchSymbol[],
     scanResult: ScanResult,
-  ): Map<string, Map<string, string>> {
-    const ownership = new Map<string, Map<string, string>>();
-
+  ): void {
     for (const instanceSymbol of symbols) {
       if (instanceSymbol.kind !== ArchSymbolKind.Instance) continue;
       if (!instanceSymbol.carrier || instanceSymbol.carrier.type !== 'path') continue;
 
       for (const member of instanceSymbol.members.values()) {
-        if (!member.carrier || !hasTaggedAtom(member.carrier)) continue;
-        const memberKey = carrierKey(member.carrier);
+        if (!member.carrier || !hasAnnotationAtom(member.carrier)) continue;
 
-        // Resolve the member's carrier to get matching files
-        const memberFiles = new Set(
-          this.resolver.resolve(member.carrier, { taggedExports: scanResult.taggedExports })
-        );
+        const memberFiles = new Set(member.files);
+        const memberDeclMap = member.declarations ?? new Map<string, Set<string>>();
 
-        for (const tki of scanResult.taggedExports) {
+        for (const tki of scanResult.annotatedExports) {
           if (!memberFiles.has(tki.sourceFileName)) continue;
           if (tki.view.kindTypeName !== member.kindTypeName) continue;
 
-          const fileMap = ownership.get(tki.sourceFileName) ?? new Map<string, string>();
-          fileMap.set(tki.view.exportName, memberKey);
-          ownership.set(tki.sourceFileName, fileMap);
+          const declSet = memberDeclMap.get(tki.sourceFileName) ?? new Set<string>();
+          declSet.add(tki.view.exportName);
+          memberDeclMap.set(tki.sourceFileName, declSet);
+        }
+
+        if (memberDeclMap.size > 0) {
+          member.declarations = memberDeclMap;
         }
       }
     }
-
-    return ownership;
   }
 
   /**
    * Generate contracts from wrapped Kind definitions that have their own constraints.
    *
    * For each wrapped Kind with constraints, create a synthetic ArchSymbol per file
-   * containing a matching tagged export, then generate contracts via intrinsic
+   * containing a matching annotated export, then generate contracts via intrinsic
    * propagation. This enables `Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>`
-   * to enforce purity on every file containing a Decider-tagged export.
+   * to enforce purity on every file containing a Decider-annotated export.
    */
   private generateWrappedKindContracts(
     scanResult: ScanResult,
     parseResult: ParseResult,
     contracts: Contract[],
-    resolvedFiles: Map<string, string[]>,
   ): void {
     // Collect wrapped Kind names that are used as members of a parent Kind —
     // intrinsic propagation (step 2b) already generates contracts for these.
@@ -258,9 +242,9 @@ export class BindService implements BindUseCase {
       if (!kindDef.constraints) continue;
       if (coveredByIntrinsic.has(kindName)) continue;
 
-      // Collect files containing tagged exports of this wrapped Kind
+      // Collect files containing annotated exports of this wrapped Kind
       const fileSet = new Set<string>();
-      for (const tki of scanResult.taggedExports) {
+      for (const tki of scanResult.annotatedExports) {
         if (tki.view.kindTypeName === kindName) {
           fileSet.add(tki.sourceFileName);
         }
@@ -270,16 +254,12 @@ export class BindService implements BindUseCase {
 
       // For each file, create a synthetic symbol and generate intrinsic contracts
       for (const filePath of fileSet) {
-        // Register this file in resolvedFiles so the checker can find it
-        if (!resolvedFiles.has(filePath)) {
-          resolvedFiles.set(filePath, [filePath]);
-        }
-
         const syntheticSymbol = new ArchSymbol(
           kindName,
           ArchSymbolKind.Member,
           { type: 'path', path: filePath },
         );
+        syntheticSymbol.files = [filePath];
 
         for (const plugin of this.intrinsicPlugins) {
           if (!plugin.intrinsic!.detect(kindDef.constraints!)) continue;

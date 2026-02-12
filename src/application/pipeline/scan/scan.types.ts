@@ -1,5 +1,5 @@
 import { SourceFile, TypeChecker } from '../../ports/typescript.port';
-import { KindDefinitionView, InstanceDeclarationView, TaggedExportView } from '../views';
+import { KindDefinitionView, InstanceDeclarationView, AnnotatedExportView } from '../views';
 
 /**
  * Request DTO for the Scanner stage.
@@ -19,10 +19,10 @@ export interface ScannedInstance {
 }
 
 /**
- * A tagged export (InstanceOf<K>) paired with its source file name.
+ * An annotated export paired with its source file name.
  */
-export interface ScannedTaggedExport {
-  view: TaggedExportView;
+export interface ScannedAnnotatedExport {
+  view: AnnotatedExportView;
   sourceFileName: string;
 }
 
@@ -35,7 +35,7 @@ export interface ScannedTaggedExport {
 export interface ScanResult {
   kindDefs: Map<string, KindDefinitionView>;
   instances: ScannedInstance[];
-  taggedExports: ScannedTaggedExport[];
+  annotatedExports: ScannedAnnotatedExport[];
   errors: string[];
 }
 

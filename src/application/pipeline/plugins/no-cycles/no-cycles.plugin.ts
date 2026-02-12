@@ -3,7 +3,6 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { carrierKey } from '../../../../domain/types/carrier';
 import { findCycles } from '../../../../domain/utils/cycle-detection';
 import { generateFromStringList } from '../generator-helpers';
 
@@ -30,8 +29,7 @@ export const noCyclesPlugin: ContractPlugin = {
 
     const symbolFiles = new Map<string, string[]>();
     for (const sym of symbols) {
-      const key = sym.carrier ? carrierKey(sym.carrier) : undefined;
-      symbolFiles.set(sym.name, key ? (ctx.resolvedFiles.get(key) ?? []) : []);
+      symbolFiles.set(sym.name, sym.files);
     }
 
     const edges = new Map<string, Set<string>>();

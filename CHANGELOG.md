@@ -5,6 +5,53 @@ All notable changes to KindScript will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-12
+
+### 🎉 Major Release: Simplified Wrapped Kind API
+
+KindScript 2.0.0 removes the `InstanceOf<K>` type in favor of direct Kind type annotations, making wrapped Kinds simpler and more intuitive.
+
+### ⚠️ BREAKING CHANGES
+
+**Removed `InstanceOf<K>` type from public API**
+
+Wrapped Kind exports must now use direct type annotation instead of `InstanceOf<K>`:
+
+```typescript
+// ❌ Old (v1.x):
+import type { Kind, InstanceOf } from 'kindscript';
+export const validateOrder: InstanceOf<Decider> = (cmd) => { ... };
+
+// ✅ New (v2.x):
+import type { Kind } from 'kindscript';
+export const validateOrder: Decider = (cmd) => { ... };
+```
+
+**Migration Guide:**
+1. Remove `InstanceOf` from all imports: `import type { Kind, InstanceOf }` → `import type { Kind }`
+2. Replace all `InstanceOf<K>` type annotations with direct Kind type: `: InstanceOf<Decider>` → `: Decider`
+3. Update to KindScript 2.0.0
+
+### Changed
+
+- **Internal**: Unified carrier model with TS-aligned symbol ownership
+  - Symbols now directly own their resolved files (`symbol.files: string[]`)
+  - Carriers are parse-time intermediates consumed by the binder
+  - Scanner detects wrapped Kind exports via direct type annotation
+  - Simplified checker context (removed `resolvedFiles`, `containerFiles`, `declarationOwnership` maps)
+
+### Documentation
+
+- Updated all documentation to reflect direct annotation pattern
+- Updated 4 interactive tutorial lessons (Part 6: Wrapped Kinds)
+- Updated all test fixtures to use new pattern
+
+### Internal
+
+- Removed `InstanceOf` backward-compatibility detection code
+- Simplified AST adapter annotation detection
+- All 381 tests passing with new pattern
+
 ## [1.0.0] - 2026-02-11
 
 ### 🎉 First Stable Release
@@ -36,8 +83,8 @@ KindScript 1.0.0 is the first production-ready release of architectural enforcem
   - Four-stage pipeline: scan → parse → bind → check
 
 - **Kind System**:
-  - `Kind` - Basic architectural abstractions
-  - `TypeKind<T>` - Generic architectural patterns with type parameters
+  - `Kind` - Structural architectural abstractions (directory-based)
+  - Wrapped Kinds via `{ wraps: T }` - Declaration-level enforcement
   - `Instance<T, Path>` - Explicit location syntax for instances
   - Member-based composition via `MemberMap`
 
@@ -85,6 +132,7 @@ KindScript 1.0.0 is the first production-ready release of architectural enforcem
 - ⚠️ Breaking change
 - 🔧 Internal/refactor
 
+[2.0.0]: https://github.com/garrick0/kindscript/releases/tag/v2.0.0
 [1.0.0]: https://github.com/garrick0/kindscript/releases/tag/v1.0.0
 [0.8.0-m8]: https://github.com/garrick0/kindscript/releases/tag/v0.8.0-m8
 [0.8.0-m7]: https://github.com/garrick0/kindscript/releases/tag/v0.8.0-m7

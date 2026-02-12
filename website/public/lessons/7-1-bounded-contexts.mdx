@@ -1,0 +1,43 @@
+# Bounded Contexts
+
+Real applications don't have just one architectural context. An e-commerce platform might have **ordering**, **billing**, **shipping** — each following the same architectural pattern but checked independently.
+
+KindScript handles this with **multiple instances** of the same Kind.
+
+## The Setup
+
+Look at `src/context.ts`. We define a `BoundedContext` Kind once, then create two instances:
+
+```typescript
+export const ordering = {
+  domain: {},
+  infrastructure: {},
+} satisfies Instance<BoundedContext, './ordering'>;
+
+export const billing = {
+  domain: {},
+  infrastructure: {},
+} satisfies Instance<BoundedContext, './billing'>;
+```
+
+Each instance points to a different directory. The same `noDependency` rules apply to both, but they're **checked independently**.
+
+## The Violation
+
+The ordering context is clean — its domain doesn't import from infrastructure.
+
+But look at `src/billing/domain/invoice.ts`. It imports `PaymentGateway` directly from the billing infrastructure, violating the `noDependency` constraint.
+
+Run `npx ksc check .` to see the error.
+
+Notice that the error is in the **billing** context only. The ordering context passes cleanly. Each bounded context is its own world.
+
+:::info
+This is the "define once, enforce everywhere" pattern. As your codebase grows, add new instances of the same Kind. The architectural rules travel with the type.
+:::
+
+## Fix It
+
+Edit `src/billing/domain/invoice.ts` to remove the infrastructure import. Define a `PaymentProcessor` interface in the domain, and accept it as a parameter instead of constructing `PaymentGateway` directly.
+
+Run `npx ksc check .` to verify both contexts pass.

@@ -339,11 +339,11 @@ CheckerService (checker)
 The binder uses carrier expressions to represent what code each symbol operates over. Different carriers resolve to files differently:
 
 - **Path carriers** (`{ type: 'path', path: '...' }`) — filesystem probing (directory listing or single file)
-- **Tagged carriers** (`{ type: 'tagged', kindTypeName: 'K' }`) — collect all files containing `InstanceOf<K>` exports
-- **Scoped tagged carriers** (`intersect(tagged, path)`) — tagged exports filtered to a specific scope
+- **Annotation carriers** (`{ type: 'annotation', kindTypeName: 'K' }`) — collect all files containing wrapped Kind exports
+- **Scoped annotation carriers** (`intersect(annotation, path)`) — wrapped Kind exports filtered to a specific scope
 - **Algebraic operations** (`union`, `exclude`, `intersect`) — set operations on child carrier file sets
 
-The `CarrierResolver` service translates carrier expressions into file lists. All resolved carriers populate the same `resolvedFiles: Map<string, string[]>` data structure in `BindResult` (keyed by `carrierKey()`). The checker operates on this unified map — existing constraint plugins work unchanged with all carrier types.
+The `CarrierResolver` service translates carrier expressions into file lists. All resolved carriers populate `symbol.files` directly. The checker operates on these resolved file sets — existing constraint plugins work unchanged with all carrier types.
 
 ### What the Checker Receives
 

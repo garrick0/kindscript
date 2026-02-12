@@ -3,7 +3,7 @@ import { ASTViewPort } from '../../application/ports/ast.port';
 import {
   ASTExtractionResult, TypeNodeView,
   KindDefinitionView, MemberValueView, InstanceDeclarationView,
-  TaggedExportView, DeclarationView,
+  AnnotatedExportView, DeclarationView,
 } from '../../application/pipeline/views';
 import { SourceFile, TypeChecker } from '../../application/ports/typescript.port';
 
@@ -206,12 +206,11 @@ export class ASTAdapter implements ASTViewPort {
     return { data: results, errors };
   }
 
-  getTaggedExports(sourceFile: SourceFile, checker: TypeChecker): ASTExtractionResult<TaggedExportView[]> {
+  getAnnotatedExports(sourceFile: SourceFile, _checker: TypeChecker, wrappedKindNames?: Set<string>): ASTExtractionResult<AnnotatedExportView[]> {
     const tsSourceFile = this.toTsSourceFile(sourceFile);
-    const tsChecker = checker as unknown as ts.TypeChecker;
     if (!tsSourceFile) return { data: [], errors: [] };
 
-    const results: TaggedExportView[] = [];
+    const results: AnnotatedExportView[] = [];
     const errors: string[] = [];
 
     for (const stmt of tsSourceFile.statements) {
@@ -224,18 +223,12 @@ export class ASTAdapter implements ASTViewPort {
         if (!ts.isIdentifier(decl.name)) continue;
         if (!decl.type || !ts.isTypeReferenceNode(decl.type)) continue;
 
-        if (!this.isSymbolNamed(decl.type.typeName, 'InstanceOf', tsChecker)) continue;
-
-        // Extract the Kind type name from the first type argument
-        if (decl.type.typeArguments && decl.type.typeArguments.length >= 1) {
-          const arg = decl.type.typeArguments[0];
-          if (ts.isTypeReferenceNode(arg) && ts.isIdentifier(arg.typeName)) {
-            results.push({ exportName: decl.name.text, kindTypeName: arg.typeName.text });
-          } else {
-            errors.push(`InstanceOf on '${decl.name.text}': type argument must be a type reference.`);
+        // Direct Kind type annotation (e.g., `export const x: Decider = ...`)
+        if (wrappedKindNames && ts.isIdentifier(decl.type.typeName)) {
+          const typeName = decl.type.typeName.text;
+          if (wrappedKindNames.has(typeName)) {
+            results.push({ exportName: decl.name.text, kindTypeName: typeName });
           }
-        } else {
-          errors.push(`InstanceOf on '${decl.name.text}': missing type argument.`);
         }
       }
     }

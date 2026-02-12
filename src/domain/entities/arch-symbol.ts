@@ -26,11 +26,19 @@ export class ArchSymbol {
 
     /** The Kind type name this symbol instantiates (e.g., "DomainLayer", "PortsLayer") */
     public readonly kindTypeName?: string,
-
-    /** For sub-file instances: the named export (from hash syntax, e.g., 'validateOrder') */
-    public readonly exportName?: string,
   ) {}
 
+  /**
+   * Resolved files this symbol's code lives in.
+   * Populated by the Binder after carrier resolution.
+   */
+  files: string[] = [];
+
+  /**
+   * Sub-file declaration ownership: file → set of export names owned by this symbol.
+   * Populated by the Binder for annotation carriers and path carriers with exportName.
+   */
+  declarations?: Map<string, Set<string>>;
 
   /**
    * Find a direct child member by name.

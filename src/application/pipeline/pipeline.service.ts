@@ -85,10 +85,7 @@ export class PipelineService implements PipelineUseCase {
       symbols: parseResult.symbols,
       config: setup.config,
       program: setup.program,
-      resolvedFiles: bindResult.resolvedFiles,
-      containerFiles: bindResult.containerFiles,
       ownershipTree,
-      declarationOwnership: bindResult.declarationOwnership,
     });
 
     const result: PipelineSuccess = {

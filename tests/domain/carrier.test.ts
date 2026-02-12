@@ -1,4 +1,4 @@
-import { CarrierExpr, carrierKey, hasTaggedAtom } from '../../src/domain/types/carrier';
+import { CarrierExpr, carrierKey, hasAnnotationAtom } from '../../src/domain/types/carrier';
 
 describe('carrierKey', () => {
   describe('path carriers', () => {
@@ -16,12 +16,22 @@ describe('carrierKey', () => {
       const carrier: CarrierExpr = { type: 'path', path: 'src/domain/entity.ts' };
       expect(carrierKey(carrier)).toBe('src/domain/entity.ts');
     });
+
+    it('includes exportName in hash syntax when present', () => {
+      const carrier: CarrierExpr = { type: 'path', path: 'src/handlers.ts', exportName: 'validate' };
+      expect(carrierKey(carrier)).toBe('src/handlers.ts#validate');
+    });
+
+    it('omits hash when exportName is undefined', () => {
+      const carrier: CarrierExpr = { type: 'path', path: 'src/handlers.ts' };
+      expect(carrierKey(carrier)).toBe('src/handlers.ts');
+    });
   });
 
-  describe('tagged carriers', () => {
-    it('returns tagged:<kindTypeName>', () => {
-      const carrier: CarrierExpr = { type: 'tagged', kindTypeName: 'Decider' };
-      expect(carrierKey(carrier)).toBe('tagged:Decider');
+  describe('annotation carriers', () => {
+    it('returns annotation:<kindTypeName>', () => {
+      const carrier: CarrierExpr = { type: 'annotation', kindTypeName: 'Decider' };
+      expect(carrierKey(carrier)).toBe('annotation:Decider');
     });
   });
 
@@ -72,11 +82,11 @@ describe('carrierKey', () => {
       const carrier: CarrierExpr = {
         type: 'intersect',
         children: [
-          { type: 'tagged', kindTypeName: 'Decider' },
+          { type: 'annotation', kindTypeName: 'Decider' },
           { type: 'path', path: 'src/ordering' },
         ],
       };
-      expect(carrierKey(carrier)).toBe('intersect(src/ordering,tagged:Decider)');
+      expect(carrierKey(carrier)).toBe('intersect(annotation:Decider,src/ordering)');
     });
 
     it('sorts children for stable keys', () => {
@@ -84,13 +94,13 @@ describe('carrierKey', () => {
         type: 'intersect',
         children: [
           { type: 'path', path: 'src/ordering' },
-          { type: 'tagged', kindTypeName: 'Decider' },
+          { type: 'annotation', kindTypeName: 'Decider' },
         ],
       };
       const carrier2: CarrierExpr = {
         type: 'intersect',
         children: [
-          { type: 'tagged', kindTypeName: 'Decider' },
+          { type: 'annotation', kindTypeName: 'Decider' },
           { type: 'path', path: 'src/ordering' },
         ],
       };
@@ -120,7 +130,7 @@ describe('carrierKey', () => {
       const carrier: CarrierExpr = {
         type: 'intersect',
         children: [
-          { type: 'tagged', kindTypeName: 'Pure' },
+          { type: 'annotation', kindTypeName: 'Pure' },
           {
             type: 'exclude',
             base: { type: 'path', path: 'src' },
@@ -128,31 +138,31 @@ describe('carrierKey', () => {
           },
         ],
       };
-      expect(carrierKey(carrier)).toBe('intersect(exclude(src,src/impure),tagged:Pure)');
+      expect(carrierKey(carrier)).toBe('intersect(annotation:Pure,exclude(src,src/impure))');
     });
   });
 });
 
-describe('hasTaggedAtom', () => {
+describe('hasAnnotationAtom', () => {
   it('returns false for path carriers', () => {
     const carrier: CarrierExpr = { type: 'path', path: 'src/domain' };
-    expect(hasTaggedAtom(carrier)).toBe(false);
+    expect(hasAnnotationAtom(carrier)).toBe(false);
   });
 
-  it('returns true for tagged carriers', () => {
-    const carrier: CarrierExpr = { type: 'tagged', kindTypeName: 'Decider' };
-    expect(hasTaggedAtom(carrier)).toBe(true);
+  it('returns true for annotation carriers', () => {
+    const carrier: CarrierExpr = { type: 'annotation', kindTypeName: 'Decider' };
+    expect(hasAnnotationAtom(carrier)).toBe(true);
   });
 
-  it('returns true for intersect containing tagged', () => {
+  it('returns true for intersect containing annotation', () => {
     const carrier: CarrierExpr = {
       type: 'intersect',
       children: [
-        { type: 'tagged', kindTypeName: 'Decider' },
+        { type: 'annotation', kindTypeName: 'Decider' },
         { type: 'path', path: 'src/ordering' },
       ],
     };
-    expect(hasTaggedAtom(carrier)).toBe(true);
+    expect(hasAnnotationAtom(carrier)).toBe(true);
   });
 
   it('returns false for union of paths', () => {
@@ -163,27 +173,27 @@ describe('hasTaggedAtom', () => {
         { type: 'path', path: 'src/shared' },
       ],
     };
-    expect(hasTaggedAtom(carrier)).toBe(false);
+    expect(hasAnnotationAtom(carrier)).toBe(false);
   });
 
-  it('returns true for union containing tagged', () => {
+  it('returns true for union containing annotation', () => {
     const carrier: CarrierExpr = {
       type: 'union',
       children: [
         { type: 'path', path: 'src/domain' },
-        { type: 'tagged', kindTypeName: 'Effector' },
+        { type: 'annotation', kindTypeName: 'Effector' },
       ],
     };
-    expect(hasTaggedAtom(carrier)).toBe(true);
+    expect(hasAnnotationAtom(carrier)).toBe(true);
   });
 
-  it('returns true for exclude with tagged in base', () => {
+  it('returns true for exclude with annotation in base', () => {
     const carrier: CarrierExpr = {
       type: 'exclude',
-      base: { type: 'tagged', kindTypeName: 'Pure' },
+      base: { type: 'annotation', kindTypeName: 'Pure' },
       excluded: { type: 'path', path: 'src/tests' },
     };
-    expect(hasTaggedAtom(carrier)).toBe(true);
+    expect(hasAnnotationAtom(carrier)).toBe(true);
   });
 
   it('returns false for exclude with only paths', () => {
@@ -192,10 +202,10 @@ describe('hasTaggedAtom', () => {
       base: { type: 'path', path: 'src' },
       excluded: { type: 'path', path: 'src/tests' },
     };
-    expect(hasTaggedAtom(carrier)).toBe(false);
+    expect(hasAnnotationAtom(carrier)).toBe(false);
   });
 
-  it('returns true for deeply nested tagged', () => {
+  it('returns true for deeply nested annotation', () => {
     const carrier: CarrierExpr = {
       type: 'union',
       children: [
@@ -203,12 +213,12 @@ describe('hasTaggedAtom', () => {
         {
           type: 'intersect',
           children: [
-            { type: 'tagged', kindTypeName: 'Decider' },
+            { type: 'annotation', kindTypeName: 'Decider' },
             { type: 'path', path: 'src/b' },
           ],
         },
       ],
     };
-    expect(hasTaggedAtom(carrier)).toBe(true);
+    expect(hasAnnotationAtom(carrier)).toBe(true);
   });
 });

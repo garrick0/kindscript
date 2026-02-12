@@ -359,4 +359,107 @@ describe('Lesson CLI Output Snapshots', () => {
       expect(output).toMatchSnapshot();
     });
   });
+
+  describe('Part 6: Wrapped Kinds', () => {
+    test('Lesson 6-1 (wrapped-kinds): starter - clean', () => {
+      const lesson = lessons.find(l => l.slug === '6-1-wrapped-kinds')!;
+      const output = runKindScriptCheck(lesson.files, '6-1-starter');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 6-1 (wrapped-kinds): solution - clean', () => {
+      const lesson = lessons.find(l => l.slug === '6-1-wrapped-kinds')!;
+      const output = runKindScriptCheck(lesson.solution, '6-1-solution');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 6-2 (tagged-purity): starter - violation', () => {
+      const lesson = lessons.find(l => l.slug === '6-2-tagged-purity')!;
+      const output = runKindScriptCheck(lesson.files, '6-2-starter');
+
+      expect(output).toContain('KS70003'); // purity violation on tagged export
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 6-2 (tagged-purity): solution - clean', () => {
+      const lesson = lessons.find(l => l.slug === '6-2-tagged-purity')!;
+      const output = runKindScriptCheck(lesson.solution, '6-2-solution');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 6-3 (tagged-boundaries): starter - violation', () => {
+      const lesson = lessons.find(l => l.slug === '6-3-tagged-boundaries')!;
+      const output = runKindScriptCheck(lesson.files, '6-3-starter');
+
+      expect(output).toContain('KS70001'); // noDependency violation between tagged exports
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 6-3 (tagged-boundaries): solution - clean', () => {
+      const lesson = lessons.find(l => l.slug === '6-3-tagged-boundaries')!;
+      const output = runKindScriptCheck(lesson.solution, '6-3-solution');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Part 7: Scaling Your Architecture', () => {
+    test('Lesson 7-1 (bounded-contexts): starter - violation', () => {
+      const lesson = lessons.find(l => l.slug === '7-1-bounded-contexts')!;
+      const output = runKindScriptCheck(lesson.files, '7-1-starter');
+
+      expect(output).toContain('KS70001'); // noDependency violation in billing context
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 7-1 (bounded-contexts): solution - clean', () => {
+      const lesson = lessons.find(l => l.slug === '7-1-bounded-contexts')!;
+      const output = runKindScriptCheck(lesson.solution, '7-1-solution');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 7-2 (exhaustive-enforcement): starter - violation', () => {
+      const lesson = lessons.find(l => l.slug === '7-2-exhaustive-enforcement')!;
+      const output = runKindScriptCheck(lesson.files, '7-2-starter');
+
+      expect(output).toContain('KS70007'); // exhaustiveness violation
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 7-2 (exhaustive-enforcement): solution - clean', () => {
+      const lesson = lessons.find(l => l.slug === '7-2-exhaustive-enforcement')!;
+      const output = runKindScriptCheck(lesson.solution, '7-2-solution');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Part 8: Real-World Capstone', () => {
+    test('Lesson 8-1 (full-stack-architecture): starter - violations', () => {
+      const lesson = lessons.find(l => l.slug === '8-1-full-stack-architecture')!;
+      const output = runKindScriptCheck(lesson.files, '8-1-starter');
+
+      expect(output).toContain('KS70001'); // noDependency violation
+      expect(output).toContain('KS70003'); // purity violation on tagged export
+      expect(output).toMatchSnapshot();
+    });
+
+    test('Lesson 8-1 (full-stack-architecture): solution - clean', () => {
+      const lesson = lessons.find(l => l.slug === '8-1-full-stack-architecture')!;
+      const output = runKindScriptCheck(lesson.solution, '8-1-solution');
+
+      expect(output).toContain('All architectural contracts satisfied');
+      expect(output).toMatchSnapshot();
+    });
+  });
 });

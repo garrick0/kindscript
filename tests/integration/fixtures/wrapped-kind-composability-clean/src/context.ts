@@ -5,7 +5,7 @@
  * In this fixture, neither group imports from the other.
  */
 
-import type { Kind, Instance, InstanceOf } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 // Base function types
 type DeciderFn = (command: unknown) => unknown[];

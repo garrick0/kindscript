@@ -214,12 +214,11 @@ describe('Lesson Data Validation', () => {
 
   describe('Lesson Count', () => {
     test('Has expected number of lessons', () => {
-      // Based on CLAUDE.md: 15 lessons across 5 parts
-      expect(lessons.length).toBe(15);
+      expect(lessons.length).toBe(21);
     });
 
     test('Has expected number of parts', () => {
-      expect(parts.length).toBe(5);
+      expect(parts.length).toBe(8);
     });
 
     test('Part 1 has 3 lessons (noDependency)', () => {
@@ -245,6 +244,21 @@ describe('Lesson Data Validation', () => {
     test('Part 5 has 4 lessons (Molecules)', () => {
       const part5 = parts.find(p => p.number === 5);
       expect(part5?.lessons.length).toBe(4);
+    });
+
+    test('Part 6 has 3 lessons (Wrapped Kinds)', () => {
+      const part6 = parts.find(p => p.number === 6);
+      expect(part6?.lessons.length).toBe(3);
+    });
+
+    test('Part 7 has 2 lessons (Scaling)', () => {
+      const part7 = parts.find(p => p.number === 7);
+      expect(part7?.lessons.length).toBe(2);
+    });
+
+    test('Part 8 has 1 lesson (Capstone)', () => {
+      const part8 = parts.find(p => p.number === 8);
+      expect(part8?.lessons.length).toBe(1);
     });
   });
 });

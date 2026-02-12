@@ -1,8 +1,8 @@
-import type { Kind, InstanceOf } from 'kindscript';
+import type { Kind } from 'kindscript';
 
 type EffectorFn = (event: unknown) => void;
 type Effector = Kind<"Effector", {}, {}, { wraps: EffectorFn }>;
 
-export const notifyOrder: InstanceOf<Effector> = (evt) => {
+export const notifyOrder: Effector = (evt) => {
   console.log('Order notification:', evt);
 };

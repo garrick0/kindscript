@@ -44,6 +44,9 @@ export const FIXTURES = {
   WRAPPED_KIND_PURITY_CLEAN: path.join(FIXTURES_BASE, 'wrapped-kind-purity-clean'),
   WRAPPED_KIND_PURITY_VIOLATION: path.join(FIXTURES_BASE, 'wrapped-kind-purity-violation'),
 
+  // Direct Kind type annotation (no InstanceOf<K>)
+  WRAPPED_KIND_DIRECT_ANNOTATION: path.join(FIXTURES_BASE, 'wrapped-kind-direct-annotation'),
+
   // Explicit location fixtures
   EXPLICIT_LOCATION_EXTERNAL: path.join(FIXTURES_BASE, 'explicit-location-external'),
 

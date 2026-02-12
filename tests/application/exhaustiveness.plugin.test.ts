@@ -9,24 +9,26 @@ import { makeSymbol, exhaustiveness } from '../helpers/factories';
 describe('exhaustivenessPlugin.check', () => {
   let mockTS: MockTypeScriptAdapter;
 
-  function makeContext(
-    resolvedFiles?: Map<string, string[]>,
-    containerFiles?: Map<string, string[]>,
-  ): CheckContext {
+  function makeContext(): CheckContext {
     const program = new Program([], {});
     return {
       tsPort: mockTS,
       program,
       checker: mockTS.getTypeChecker(program),
-      resolvedFiles: resolvedFiles ?? new Map(),
-      containerFiles,
     };
   }
 
-  function makeInstanceWithMembers(name: string, memberNames: string[]): ArchSymbol {
+  function makeInstanceWithMembers(
+    name: string,
+    memberDefs: Array<{ name: string; files: string[] }>,
+    containerFiles: string[],
+  ): ArchSymbol {
     const instance = new ArchSymbol(name, ArchSymbolKind.Instance, { type: 'path', path: `src/${name}` });
-    for (const m of memberNames) {
-      instance.members.set(m, new ArchSymbol(m, ArchSymbolKind.Member, { type: 'path', path: `src/${name}/${m}` }));
+    instance.files = containerFiles;
+    for (const m of memberDefs) {
+      const member = new ArchSymbol(m.name, ArchSymbolKind.Member, { type: 'path', path: `src/${name}/${m.name}` });
+      member.files = m.files;
+      instance.members.set(m.name, member);
     }
     return instance;
   }
@@ -40,23 +42,18 @@ describe('exhaustivenessPlugin.check', () => {
   });
 
   it('detects unassigned files in instance container', () => {
-    const instance = makeInstanceWithMembers('app', ['domain', 'infra']);
-
-    const resolvedFiles = new Map([
-      ['src/app/domain', ['src/app/domain/entity.ts']],
-      ['src/app/infra', ['src/app/infra/db.ts']],
-    ]);
-    const containerFiles = new Map([
-      ['src/app', [
-        'src/app/domain/entity.ts',
-        'src/app/infra/db.ts',
-        'src/app/orphan.ts',
-      ]],
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: ['src/app/domain/entity.ts'] },
+      { name: 'infra', files: ['src/app/infra/db.ts'] },
+    ], [
+      'src/app/domain/entity.ts',
+      'src/app/infra/db.ts',
+      'src/app/orphan.ts',
     ]);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(resolvedFiles, containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(1);
@@ -65,108 +62,88 @@ describe('exhaustivenessPlugin.check', () => {
   });
 
   it('returns clean result when all files are assigned', () => {
-    const instance = makeInstanceWithMembers('app', ['domain', 'infra']);
-
-    const resolvedFiles = new Map([
-      ['src/app/domain', ['src/app/domain/entity.ts']],
-      ['src/app/infra', ['src/app/infra/db.ts']],
-    ]);
-    const containerFiles = new Map([
-      ['src/app', [
-        'src/app/domain/entity.ts',
-        'src/app/infra/db.ts',
-      ]],
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: ['src/app/domain/entity.ts'] },
+      { name: 'infra', files: ['src/app/infra/db.ts'] },
+    ], [
+      'src/app/domain/entity.ts',
+      'src/app/infra/db.ts',
     ]);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(resolvedFiles, containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('excludes test files from exhaustiveness check', () => {
-    const instance = makeInstanceWithMembers('app', ['domain']);
-
-    const resolvedFiles = new Map([
-      ['src/app/domain', ['src/app/domain/entity.ts']],
-    ]);
-    const containerFiles = new Map([
-      ['src/app', [
-        'src/app/domain/entity.ts',
-        'src/app/domain/entity.test.ts',
-        'src/app/domain/entity.spec.ts',
-      ]],
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: ['src/app/domain/entity.ts'] },
+    ], [
+      'src/app/domain/entity.ts',
+      'src/app/domain/entity.test.ts',
+      'src/app/domain/entity.spec.ts',
     ]);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(resolvedFiles, containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('excludes context.ts files', () => {
-    const instance = makeInstanceWithMembers('app', ['domain']);
-
-    const resolvedFiles = new Map([
-      ['src/app/domain', ['src/app/domain/entity.ts']],
-    ]);
-    const containerFiles = new Map([
-      ['src/app', [
-        'src/app/domain/entity.ts',
-        'src/app/context.ts',
-      ]],
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: ['src/app/domain/entity.ts'] },
+    ], [
+      'src/app/domain/entity.ts',
+      'src/app/context.ts',
     ]);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(resolvedFiles, containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('excludes __tests__ directory files', () => {
-    const instance = makeInstanceWithMembers('app', ['domain']);
-
-    const resolvedFiles = new Map([
-      ['src/app/domain', ['src/app/domain/entity.ts']],
-    ]);
-    const containerFiles = new Map([
-      ['src/app', [
-        'src/app/domain/entity.ts',
-        'src/app/__tests__/integration.ts',
-      ]],
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: ['src/app/domain/entity.ts'] },
+    ], [
+      'src/app/domain/entity.ts',
+      'src/app/__tests__/integration.ts',
     ]);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(resolvedFiles, containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('returns empty when container has no files', () => {
-    const instance = makeInstanceWithMembers('app', ['domain']);
-
-    const containerFiles = new Map([
-      ['src/app', []],
-    ]);
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: [] },
+    ], []);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(new Map(), containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(0);
   });
 
   it('returns empty when no container files registered', () => {
-    const instance = makeInstanceWithMembers('app', ['domain']);
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: [] },
+    ], []);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
@@ -177,22 +154,17 @@ describe('exhaustivenessPlugin.check', () => {
   });
 
   it('reports multiple unassigned files', () => {
-    const instance = makeInstanceWithMembers('app', ['domain']);
-
-    const resolvedFiles = new Map([
-      ['src/app/domain', ['src/app/domain/entity.ts']],
-    ]);
-    const containerFiles = new Map([
-      ['src/app', [
-        'src/app/domain/entity.ts',
-        'src/app/orphan1.ts',
-        'src/app/orphan2.ts',
-      ]],
+    const instance = makeInstanceWithMembers('app', [
+      { name: 'domain', files: ['src/app/domain/entity.ts'] },
+    ], [
+      'src/app/domain/entity.ts',
+      'src/app/orphan1.ts',
+      'src/app/orphan2.ts',
     ]);
 
     const result = exhaustivenessPlugin.check(
       exhaustiveness(instance),
-      makeContext(resolvedFiles, containerFiles),
+      makeContext(),
     );
 
     expect(result.diagnostics).toHaveLength(2);

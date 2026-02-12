@@ -111,9 +111,6 @@ export function runFullPipeline(
     contracts: bindResult.contracts,
     config: {},
     program,
-    resolvedFiles: bindResult.resolvedFiles,
-    containerFiles: bindResult.containerFiles,
-    declarationOwnership: bindResult.declarationOwnership,
   });
 
   return { classifyResult, checkResult };

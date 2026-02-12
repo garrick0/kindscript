@@ -4,7 +4,6 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { carrierKey } from '../../../../domain/types/carrier';
 
 /**
  * Default exclusion patterns for exhaustiveness checking.
@@ -56,9 +55,9 @@ export const exhaustivenessPlugin: ContractPlugin = {
     return null;
   },
 
-  check(contract, ctx) {
+  check(contract, _ctx) {
     const [instanceSymbol] = contract.args;
-    const containerAll = ctx.containerFiles?.get(carrierKey(instanceSymbol.carrier!)) ?? [];
+    const containerAll = instanceSymbol.files;
 
     if (containerAll.length === 0) {
       return { diagnostics: [], filesAnalyzed: 0 };
@@ -67,7 +66,7 @@ export const exhaustivenessPlugin: ContractPlugin = {
     // Collect all files assigned to members
     const memberFiles = new Set<string>();
     for (const member of instanceSymbol.members.values()) {
-      for (const f of ctx.resolvedFiles.get(carrierKey(member.carrier!)) ?? []) {
+      for (const f of member.files) {
         memberFiles.add(f);
       }
     }

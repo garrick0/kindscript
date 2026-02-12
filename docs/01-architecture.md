@@ -101,7 +101,7 @@ The pipeline is orchestrated by `PipelineService`, which runs four stages in seq
        │   ├─ Extract Kind definitions (type aliases referencing Kind<N>)
        │   ├─ Extract wrapped Kind definitions (wrapsTypeName on KindDefinitionView)
        │   ├─ Extract Instance declarations (satisfies Instance<T>)
-       │   └─ Extract InstanceOf<K> tagged exports
+       │   └─ Extract wrapped Kind exports (direct type annotations)
        |
        ▼
   ScanResult { kindDefs, instances, taggedExports, errors }
@@ -245,7 +245,7 @@ The adapter resolves identifier references via `varMap` — `{ domain: x }` wher
 ScanResult {
   kindDefs:          Map<string, KindDefinitionView>          // typeName → definition
   instances:         ScannedInstance[]                         // { view, sourceFileName }
-  taggedExports:     ScannedTaggedExport[]                     // InstanceOf<K> tagged exports (pass 2)
+  annotatedExports:  ScannedAnnotatedExport[]                  // wrapped Kind exports (pass 2)
   errors:            string[]                                 // extraction errors
 }
 ```
@@ -317,10 +317,10 @@ ParseResult {
 The binder uses a `CarrierResolver` to translate each symbol's `carrier` expression into actual code files. The resolver interprets carrier atoms and operations:
 
 - **path** — resolve to directory (recursive listing) or file (single-element array)
-- **tagged** — collect all files containing `InstanceOf<K>` exports matching the Kind type name
+- **annotation** — collect all files containing wrapped Kind exports matching the Kind type name
 - **union** — files from any child carrier
 - **exclude** — files from base minus files from excluded
-- **intersect** — files common to all children (optimized for `intersect(tagged, path)` scoped tagged carrier pattern)
+- **intersect** — files common to all children (optimized for `intersect(annotation, path)` scoped annotation carrier pattern)
 
 The binder passes the scan context (tagged exports) to the resolver for resolving tagged carriers. Carriers that don't resolve to actual files (e.g., paths that don't exist) produce empty file sets — `resolvedFiles` only contains carriers with actual files.
 
@@ -542,7 +542,7 @@ Product entry points, each with their own ports, adapters, and use cases:
 
 ```
 src/
-  types/index.ts                              # Public API (Kind, Constraints, Instance<T, Path>, InstanceOf<K>, MemberMap, KindConfig, KindRef)
+  types/index.ts                              # Public API (Kind, Constraints, Instance<T, Path>, MemberMap, KindConfig, KindRef)
   domain/                                     # Pure, zero dependencies
     entities/                                 # ArchSymbol, Contract, Diagnostic, Program
     value-objects/                            # ContractReference, SourceRef

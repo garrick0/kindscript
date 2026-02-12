@@ -2,7 +2,7 @@ import { ASTViewPort } from '../../../src/application/ports/ast.port';
 import {
   ASTExtractionResult, TypeNodeView,
   KindDefinitionView, InstanceDeclarationView,
-  TaggedExportView, DeclarationView,
+  AnnotatedExportView, DeclarationView,
 } from '../../../src/application/pipeline/views';
 import { SourceFile, TypeChecker } from '../../../src/application/ports/typescript.port';
 
@@ -27,7 +27,7 @@ import { SourceFile, TypeChecker } from '../../../src/application/ports/typescri
 export class MockASTAdapter implements ASTViewPort {
   private kindDefinitions = new Map<string, KindDefinitionView[]>();
   private instanceDeclarations = new Map<string, InstanceDeclarationView[]>();
-  private taggedExports = new Map<string, TaggedExportView[]>();
+  private annotatedExports = new Map<string, AnnotatedExportView[]>();
   private declarations = new Map<string, DeclarationView[]>();
 
   // --- Fluent configuration API ---
@@ -69,10 +69,10 @@ export class MockASTAdapter implements ASTViewPort {
     });
   }
 
-  withTaggedExport(fileName: string, view: TaggedExportView): this {
-    const existing = this.taggedExports.get(fileName) ?? [];
+  withAnnotatedExport(fileName: string, view: AnnotatedExportView): this {
+    const existing = this.annotatedExports.get(fileName) ?? [];
     existing.push(view);
-    this.taggedExports.set(fileName, existing);
+    this.annotatedExports.set(fileName, existing);
     return this;
   }
 
@@ -108,7 +108,7 @@ export class MockASTAdapter implements ASTViewPort {
   reset(): void {
     this.kindDefinitions.clear();
     this.instanceDeclarations.clear();
-    this.taggedExports.clear();
+    this.annotatedExports.clear();
     this.declarations.clear();
   }
 
@@ -122,8 +122,8 @@ export class MockASTAdapter implements ASTViewPort {
     return { data: this.instanceDeclarations.get(sourceFile.fileName) ?? [], errors: [] };
   }
 
-  getTaggedExports(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<TaggedExportView[]> {
-    return { data: this.taggedExports.get(sourceFile.fileName) ?? [], errors: [] };
+  getAnnotatedExports(sourceFile: SourceFile, _checker: TypeChecker, _wrappedKindNames?: Set<string>): ASTExtractionResult<AnnotatedExportView[]> {
+    return { data: this.annotatedExports.get(sourceFile.fileName) ?? [], errors: [] };
   }
 
   getTopLevelDeclarations(sourceFile: SourceFile, _checker: TypeChecker): ASTExtractionResult<DeclarationView[]> {

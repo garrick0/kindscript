@@ -2,8 +2,8 @@
  * Algebraic expression describing what code a symbol operates over.
  *
  * Atoms:
- * - `path`   — code at a filesystem path (directory or file, determined at resolution)
- * - `tagged` — ALL declarations annotated with InstanceOf<K> across the project
+ * - `path`       — code at a filesystem path (directory or file, determined at resolution)
+ * - `annotation` — ALL declarations annotated with a wrapped Kind type across the project
  *
  * Operations:
  * - `union`     — files from any child carrier
@@ -11,14 +11,14 @@
  * - `intersect` — files common to all child carriers
  *
  * Scoping is expressed through composition, not built into atoms.
- * A "scoped tagged carrier" is `intersect(tagged(K), path(scope))`.
+ * A "scoped annotation carrier" is `intersect(annotation(K), path(scope))`.
  *
  * CarrierExpr is a pure value — no behavior, no resolution, no filesystem access.
  * Resolution is the CarrierResolver's responsibility.
  */
 export type CarrierExpr =
-  | { readonly type: 'path'; readonly path: string }
-  | { readonly type: 'tagged'; readonly kindTypeName: string }
+  | { readonly type: 'path'; readonly path: string; readonly exportName?: string }
+  | { readonly type: 'annotation'; readonly kindTypeName: string }
   | { readonly type: 'union'; readonly children: readonly CarrierExpr[] }
   | { readonly type: 'exclude'; readonly base: CarrierExpr; readonly excluded: CarrierExpr }
   | { readonly type: 'intersect'; readonly children: readonly CarrierExpr[] };
@@ -34,9 +34,9 @@ export type CarrierExpr =
 export function carrierKey(carrier: CarrierExpr): string {
   switch (carrier.type) {
     case 'path':
-      return carrier.path;
-    case 'tagged':
-      return `tagged:${carrier.kindTypeName}`;
+      return carrier.exportName ? `${carrier.path}#${carrier.exportName}` : carrier.path;
+    case 'annotation':
+      return `annotation:${carrier.kindTypeName}`;
     case 'union':
       return `union(${carrier.children.map(carrierKey).sort().join(',')})`;
     case 'exclude':
@@ -47,21 +47,21 @@ export function carrierKey(carrier: CarrierExpr): string {
 }
 
 /**
- * Check if a carrier expression contains a tagged atom (indicating a wrapped Kind member).
+ * Check if a carrier expression contains an annotation atom (indicating a wrapped Kind member).
  *
  * Replaces the old `isWrappedKind(kindDefs, typeName)` pattern.
- * The carrier itself encodes whether it involves tagged declarations.
+ * The carrier itself encodes whether it involves annotation-based declarations.
  */
-export function hasTaggedAtom(carrier: CarrierExpr): boolean {
+export function hasAnnotationAtom(carrier: CarrierExpr): boolean {
   switch (carrier.type) {
-    case 'tagged':
+    case 'annotation':
       return true;
     case 'path':
       return false;
     case 'union':
     case 'intersect':
-      return carrier.children.some(hasTaggedAtom);
+      return carrier.children.some(hasAnnotationAtom);
     case 'exclude':
-      return hasTaggedAtom(carrier.base);
+      return hasAnnotationAtom(carrier.base);
   }
 }

@@ -18,6 +18,12 @@ import { lesson as lesson11 } from './5-1-molecule-source';
 import { lesson as lesson12 } from './5-2-molecule-story';
 import { lesson as lesson13 } from './5-3-molecule-version';
 import { lesson as lesson14 } from './5-4-full-molecule';
+import { lesson as lesson15 } from './6-1-wrapped-kinds';
+import { lesson as lesson16 } from './6-2-tagged-purity';
+import { lesson as lesson17 } from './6-3-tagged-boundaries';
+import { lesson as lesson18 } from './7-1-bounded-contexts';
+import { lesson as lesson19 } from './7-2-exhaustive-enforcement';
+import { lesson as lesson20 } from './8-1-full-stack-architecture';
 
 export const lessons: Lesson[] = [
   lesson0,
@@ -35,6 +41,12 @@ export const lessons: Lesson[] = [
   lesson12,
   lesson13,
   lesson14,
+  lesson15,
+  lesson16,
+  lesson17,
+  lesson18,
+  lesson19,
+  lesson20,
 ].sort((a, b) =>
   a.partNumber === b.partNumber
     ? a.lessonNumber - b.lessonNumber

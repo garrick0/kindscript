@@ -101,3 +101,64 @@ exports[`Lesson CLI Output Snapshots > Part 5: Design System (Molecules) > Lesso
 exports[`Lesson CLI Output Snapshots > Part 5: Design System (Molecules) > Lesson 5-4 (full-molecule): solution - no contracts 1`] = `"No contracts found in definition files."`;
 
 exports[`Lesson CLI Output Snapshots > Part 5: Design System (Molecules) > Lesson 5-4 (full-molecule): starter - no contracts 1`] = `"No contracts found in definition files."`;
+
+exports[`Lesson CLI Output Snapshots > Part 6: Wrapped Kinds > Lesson 6-1 (wrapped-kinds): solution - clean 1`] = `"All architectural contracts satisfied. (1 contracts, 1 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 6: Wrapped Kinds > Lesson 6-1 (wrapped-kinds): starter - clean 1`] = `"All architectural contracts satisfied. (1 contracts, 1 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 6: Wrapped Kinds > Lesson 6-2 (tagged-purity): solution - clean 1`] = `"All architectural contracts satisfied. (1 contracts, 1 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 6: Wrapped Kinds > Lesson 6-2 (tagged-purity): starter - violation 1`] = `
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
+/private/test-dir/src/validate-order.ts:1:0 - error KS70003: Impure import in 'deciders': 'fs'
+  Contract 'purity(deciders)' (purity) defined at type:OrderModule
+
+Found 1 architectural violation(s).
+"
+`;
+
+exports[`Lesson CLI Output Snapshots > Part 6: Wrapped Kinds > Lesson 6-3 (tagged-boundaries): solution - clean 1`] = `"All architectural contracts satisfied. (2 contracts, 2 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 6: Wrapped Kinds > Lesson 6-3 (tagged-boundaries): starter - violation 1`] = `
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
+/private/test-dir/src/apply-discount.ts:2:0 - error KS70001: Forbidden dependency: deciders → effectors (/private/test-dir/src/apply-discount.ts → /private/test-dir/src/notify-order.ts)
+  Contract 'noDependency(deciders -> effectors)' (noDependency) defined at type:OrderModule
+
+Found 1 architectural violation(s).
+"
+`;
+
+exports[`Lesson CLI Output Snapshots > Part 7: Scaling Your Architecture > Lesson 7-1 (bounded-contexts): solution - clean 1`] = `"All architectural contracts satisfied. (4 contracts, 2 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 7: Scaling Your Architecture > Lesson 7-1 (bounded-contexts): starter - violation 1`] = `
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
+/private/test-dir/src/billing/domain/invoice.ts:1:0 - error KS70001: Forbidden dependency: domain → infrastructure (/private/test-dir/src/billing/domain/invoice.ts → /private/test-dir/src/billing/infrastructure/payment.ts)
+  Contract 'noDependency(domain -> infrastructure)' (noDependency) defined at type:BoundedContext
+
+Found 1 architectural violation(s).
+"
+`;
+
+exports[`Lesson CLI Output Snapshots > Part 7: Scaling Your Architecture > Lesson 7-2 (exhaustive-enforcement): solution - clean 1`] = `"All architectural contracts satisfied. (2 contracts, 0 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 7: Scaling Your Architecture > Lesson 7-2 (exhaustive-enforcement): starter - violation 1`] = `
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
+[app] - error KS70007: Unassigned file: "/private/test-dir/src/helpers.ts" is not in any member of app
+  Contract 'exhaustive:app' (exhaustiveness) defined at type:App
+
+Found 1 architectural violation(s).
+"
+`;
+
+exports[`Lesson CLI Output Snapshots > Part 8: Real-World Capstone > Lesson 8-1 (full-stack-architecture): solution - clean 1`] = `"All architectural contracts satisfied. (9 contracts, 8 files)"`;
+
+exports[`Lesson CLI Output Snapshots > Part 8: Real-World Capstone > Lesson 8-1 (full-stack-architecture): starter - violations 1`] = `
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
+/private/test-dir/src/domain/order.ts:1:0 - error KS70001: Forbidden dependency: domain → infrastructure (/private/test-dir/src/domain/order.ts → /private/test-dir/src/infrastructure/order-repo.ts)
+  Contract 'noDependency(domain -> infrastructure)' (noDependency) defined at type:OrderingContext
+/private/test-dir/src/validate-order.ts:1:0 - error KS70003: Impure import in 'handlers': 'fs'
+  Contract 'purity(handlers)' (purity) defined at type:OrderingContext
+
+Found 2 architectural violation(s).
+"
+`;

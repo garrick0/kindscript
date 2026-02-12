@@ -366,126 +366,61 @@ describe('ASTAdapter', () => {
     });
   });
 
-  describe('getTaggedExports', () => {
-    it('extracts a single InstanceOf<K> tagged export', () => {
+  describe('getAnnotatedExports', () => {
+    it('detects direct Kind type annotation when wrappedKindNames provided', () => {
       const sf = parseSource('test.ts', `
-        export const decider: InstanceOf<Decider> = { decide: () => [] };
+        export const decide: Decider = (cmd) => [];
+        export const evolve: Evolver = (s, e) => s;
       `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0]).toEqual({
-        exportName: 'decider',
-        kindTypeName: 'Decider'
-      });
+      const wrappedKindNames = new Set(['Decider', 'Evolver']);
+      const result = adapter.getAnnotatedExports(sf, mockChecker, wrappedKindNames);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0]).toEqual({ exportName: 'decide', kindTypeName: 'Decider' });
+      expect(result.data[1]).toEqual({ exportName: 'evolve', kindTypeName: 'Evolver' });
       expect(result.errors).toHaveLength(0);
     });
 
-    it('extracts multiple tagged exports from one file', () => {
-      const sf = parseSource('test.ts', `
-        export const decider: InstanceOf<Decider> = { decide: () => [] };
-        export const evolver: InstanceOf<Evolver> = { evolve: (s) => s };
-        export const projector: InstanceOf<Projector> = { project: () => ({}) };
-      `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(3);
-      expect(result.data[0]).toEqual({ exportName: 'decider', kindTypeName: 'Decider' });
-      expect(result.data[1]).toEqual({ exportName: 'evolver', kindTypeName: 'Evolver' });
-      expect(result.data[2]).toEqual({ exportName: 'projector', kindTypeName: 'Projector' });
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('ignores non-InstanceOf typed exports', () => {
+    it('ignores non-wrapped-Kind type annotations', () => {
       const sf = parseSource('test.ts', `
         export const handler: RequestHandler = () => {};
-        export const config: Config = {};
-        export const decider: InstanceOf<Decider> = { decide: () => [] };
+        export const decide: Decider = (cmd) => [];
       `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
+      const wrappedKindNames = new Set(['Decider']);
+      const result = adapter.getAnnotatedExports(sf, mockChecker, wrappedKindNames);
       expect(result.data).toHaveLength(1);
-      expect(result.data[0]).toEqual({ exportName: 'decider', kindTypeName: 'Decider' });
+      expect(result.data[0]).toEqual({ exportName: 'decide', kindTypeName: 'Decider' });
+    });
+
+
+    it('does not detect direct annotation without wrappedKindNames', () => {
+      const sf = parseSource('test.ts', `
+        export const decide: Decider = (cmd) => [];
+      `);
+      const result = adapter.getAnnotatedExports(sf, mockChecker);
+      expect(result.data).toHaveLength(0);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('ignores non-exported declarations', () => {
+    it('ignores non-exported direct Kind type annotations', () => {
       const sf = parseSource('test.ts', `
-        const internalDecider: InstanceOf<Decider> = { decide: () => [] };
-        export const publicDecider: InstanceOf<Decider> = { decide: () => [] };
+        const decide: Decider = (cmd) => [];
+        export const evolve: Evolver = (s, e) => s;
       `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
+      const wrappedKindNames = new Set(['Decider', 'Evolver']);
+      const result = adapter.getAnnotatedExports(sf, mockChecker, wrappedKindNames);
       expect(result.data).toHaveLength(1);
-      expect(result.data[0]).toEqual({ exportName: 'publicDecider', kindTypeName: 'Decider' });
-      expect(result.errors).toHaveLength(0);
+      expect(result.data[0]).toEqual({ exportName: 'evolve', kindTypeName: 'Evolver' });
     });
 
-    it('reports error for InstanceOf with missing type argument', () => {
+    it('returns empty for file with no wrapped Kind exports', () => {
       const sf = parseSource('test.ts', `
-        export const decider: InstanceOf = { decide: () => [] };
-      `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(0);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]).toContain('missing type argument');
-      expect(result.errors[0]).toContain('decider');
-    });
-
-    it('reports error for InstanceOf with non-reference type argument', () => {
-      const sf = parseSource('test.ts', `
-        export const decider: InstanceOf<string> = "not an object";
-      `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(0);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]).toContain('type argument must be a type reference');
-      expect(result.errors[0]).toContain('decider');
-    });
-
-    it('returns empty arrays for file with no exports', () => {
-      const sf = parseSource('test.ts', `
-        const internalDecider: InstanceOf<Decider> = { decide: () => [] };
-        function helper() { return true; }
-      `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(0);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('handles mixed export types in same file', () => {
-      const sf = parseSource('test.ts', `
-        export const decider: InstanceOf<Decider> = { decide: () => [] };
+        export const handler: RequestHandler = () => {};
         export const config = { port: 3000 };
-        export function process() {}
-        export const evolver: InstanceOf<Evolver> = { evolve: (s) => s };
       `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(2);
-      expect(result.data[0]).toEqual({ exportName: 'decider', kindTypeName: 'Decider' });
-      expect(result.data[1]).toEqual({ exportName: 'evolver', kindTypeName: 'Evolver' });
+      const wrappedKindNames = new Set(['Decider']);
+      const result = adapter.getAnnotatedExports(sf, mockChecker, wrappedKindNames);
+      expect(result.data).toHaveLength(0);
       expect(result.errors).toHaveLength(0);
-    });
-
-    it('handles multiple variable declarations in same export statement', () => {
-      const sf = parseSource('test.ts', `
-        export const decider: InstanceOf<Decider> = { decide: () => [] }, evolver: InstanceOf<Evolver> = { evolve: (s) => s };
-      `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(2);
-      expect(result.data[0]).toEqual({ exportName: 'decider', kindTypeName: 'Decider' });
-      expect(result.data[1]).toEqual({ exportName: 'evolver', kindTypeName: 'Evolver' });
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('accumulates multiple errors', () => {
-      const sf = parseSource('test.ts', `
-        export const decider: InstanceOf = { decide: () => [] };
-        export const evolver: InstanceOf<string> = "not valid";
-        export const valid: InstanceOf<Decider> = { decide: () => [] };
-      `);
-      const result = adapter.getTaggedExports(sf, mockChecker);
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0]).toEqual({ exportName: 'valid', kindTypeName: 'Decider' });
-      expect(result.errors).toHaveLength(2);
-      expect(result.errors[0]).toContain('missing type argument');
-      expect(result.errors[1]).toContain('type argument must be a type reference');
     });
   });
 });

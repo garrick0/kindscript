@@ -1,0 +1,36 @@
+# Wrapped Kinds
+
+So far, every Kind we've used maps to a **directory** — all `.ts` files in that folder belong to the Kind. But what if you need to enforce constraints on **individual exports** scattered across your codebase?
+
+**Wrapped Kinds** solve this. Instead of mapping directories, you define a Kind that wraps a TypeScript type. Then you annotate individual exports with the Kind type to declare them as members.
+
+## The Scenario
+
+We're building an order processing system. Our **command handlers** (called "deciders") are pure functions that take a command and return events. They should never perform I/O.
+
+Look at `src/context.ts`:
+
+```typescript
+type DeciderFn = (command: unknown) => unknown[];
+type Decider = Kind<"Decider", {}, { pure: true }, { wraps: DeciderFn }>;
+```
+
+The fourth type parameter `{ wraps: DeciderFn }` makes this a **wrapped Kind**. The `pure: true` constraint applies to every export annotated with the `Decider` type.
+
+## Annotated Exports
+
+Now look at `src/validate-order.ts`:
+
+```typescript
+export const validateOrder: Decider = (cmd) => { ... };
+```
+
+The `: Decider` type annotation tells KindScript: "this export is a Decider." KindScript will check that it respects the Decider's constraints.
+
+:::tip
+Wrapped Kinds are perfect for enforcing constraints on **functions, classes, or constants** that share an architectural role but live in different files. Think: event handlers, API route handlers, validators, reducers.
+:::
+
+## Try It
+
+Run `npx ksc check .` in the terminal. Everything is clean — the decider doesn't import any I/O modules.

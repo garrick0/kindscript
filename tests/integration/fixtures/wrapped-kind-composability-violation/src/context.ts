@@ -5,7 +5,7 @@
  * violating the noDependency constraint.
  */
 
-import type { Kind, Instance, InstanceOf } from 'kindscript';
+import type { Kind, Instance } from 'kindscript';
 
 type DeciderFn = (command: unknown) => unknown[];
 type EffectorFn = (event: unknown) => void;

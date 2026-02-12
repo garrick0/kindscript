@@ -3,7 +3,6 @@ import { Diagnostic } from '../../../../domain/entities/diagnostic';
 import { SourceRef } from '../../../../domain/value-objects/source-ref';
 import { ContractType } from '../../../../domain/types/contract-type';
 import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { carrierKey } from '../../../../domain/types/carrier';
 
 export const scopePlugin: ContractPlugin = {
   type: ContractType.Scope,
@@ -17,7 +16,7 @@ export const scopePlugin: ContractPlugin = {
     return null;
   },
 
-  check(contract, ctx) {
+  check(contract, _ctx) {
     const [symbol] = contract.args;
     const diagnostics: Diagnostic[] = [];
 
@@ -25,13 +24,12 @@ export const scopePlugin: ContractPlugin = {
       return { diagnostics, filesAnalyzed: 0 };
     }
 
-    const key = carrierKey(symbol.carrier);
     const location = symbol.carrier.path;
 
     // The contract name encodes the expected scope: "scope:folder(name)" or "scope:file(name)"
     const expectedScope = contract.name.startsWith('scope:folder') ? 'folder' : 'file';
 
-    const filePaths = ctx.resolvedFiles.get(key);
+    const filePaths = symbol.files;
 
     if (expectedScope === 'folder') {
       // Folder scope: location should resolve to multiple files (directory listing)
@@ -43,7 +41,7 @@ export const scopePlugin: ContractPlugin = {
           SourceRef.structural(symbol.name),
           contract.toReference(),
         ));
-      } else if (!filePaths || filePaths.length === 0) {
+      } else if (filePaths.length === 0) {
         diagnostics.push(new Diagnostic(
           `Scope mismatch for '${symbol.name}': Kind requires folder scope, but folder '${location}' was not found`,
           DiagnosticCode.ScopeMismatch,
@@ -60,7 +58,7 @@ export const scopePlugin: ContractPlugin = {
           SourceRef.structural(symbol.name),
           contract.toReference(),
         ));
-      } else if (!filePaths || filePaths.length === 0) {
+      } else if (filePaths.length === 0) {
         diagnostics.push(new Diagnostic(
           `Scope mismatch for '${symbol.name}': Kind requires file scope, but file '${location}' was not found`,
           DiagnosticCode.ScopeMismatch,
