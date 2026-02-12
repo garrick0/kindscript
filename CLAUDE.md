@@ -320,6 +320,8 @@ npm test -- --coverage
 
 **Before committing:** Always run `npm test` and ensure 100% pass rate.
 
+**Note:** Tests now run with Vitest. The CLI uses `tsx` wrapper for ESM execution in development.
+
 ---
 
 ## Common Patterns
@@ -375,7 +377,19 @@ it('checks contracts', () => {
 
 ## Recent Changes
 
-**Date:** 2026-02-11
+**Date:** 2026-02-12
+
+**Summary:** Vitest + ESM Migration — migrated from Jest + CommonJS to Vitest + ESM
+- Migrated test runner from Jest v29.5.0 to Vitest v2.1.0
+- Converted module system from CommonJS to ESM (`"type": "module"`)
+- Updated TypeScript config to output ESNext modules with bundler resolution
+- All 381 tests passing with maintained coverage thresholds (Domain: 97.46%, Application: 96.83%)
+- Replaced `jest.fn()` with `vi.fn()` for mocking
+- CLI execution uses tsx wrapper for ESM module resolution
+- Added `vitest.config.ts`, removed `jest.config.js`
+- Test commands unchanged: `npm test`, `npm run test:coverage`, `npm test:watch`, new: `npm run test:ui`
+
+**Previous - Date:** 2026-02-11
 
 **Summary:** Carrier-based resolution — replaced runtime path probing with algebraic carriers
 - Introduced `CarrierExpr` type and `carrierKey()` / `hasTaggedAtom()` domain functions
@@ -607,22 +621,26 @@ docs/                                # Source of truth (checked in)
 
 ---
 
-## Coverage Requirements (Jest Config)
+## Coverage Requirements (Vitest Config)
 
-```javascript
-// jest.config.js
-coverageThreshold: {
-  'src/domain/': {
-    branches: 75,
-    functions: 90,
-    lines: 90,
-    statements: 90
-  },
-  'src/application/': {
-    branches: 85,
-    functions: 100,
-    lines: 95,
-    statements: 95
+```typescript
+// vitest.config.ts
+test: {
+  coverage: {
+    thresholds: {
+      'src/domain/**/*.ts': {
+        branches: 75,
+        functions: 90,
+        lines: 90,
+        statements: 90
+      },
+      'src/application/**/*.ts': {
+        branches: 85,
+        functions: 100,
+        lines: 95,
+        statements: 95
+      }
+    }
   }
 }
 ```
