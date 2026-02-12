@@ -6,6 +6,10 @@ export const metadata = {
   description: 'Enforce architectural rules at compile time. Define your architecture as TypeScript types — KindScript checks that your code follows them.',
   keywords: ['typescript', 'architecture', 'clean architecture', 'hexagonal architecture', 'compiler', 'type checking'],
   authors: [{ name: 'KindScript Team' }],
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   openGraph: {
     title: 'KindScript — Architecture as Types',
     description: 'Enforce architectural rules at compile time using TypeScript types.',
