@@ -39,4 +39,4 @@ function init(modules: { typescript: typeof ts }): ts.server.PluginModule {
   };
 }
 
-export = init;
+export default init;

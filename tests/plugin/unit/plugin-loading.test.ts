@@ -1,15 +1,19 @@
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_PATH = path.resolve(__dirname, '../../../dist/apps/plugin/index.js');
 
 describe('Plugin Loading E2E', () => {
-  it('plugin module exports a function', () => {
-    const pluginInit = require(PLUGIN_PATH);
+  it('plugin module exports a function', async () => {
+    const module = await import(PLUGIN_PATH);
+    const pluginInit = module.default;
     expect(typeof pluginInit).toBe('function');
   });
 
-  it('plugin factory returns an object with create method', () => {
-    const pluginInit = require(PLUGIN_PATH);
+  it('plugin factory returns an object with create method', async () => {
+    const module = await import(PLUGIN_PATH);
+    const pluginInit = module.default;
     const mockTypescript = { DiagnosticCategory: { Error: 1 } };
     const pluginModule = pluginInit({ typescript: mockTypescript });
 
@@ -17,8 +21,9 @@ describe('Plugin Loading E2E', () => {
     expect(typeof pluginModule.create).toBe('function');
   });
 
-  it('plugin create produces a LanguageService with getSemanticDiagnostics', () => {
-    const pluginInit = require(PLUGIN_PATH);
+  it('plugin create produces a LanguageService with getSemanticDiagnostics', async () => {
+    const module = await import(PLUGIN_PATH);
+    const pluginInit = module.default;
     const mockTypescript = { DiagnosticCategory: { Error: 1 } };
     const pluginModule = pluginInit({ typescript: mockTypescript });
 
@@ -46,8 +51,9 @@ describe('Plugin Loading E2E', () => {
     expect(typeof proxy.getSemanticDiagnostics).toBe('function');
   });
 
-  it('plugin create produces a LanguageService with getCodeFixesAtPosition', () => {
-    const pluginInit = require(PLUGIN_PATH);
+  it('plugin create produces a LanguageService with getCodeFixesAtPosition', async () => {
+    const module = await import(PLUGIN_PATH);
+    const pluginInit = module.default;
     const mockTypescript = { DiagnosticCategory: { Error: 1 } };
     const pluginModule = pluginInit({ typescript: mockTypescript });
 
@@ -74,8 +80,9 @@ describe('Plugin Loading E2E', () => {
     expect(typeof proxy.getCodeFixesAtPosition).toBe('function');
   });
 
-  it('plugin does not throw when initialized', () => {
-    const pluginInit = require(PLUGIN_PATH);
+  it('plugin does not throw when initialized', async () => {
+    const module = await import(PLUGIN_PATH);
+    const pluginInit = module.default;
     const mockTypescript = { DiagnosticCategory: { Error: 1 } };
 
     expect(() => {
