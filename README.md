@@ -8,7 +8,7 @@ Define architectural patterns as types. Enforce them at compile time.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.8.0--m8-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/tests-350%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-382%20passing-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6.svg)](https://www.typescriptlang.org/)
 
 [Documentation](https://kindscript.ai/docs) · [Interactive Tutorial](https://kindscript.ai/tutorial) · [Examples](docs/05-examples.md) · [Agent](https://kindscript.ai/agent)

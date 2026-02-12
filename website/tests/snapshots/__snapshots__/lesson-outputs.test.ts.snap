@@ -7,7 +7,7 @@ exports[`Lesson CLI Output Snapshots > Part 1: noDependency > Lesson 1-1 (hello-
 exports[`Lesson CLI Output Snapshots > Part 1: noDependency > Lesson 1-2 (catching-violations): solution - clean 1`] = `"All architectural contracts satisfied. (5 contracts, 2 files)"`;
 
 exports[`Lesson CLI Output Snapshots > Part 1: noDependency > Lesson 1-2 (catching-violations): starter - violation 1`] = `
-"Command failed: node /Users/samuelgleeson/dev/absractions-as-types.worktrees/absractions-as-types1/dist/apps/cli/main.js check .
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
 /private/test-dir/src/domain/user.ts:1:0 - error KS70001: Forbidden dependency: domain → infrastructure (/private/test-dir/src/domain/user.ts → /private/test-dir/src/infrastructure/user-repo.ts)
   Contract 'noDependency(domain -> infrastructure)' (noDependency) defined at type:CleanArchitectureContext
 
@@ -18,7 +18,7 @@ Found 1 architectural violation(s).
 exports[`Lesson CLI Output Snapshots > Part 1: noDependency > Lesson 1-3 (fix-the-violation): solution - clean 1`] = `"All architectural contracts satisfied. (5 contracts, 2 files)"`;
 
 exports[`Lesson CLI Output Snapshots > Part 1: noDependency > Lesson 1-3 (fix-the-violation): starter - violation 1`] = `
-"Command failed: node /Users/samuelgleeson/dev/absractions-as-types.worktrees/absractions-as-types1/dist/apps/cli/main.js check .
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
 /private/test-dir/src/domain/user.ts:1:0 - error KS70001: Forbidden dependency: domain → infrastructure (/private/test-dir/src/domain/user.ts → /private/test-dir/src/infrastructure/user-repo.ts)
   Contract 'noDependency(domain -> infrastructure)' (noDependency) defined at type:CleanArchitectureContext
 
@@ -29,7 +29,7 @@ Found 1 architectural violation(s).
 exports[`Lesson CLI Output Snapshots > Part 2: purity > Lesson 2-1 (pure-layers): solution - clean 1`] = `"All architectural contracts satisfied. (1 contracts, 1 files)"`;
 
 exports[`Lesson CLI Output Snapshots > Part 2: purity > Lesson 2-1 (pure-layers): starter - violation 1`] = `
-"Command failed: node /Users/samuelgleeson/dev/absractions-as-types.worktrees/absractions-as-types1/dist/apps/cli/main.js check .
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
 /private/test-dir/src/domain/service.ts:1:0 - error KS70003: Impure import in 'domain': 'fs'
   Contract 'purity(domain)' (purity) defined at type:AppContext
 
@@ -40,7 +40,7 @@ Found 1 architectural violation(s).
 exports[`Lesson CLI Output Snapshots > Part 2: purity > Lesson 2-2 (fix-purity): solution - clean 1`] = `"All architectural contracts satisfied. (1 contracts, 1 files)"`;
 
 exports[`Lesson CLI Output Snapshots > Part 2: purity > Lesson 2-2 (fix-purity): starter - violation 1`] = `
-"Command failed: node /Users/samuelgleeson/dev/absractions-as-types.worktrees/absractions-as-types1/dist/apps/cli/main.js check .
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
 /private/test-dir/src/domain/service.ts:1:0 - error KS70003: Impure import in 'domain': 'fs'
   Contract 'purity(domain)' (purity) defined at type:AppContext
 
@@ -51,7 +51,7 @@ Found 1 architectural violation(s).
 exports[`Lesson CLI Output Snapshots > Part 3: noCycles > Lesson 3-1 (detecting-cycles): solution - clean 1`] = `"All architectural contracts satisfied. (2 contracts, 2 files)"`;
 
 exports[`Lesson CLI Output Snapshots > Part 3: noCycles > Lesson 3-1 (detecting-cycles): starter - violation 1`] = `
-"Command failed: node /Users/samuelgleeson/dev/absractions-as-types.worktrees/absractions-as-types1/dist/apps/cli/main.js check .
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
 [domain] - error KS70004: Circular dependency detected: domain → infrastructure → domain
   Contract 'noCycles(domain, infrastructure)' (noCycles) defined at type:AppContext
 
@@ -62,7 +62,7 @@ Found 1 architectural violation(s).
 exports[`Lesson CLI Output Snapshots > Part 3: noCycles > Lesson 3-2 (break-the-cycle): solution - clean 1`] = `"All architectural contracts satisfied. (2 contracts, 2 files)"`;
 
 exports[`Lesson CLI Output Snapshots > Part 3: noCycles > Lesson 3-2 (break-the-cycle): starter - violation 1`] = `
-"Command failed: node /Users/samuelgleeson/dev/absractions-as-types.worktrees/absractions-as-types1/dist/apps/cli/main.js check .
+"Command failed: node /Users/samuelgleeson/dev/absractions-as-types/dist/apps/cli/main.js check .
 [domain] - error KS70004: Circular dependency detected: domain → infrastructure → domain
   Contract 'noCycles(domain, infrastructure)' (noCycles) defined at type:AppContext
 
