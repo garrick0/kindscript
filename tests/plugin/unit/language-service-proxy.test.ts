@@ -11,10 +11,10 @@ import { SourceRef } from '../../../src/domain/value-objects/source-ref';
 
 // Minimal mock types
 interface MockLanguageService {
-  getSemanticDiagnostics: jest.Mock;
-  getCodeFixesAtPosition: jest.Mock;
-  getSyntacticDiagnostics: jest.Mock;
-  getCompletionsAtPosition: jest.Mock;
+  getSemanticDiagnostics: vi.Mock;
+  getCodeFixesAtPosition: vi.Mock;
+  getSyntacticDiagnostics: vi.Mock;
+  getCompletionsAtPosition: vi.Mock;
 }
 
 function createMockLanguageService(): MockLanguageService {
@@ -39,8 +39,8 @@ function createMockPluginCreateInfo(ls: MockLanguageService) {
 // Simplified proxy creation for testing (mirrors the real proxy logic)
 function createTestProxy(
   info: ReturnType<typeof createMockPluginCreateInfo>,
-  diagnosticsService: { execute: jest.Mock },
-  codeFixesService: { execute: jest.Mock }
+  diagnosticsService: { execute: vi.Mock },
+  codeFixesService: { execute: vi.Mock }
 ) {
   const proxy: Record<string, unknown> = {};
   const oldService = info.languageService;
@@ -102,8 +102,8 @@ function createTestProxy(
 describe('Language Service Proxy', () => {
   let mockLS: MockLanguageService;
   let mockInfo: ReturnType<typeof createMockPluginCreateInfo>;
-  let mockDiagnosticsService: { execute: jest.Mock };
-  let mockCodeFixesService: { execute: jest.Mock };
+  let mockDiagnosticsService: { execute: vi.Mock };
+  let mockCodeFixesService: { execute: vi.Mock };
 
   beforeEach(() => {
     mockLS = createMockLanguageService();
