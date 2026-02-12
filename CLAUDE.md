@@ -257,6 +257,43 @@ import { run } from './helpers';
 - Application: 95% lines, 100% functions, 85% branches
 - Run `npm test -- --coverage` to check
 
+**Writing tests that survive refactoring:**
+
+✅ **Do:**
+- Use test factories (`makeSymbol()`, `noDependency()`) instead of constructors
+- Test behavior (outcomes) not implementation (internal method calls)
+- Use targeted assertions (assert what matters, not everything)
+- Import from public API when possible (not internal modules)
+
+❌ **Don't:**
+- Test private methods or internal state
+- Use deep equality checks on entire objects
+- Hardcode test data (use factories instead)
+- Spy on internal methods
+
+**Example:**
+```typescript
+// ✅ Good: Survives refactoring
+import { makeSymbol, noDependency } from '../helpers/factories';
+
+it('detects forbidden dependency', () => {
+  const domain = makeSymbol('domain');
+  const infra = makeSymbol('infrastructure');
+
+  const result = plugin.check(noDependency(domain, infra), context);
+
+  expect(result.diagnostics).toHaveLength(1);
+  expect(result.diagnostics[0].code).toBe(70001);
+});
+
+// ❌ Bad: Breaks during refactoring
+it('calls private resolveSymbol method', () => {
+  const spy = vi.spyOn(service as any, 'resolveSymbol');
+  service.check(contract);
+  expect(spy).toHaveBeenCalled();  // Brittle!
+});
+```
+
 #### 3. Test Maintenance Rules
 
 **File size limits:**
