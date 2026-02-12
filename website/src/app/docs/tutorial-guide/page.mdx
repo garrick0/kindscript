@@ -343,7 +343,7 @@ The root is inferred from the file's directory — so both the top-level design 
 
 ## Part 5: Wrapped Kinds — Declaration-Level Enforcement
 
-Kind classifies **directories**. Wrapped Kinds classify **types** — individual exported declarations within a directory.
+Structural Kinds classify **directories**. Wrapped Kinds classify **types** — individual exported declarations within a directory.
 
 ### The problem
 
@@ -355,7 +355,7 @@ Both live in the same directory. You want: "no Decider may depend on an Effector
 
 ### The solution
 
-Wrapped Kinds use `Kind` with the `wraps` config to add architectural meaning to TypeScript types:
+A wrapped Kind associates a TypeScript type with architectural meaning by using `{ wraps: T }` in the Kind's 4th parameter:
 
 ```typescript
 import type { Kind, Instance, InstanceOf } from 'kindscript';
@@ -377,9 +377,11 @@ export const order = {
 } satisfies Instance<OrderModule, '.'>;
 ```
 
-Functions declare their role via type annotation using `InstanceOf<K>`:
+Functions declare their role via `InstanceOf` type annotation:
 
 ```typescript
+import type { InstanceOf } from 'kindscript';
+
 export const validateOrder: InstanceOf<Decider> = (command) => {
   // ... pure decision logic
   return [{ type: 'OrderValidated', data: command }];
@@ -414,9 +416,9 @@ Found 1 architectural violation(s).
 | Concept | What it does |
 |---------|--------------|
 | `Kind<N, Members, Constraints>` | Defines an architectural pattern with named members and constraints |
-| `Instance<T, Path>` | Maps a Kind to real directories on disk (Path is the location) |
-| `Kind<N, {}, C, { wraps: T }>` | Wraps a TypeScript type with architectural meaning (wrapped Kind) |
-| `InstanceOf<K>` | Annotates exports as instances of a wrapped Kind |
+| `Kind<N, {}, C, { wraps: T }>` | Wraps a TypeScript type with architectural meaning (declaration-level) |
+| `Instance<T, Path>` | Maps a structural Kind to real directories on disk (Path is the location) |
+| `InstanceOf<K>` | Tags an export as an instance of a wrapped Kind |
 | `noDependency` | Forbids imports between members |
 | `purity` | Forbids I/O imports in pure members |
 | `noCycles` | Detects circular dependencies between members |
@@ -432,6 +434,6 @@ Found 1 architectural violation(s).
 ### Next steps
 
 - [Interactive notebooks](../notebooks/) — hands-on walkthroughs with runnable code
-- [Kind System](02-kind-system.md) — full Kind and wrapped Kind reference
+- [Kind System](02-kind-system.md) — full Kind reference (structural and wrapped)
 - [Constraints](03-constraints.md) — complete constraint documentation and plugin architecture
 - [Examples](05-examples.md) — more real-world modeling patterns

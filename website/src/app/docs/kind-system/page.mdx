@@ -17,7 +17,7 @@ Kinds are normative (what the architecture MUST look like). Instances are descri
 
 ## Kind Definitions
 
-A Kind is a TypeScript type alias using the `Kind<N, Members, Constraints, Config>` generic. `Kind` is a conditional type — when `Config` includes `wraps`, it produces a wrapped type (declaration-level enforcement); otherwise it produces a structural type for `satisfies Instance<T, Path>`.
+A Kind is a TypeScript type alias using the `Kind<N, Members, Constraints, Config>` generic. `Kind` is a conditional type — when `Config` includes `wraps`, it produces a wrapped type for declaration-level enforcement via `InstanceOf<K>`; otherwise it produces a structural type for `satisfies Instance<T, Path>`.
 
 ```typescript
 import type { Kind } from 'kindscript';
@@ -56,7 +56,7 @@ type StrictCleanContext = Kind<"StrictCleanContext", {
 | `N` (name) | Yes | String literal discriminant — must match the type alias name |
 | `Members` | No | Object type mapping member names to their Kind types (plain or `[KindRef, './path']` tuples) |
 | `Constraints` | No | `Constraints<Members>` — architectural rules to enforce |
-| `_Config` | No | `KindConfig` — `{ wraps?: T; scope?: 'folder' \| 'file' }`. `wraps` makes Kind produce a type annotation shape (declaration-level enforcement). `scope` declares the expected instance scope, validated by the scope plugin. |
+| `_Config` | No | `KindConfig` — `{ wraps?: T; scope?: 'folder' \| 'file' }`. `wraps` makes Kind produce a wrapped type for declaration-level enforcement via `InstanceOf<K>`. `scope` declares the expected instance scope, validated by the scope plugin. |
 
 ### Why `type` Instead of `interface`
 
@@ -143,8 +143,8 @@ Without a tuple, the member path is derived from the member name (e.g., member `
 
 ```typescript
 type OrderModule = Kind<"OrderModule", {
-  deciders: Decider;              // Wrapped Kind — matched by type annotation, no path needed
-  effectors: Effector;            // Wrapped Kind — matched by type annotation, no path needed
+  deciders: Decider;              // wrapped Kind — matched by type annotation, no path needed
+  effectors: Effector;            // wrapped Kind — matched by type annotation, no path needed
   helpers: [HelperKind, './lib']; // explicit: helpers are at ./lib, not ./helpers
 }>;
 ```
@@ -287,6 +287,68 @@ Each instance is checked independently. Contracts on `OrderingContext` only appl
 
 ---
 
+## Carriers — Internal Representation
+
+**Carriers** are the internal algebraic representation of "what code a symbol operates over." Users don't write carriers directly — they write Kind definitions and Instance declarations. The parser computes carriers from this user-facing syntax.
+
+### Carrier Algebra
+
+A carrier is an algebraic expression built from atoms and operations:
+
+**Atoms:**
+- `path` — code at a filesystem path (directory or file, determined at resolution time)
+- `tagged` — all declarations annotated with `InstanceOf<K>` across the entire project
+
+**Operations:**
+- `union` — files from any child carrier
+- `exclude` — files from base minus files from excluded
+- `intersect` — files common to all child carriers
+
+### Example Carriers
+
+```typescript
+// Structural Kind instance at './src/domain/'
+{ type: 'path', path: '/project/src/domain' }
+
+// Wrapped Kind member (scopeless)
+{ type: 'tagged', kindTypeName: 'Decider' }
+
+// Scoped wrapped Kind member (tagged exports within parent scope)
+{
+  type: 'intersect',
+  children: [
+    { type: 'tagged', kindTypeName: 'Decider' },
+    { type: 'path', path: '/project/src/ordering' }
+  ]
+}
+
+// Union of multiple paths
+{
+  type: 'union',
+  children: [
+    { type: 'path', path: '/project/src/domain' },
+    { type: 'path', path: '/project/src/application' }
+  ]
+}
+```
+
+### Key Functions
+
+- `carrierKey(carrier: CarrierExpr): string` — deterministic serialization usable as a Map key. For path carriers, returns the raw path string (ensures backward compatibility with `symbol.id` lookup pattern).
+- `hasTaggedAtom(carrier: CarrierExpr): boolean` — checks if a carrier contains a tagged atom, replacing the old `isWrappedKind()` pattern.
+
+### Resolution
+
+Carriers are **pure values** — they have no behavior, no resolution logic, no filesystem access. The `CarrierResolver` service (application layer) translates carrier expressions into concrete file lists by:
+
+1. **Path atoms** — filesystem probing (directory listing or single file)
+2. **Tagged atoms** — filtering tagged exports from scan results
+3. **Operations** — set algebra on child results (union, intersection, difference)
+
+Scoping is expressed through composition, not built into atoms. A "scoped tagged carrier" is `intersect(tagged(K), path(scope))`.
+
+---
+
 ## Discovery via TypeScript Piggybacking
 
 KindScript does not use file extensions, config files, or naming conventions to find definitions. Instead, it piggybacks on TypeScript's own type checker.
@@ -331,9 +393,7 @@ Member names must be valid TypeScript identifiers. By default, member names doub
 
 ## Wrapped Kinds — Declaration-Level Enforcement
 
-Where a plain Kind classifies **places** (directories and files), a wrapped Kind classifies **types** (individual exported declarations via their type annotations).
-
-Wrapped Kinds use the `wraps` property in Kind's `Config` parameter: `Kind<N, {}, C, { wraps: T }>`.
+Where a plain Kind classifies **places** (directories and files), a wrapped Kind classifies **types** (individual exported declarations via their type annotations). A wrapped Kind is any Kind whose 4th type parameter (`_Config`) includes `wraps`.
 
 ### Defining a Wrapped Kind
 
@@ -347,19 +407,15 @@ type Decider = Kind<"Decider", {}, {}, { wraps: DeciderFn }>;
 type PureDecider = Kind<"PureDecider", {}, { pure: true }, { wraps: DeciderFn }>;
 ```
 
-Wrapped Kinds take the same four type parameters as Kind:
-- `N` — the kind name (string literal)
-- `Members` — always `{}` (wrapped Kinds have no members)
-- `C` — optional constraints (same as Kind's 3rd parameter)
-- `Config` — `{ wraps: T }` where `T` is the wrapped TypeScript type
-
-The implementation uses a phantom brand: `T & { readonly __kindscript_brand?: N }`. The brand is optional, so any value of type `T` satisfies the wrapped Kind — zero assignability impact.
+The 4th parameter `{ wraps: DeciderFn }` tells KindScript this Kind classifies individual declarations, not directories. The implementation uses a phantom brand: `T & { readonly __kindscript_brand?: N }`. The brand is optional, so any value of the wrapped type satisfies the Kind — zero assignability impact.
 
 ### Wrapped Kind Instances
 
-The type annotation IS the instance declaration. Use `InstanceOf<K>` to annotate exports:
+Instances of wrapped Kinds are declared with an `InstanceOf<K>` type annotation on exports — no `satisfies`, no `register()`, no companion const:
 
 ```typescript
+import type { InstanceOf } from 'kindscript';
+
 // These are wrapped Kind instances (type annotation uses InstanceOf):
 export const validateOrder: InstanceOf<Decider> = (cmd) => { ... };
 export const applyDiscount: InstanceOf<Decider> = (cmd) => { ... };
@@ -371,9 +427,9 @@ export const helper: DeciderFn = (cmd) => { ... };
 export const inline = (cmd: Command): Event[] => { ... };
 ```
 
-Discovery is **syntactic** — the scanner checks whether the type annotation explicitly uses `InstanceOf<K>` where `K` is a wrapped Kind, not whether the value structurally matches. The developer's choice of type annotation is the opt-in signal.
+Discovery is **syntactic** — the scanner checks whether the type annotation explicitly names a wrapped Kind via `InstanceOf`, not whether the value structurally matches. The developer's choice of type name is the opt-in signal.
 
-### Composability with Kind
+### Composability with Structural Kinds
 
 Wrapped Kind members can be used inside filesystem Kinds, enabling cross-scope constraints:
 
@@ -394,33 +450,34 @@ export const order = {
 } satisfies Instance<OrderModule, '.'>;
 ```
 
-This means: "within the OrderModule directory, collect all Decider-typed exports into one group and all Effector-typed exports into another. No file containing a Decider may import from a file containing an Effector."
+This means: "within the OrderModule directory, collect all `InstanceOf<Decider>` exports into one group and all `InstanceOf<Effector>` exports into another. No file containing a Decider may import from a file containing an Effector."
 
 The binder resolves wrapped Kind members by scanning typed exports within the parent Kind's scope. Existing constraints (`noDependency`, `noCycles`, etc.) work unchanged — they operate on the `resolvedFiles` map, which the binder populates for both filesystem and wrapped Kind members.
 
-### Wrapped Kind vs Kind
+### Wrapped Kind vs Structural Kind
 
-| Aspect | Kind | Wrapped Kind |
-|--------|------|----------|
+| Aspect | Structural Kind | Wrapped Kind |
+|--------|----------------|--------------|
 | Classifies | Places (directories, files) | Types (exported declarations) |
 | Scope | Directory or file | Individual declaration |
-| Instance mechanism | `satisfies Instance<T, Path>` | Type annotation with `InstanceOf<K>` |
+| Instance mechanism | `satisfies Instance<T, Path>` | `InstanceOf<K>` type annotation |
 | Resolution | Filesystem paths (binder) | Typed-export collection within scope (binder) |
 | Members | Subdirectories | As Kind members (composability) |
 | Standalone constraints | All constraint types | All user-declared constraint types (via 3rd parameter) |
-| Underlying type | `Kind<N, Members, C, Config>` | `Kind<N, {}, C, { wraps: T }>` |
+| Syntax | `Kind<N, Members, C>` | `Kind<N, {}, C, { wraps: T }>` |
 
 ---
 
 ## Public API
 
-KindScript exports six types from `src/types/index.ts`:
+KindScript exports seven types from `src/types/index.ts`:
 
 | Type | Purpose |
 |------|---------|
 | `Kind<N, Members?, Constraints?, Config?>` | Define an architectural pattern (conditional type) |
-| `Instance<T, Path>` | Declare where a Kind is instantiated (used with `satisfies`) |
-| `InstanceOf<K>` | Annotate exports as instances of a wrapped Kind (declaration-level enforcement) |
+| `Instance<T, Path>` | Declare where a structural Kind is instantiated (used with `satisfies`) |
+| `InstanceOf<K>` | Tag an export as an instance of a wrapped Kind (used as type annotation) |
+| `MemberMap<T>` | Transforms a Kind type into its instance object shape (used internally by `Instance`) |
 | `Constraints<Members>` | Type for the constraints parameter (usually inlined) |
 | `KindConfig` | `{ wraps?: T; scope?: 'folder' \| 'file' }` — Kind behavior configuration |
 | `KindRef` | Phantom marker type — shared by both wrapped and structural Kinds |
