@@ -9,6 +9,7 @@
   },
   "scripts": {
     "generate:lessons": "node scripts/generate-lessons.mjs",
+    "sync:agent-docs": "GITHUB_TOKEN=$(gh auth token 2>/dev/null || echo '') node scripts/sync-agent-docs-local.mjs",
     "dev": "npm run generate:lessons && next dev",
     "build": "npm run generate:lessons && next build",
     "start": "next start",

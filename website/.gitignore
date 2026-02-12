@@ -37,3 +37,6 @@ next-env.d.ts
 # IDE
 .vscode
 .idea
+
+# Synced content (generated at build time from ks-agent repo)
+content/agent-docs
