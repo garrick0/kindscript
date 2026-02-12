@@ -1,28 +1,9 @@
 import { overlapPlugin } from '../../src/application/pipeline/plugins/overlap/overlap.plugin';
-import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
-import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
-import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, overlap } from '../helpers/factories';
+import { setupPluginTestEnv } from '../helpers/plugin-test-helpers';
 
 describe('overlapPlugin.check', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
+  const { makeContext } = setupPluginTestEnv();
 
   it('detects overlapping files between two siblings', () => {
     const domain = makeSymbol('domain');

@@ -1,34 +1,16 @@
 import { purityPlugin } from '../../src/application/pipeline/plugins/purity/purity.plugin';
-import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
-import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { ContractType } from '../../src/domain/types/contract-type';
-import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, purity } from '../helpers/factories';
+import { setupPluginTestEnv } from '../helpers/plugin-test-helpers';
 
 describe('purityPlugin.check', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
+  const { getMock, makeContext } = setupPluginTestEnv();
 
   it('detects Node.js built-in import (fs)', () => {
     const domain = makeSymbol('domain');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'fs', 1, 0);
@@ -44,6 +26,7 @@ describe('purityPlugin.check', () => {
   it('detects node: prefixed import (node:fs)', () => {
     const domain = makeSymbol('domain');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'node:fs', 2, 0);
@@ -58,6 +41,7 @@ describe('purityPlugin.check', () => {
   it('detects fs/promises subpath', () => {
     const domain = makeSymbol('domain');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'fs/promises', 1, 0);
@@ -71,6 +55,7 @@ describe('purityPlugin.check', () => {
   it('allows relative imports', () => {
     const domain = makeSymbol('domain');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', './entity', 1, 0);
@@ -84,6 +69,7 @@ describe('purityPlugin.check', () => {
   it('allows npm package imports', () => {
     const domain = makeSymbol('domain');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withModuleSpecifier('src/domain/service.ts', 'lodash', 1, 0);

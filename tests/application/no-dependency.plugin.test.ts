@@ -1,34 +1,16 @@
 import { noDependencyPlugin } from '../../src/application/pipeline/plugins/no-dependency/no-dependency.plugin';
-import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
-import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
-import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, noDependency } from '../helpers/factories';
+import { setupPluginTestEnv } from '../helpers/plugin-test-helpers';
 
 describe('noDependencyPlugin.check', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
+  const { getMock, makeContext } = setupPluginTestEnv();
 
   it('detects forbidden dependency from domain to infrastructure', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', 'import { Db } from "../infrastructure/database";')
       .withSourceFile('src/infrastructure/database.ts', 'export class Db {}')
@@ -49,6 +31,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/entity.ts', 'export class Entity {}')
       .withSourceFile('src/infrastructure/repo.ts', 'import { Entity } from "../domain/entity";')
@@ -65,6 +48,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withSourceFile('src/infrastructure/database.ts', '')
@@ -83,6 +67,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/a.ts', '')
       .withSourceFile('src/domain/b.ts', '')
@@ -101,6 +86,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/entity.ts', '')
       .withSourceFile('src/domain/service.ts', '')
@@ -127,6 +113,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withSourceFile('src/domain-extensions/helper.ts', '')
@@ -143,6 +130,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS.withSourceFile('src/infrastructure/db.ts', '');
 
     domain.files = ['src/domain/orphan.ts'];
@@ -157,6 +145,7 @@ describe('noDependencyPlugin.check', () => {
     const domain = makeSymbol('domain', ArchSymbolKind.Member, '/abs/src/domain');
     const infra = makeSymbol('infrastructure', ArchSymbolKind.Member, '/abs/src/infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('/abs/src/domain/service.ts', '')
       .withSourceFile('/abs/src/infrastructure/database.ts', '')
@@ -182,29 +171,13 @@ describe('noDependencyPlugin.check', () => {
 });
 
 describe('noDependencyPlugin.check (intra-file)', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
+  const { getMock, makeContext } = setupPluginTestEnv();
 
   it('detects forbidden intra-file reference between wrapped Kind members', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
@@ -232,6 +205,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'parseCommand', 5, 10);
@@ -254,6 +228,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'deepClone', 8, 4);
@@ -276,6 +251,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10)
@@ -299,6 +275,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
@@ -316,6 +293,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     const deciders = makeSymbol('deciders', ArchSymbolKind.Member, 'src/order/deciders');
     const evolvers = makeSymbol('evolvers', ArchSymbolKind.Member, 'src/order/evolvers');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/order/decider.ts', '')
       .withIntraFileReference('src/order/decider.ts', 'decide', 'evolve', 5, 10);
@@ -338,6 +316,7 @@ describe('noDependencyPlugin.check (intra-file)', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infrastructure');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/service.ts', '')
       .withSourceFile('src/infrastructure/db.ts', '');

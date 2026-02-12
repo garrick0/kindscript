@@ -1,35 +1,17 @@
 import { noCyclesPlugin } from '../../src/application/pipeline/plugins/no-cycles/no-cycles.plugin';
-import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
-import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
-import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, noCycles } from '../helpers/factories';
+import { setupPluginTestEnv } from '../helpers/plugin-test-helpers';
 
 describe('noCyclesPlugin.check', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
+  const { getMock, makeContext } = setupPluginTestEnv();
 
   it('detects 2-node cycle (A -> B -> A)', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infra');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/a.ts', '')
       .withSourceFile('src/infra/b.ts', '')
@@ -50,6 +32,7 @@ describe('noCyclesPlugin.check', () => {
     const b = makeSymbol('b');
     const c = makeSymbol('c');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/a/x.ts', '')
       .withSourceFile('src/b/y.ts', '')
@@ -71,6 +54,7 @@ describe('noCyclesPlugin.check', () => {
     const domain = makeSymbol('domain');
     const infra = makeSymbol('infra');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/domain/a.ts', '')
       .withSourceFile('src/infra/b.ts', '')
@@ -117,6 +101,7 @@ describe('noCyclesPlugin.check', () => {
     const b = makeSymbol('b');
     const c = makeSymbol('c');
 
+    const mockTS = getMock();
     mockTS
       .withSourceFile('src/a/x.ts', '')
       .withSourceFile('src/b/y.ts', '')

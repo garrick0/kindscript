@@ -1,22 +1,11 @@
 import { exhaustivenessPlugin } from '../../src/application/pipeline/plugins/exhaustiveness/exhaustiveness.plugin';
-import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
-import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
-import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, exhaustiveness } from '../helpers/factories';
+import { setupPluginTestEnv } from '../helpers/plugin-test-helpers';
 
 describe('exhaustivenessPlugin.check', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
+  const { makeContext } = setupPluginTestEnv();
 
   function makeInstanceWithMembers(
     name: string,
@@ -32,14 +21,6 @@ describe('exhaustivenessPlugin.check', () => {
     }
     return instance;
   }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
 
   it('detects unassigned files in instance container', () => {
     const instance = makeInstanceWithMembers('app', [

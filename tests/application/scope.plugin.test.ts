@@ -1,32 +1,13 @@
 import { scopePlugin } from '../../src/application/pipeline/plugins/scope/scope.plugin';
-import { CheckContext } from '../../src/application/pipeline/plugins/contract-plugin';
-import { MockTypeScriptAdapter } from '../helpers/mocks/mock-typescript.adapter';
 import { ArchSymbol } from '../../src/domain/entities/arch-symbol';
 import { ArchSymbolKind } from '../../src/domain/types/arch-symbol-kind';
 import { ContractType } from '../../src/domain/types/contract-type';
 import { DiagnosticCode } from '../../src/domain/constants/diagnostic-codes';
-import { Program } from '../../src/domain/entities/program';
 import { makeSymbol, scope } from '../helpers/factories';
+import { setupPluginTestEnv } from '../helpers/plugin-test-helpers';
 
 describe('scopePlugin.check', () => {
-  let mockTS: MockTypeScriptAdapter;
-
-  function makeContext(): CheckContext {
-    const program = new Program([], {});
-    return {
-      tsPort: mockTS,
-      program,
-      checker: mockTS.getTypeChecker(program),
-    };
-  }
-
-  beforeEach(() => {
-    mockTS = new MockTypeScriptAdapter();
-  });
-
-  afterEach(() => {
-    mockTS.reset();
-  });
+  const { makeContext } = setupPluginTestEnv();
 
   it('passes when folder scope matches a directory location', () => {
     const sym = makeSymbol('ordering', ArchSymbolKind.Instance, 'src/ordering');
