@@ -29,7 +29,7 @@ export const templateFiles: FileSystemTree = {
             target: 'ES2020',
             module: 'ESNext',
             lib: ['ES2020'],
-            moduleResolution: 'node',
+            moduleResolution: 'bundler',
             strict: true,
             esModuleInterop: true,
             skipLibCheck: true,

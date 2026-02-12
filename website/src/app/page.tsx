@@ -25,12 +25,6 @@ export default function HomePage() {
             <Link href="/about" className="text-sm text-zinc-400 transition hover:text-white">
               About
             </Link>
-            <Link
-              href="/agent#waitlist"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-            >
-              Get Early Access
-            </Link>
           </div>
         </div>
       </nav>
@@ -173,12 +167,18 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-12 text-center">
+          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href="/agent#waitlist"
+              className="w-full rounded-lg bg-violet-600 px-8 py-3.5 text-center text-base font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500 sm:w-auto"
+            >
+              Get Early Access
+            </Link>
             <Link
               href="/agent"
-              className="inline-block rounded-lg bg-violet-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500"
+              className="w-full rounded-lg border border-zinc-700 px-8 py-3.5 text-center text-base font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white sm:w-auto"
             >
-              Learn More About Agent
+              Learn More
             </Link>
           </div>
         </div>

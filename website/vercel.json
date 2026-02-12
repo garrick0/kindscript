@@ -2,7 +2,7 @@
   "regions": ["iad1"],
   "headers": [
     {
-      "source": "/tutorial/:path*",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Cross-Origin-Embedder-Policy",

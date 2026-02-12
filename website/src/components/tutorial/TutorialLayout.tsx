@@ -252,7 +252,7 @@ export function TutorialLayout({ lesson }: TutorialLayoutProps) {
               Terminal
             </div>
             <div style={{ flex: 1, background: '#1e1e1e' }}>
-              <Terminal onTerminalReady={handleTerminalReady} />
+              <Terminal onTerminalReady={handleTerminalReady} isWebContainerReady={isReady} />
             </div>
           </div>
         </div>

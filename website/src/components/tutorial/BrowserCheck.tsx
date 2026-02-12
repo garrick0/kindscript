@@ -17,14 +17,13 @@ interface BrowserSupport {
 export function BrowserCheck({ children }: BrowserCheckProps) {
   const [support, setSupport] = useState<BrowserSupport | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-  const [bypassCheck, setBypassCheck] = useState(false);
 
   useEffect(() => {
     const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
     const isCrossOriginIsolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
     const isDevelopment = process.env.NODE_ENV === 'development';
 
-    const isSupported = hasSharedArrayBuffer && (isCrossOriginIsolated || isDevelopment);
+    const isSupported = hasSharedArrayBuffer && isCrossOriginIsolated;
 
     setSupport({
       isSupported,
@@ -32,12 +31,6 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
       isCrossOriginIsolated,
       isDevelopment,
     });
-
-    // In development, auto-bypass after showing warning for 2 seconds
-    if (isDevelopment && !isCrossOriginIsolated && hasSharedArrayBuffer) {
-      const timer = setTimeout(() => setBypassCheck(true), 2000);
-      return () => clearTimeout(timer);
-    }
   }, []);
 
   if (support === null) {
@@ -61,17 +54,13 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
     );
   }
 
-  // Allow bypass in development mode or if user manually bypasses
-  if (support.isSupported || bypassCheck) {
+  if (support.isSupported) {
     return <>{children}</>;
   }
 
   // Show warning/error screen - not supported
-  const isDev = support.isDevelopment;
-  const title = isDev ? 'Development Mode - Loading Tutorial...' : 'Desktop Browser Required';
-  const message = isDev
-    ? 'WebContainers require cross-origin isolation headers. In development mode, these headers may take a moment to apply. The tutorial will load automatically in 2 seconds...'
-    : 'The interactive tutorial uses WebContainers to run a full Node.js environment in your browser. This requires modern browser features that aren\'t available on all devices.';
+  const title = 'Desktop Browser Required';
+  const message = 'The interactive tutorial uses WebContainers to run a full Node.js environment in your browser. This requires modern browser features that aren\'t available on all devices.';
 
   return (
     <div
@@ -80,9 +69,7 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        background: isDev
-          ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         padding: '2rem',
       }}
     >
@@ -95,9 +82,7 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
           boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
         }}
       >
-        <div style={{ fontSize: '3rem', marginBottom: '1rem', textAlign: 'center' }}>
-          {isDev ? '⚙️' : '💻'}
-        </div>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem', textAlign: 'center' }}>💻</div>
         <h1 style={{ fontSize: '1.75rem', marginBottom: '1rem', textAlign: 'center', color: '#1e293b' }}>
           {title}
         </h1>
@@ -105,25 +90,23 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
           {message}
         </p>
 
-        {!isDev && (
-          <div
-            style={{
-              background: '#f1f5f9',
-              padding: '1rem',
-              borderRadius: '8px',
-              marginBottom: '1.5rem',
-            }}
-          >
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
-              <strong>Supported browsers:</strong>
-            </p>
-            <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.5rem', color: '#475569' }}>
-              <li>Chrome/Edge 92+</li>
-              <li>Firefox 95+</li>
-              <li>Safari 15.2+</li>
-            </ul>
-          </div>
-        )}
+        <div
+          style={{
+            background: '#f1f5f9',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+            <strong>Supported browsers:</strong>
+          </p>
+          <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.5rem', color: '#475569' }}>
+            <li>Chrome/Edge 92+</li>
+            <li>Firefox 95+</li>
+            <li>Safari 15.2+</li>
+          </ul>
+        </div>
 
         {/* Debug info */}
         {showDebug && (
@@ -146,38 +129,20 @@ export function BrowserCheck({ children }: BrowserCheckProps) {
         )}
 
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {isDev && (
-            <button
-              onClick={() => setBypassCheck(true)}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#10b981',
-                color: 'white',
-                borderRadius: '6px',
-                border: 'none',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Load Tutorial Now
-            </button>
-          )}
-          {!isDev && (
-            <Link
-              href="/docs/tutorial-guide"
-              style={{
-                display: 'inline-block',
-                padding: '0.75rem 1.5rem',
-                background: '#3b82f6',
-                color: 'white',
-                borderRadius: '6px',
-                textDecoration: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Read Static Tutorial
-            </Link>
-          )}
+          <Link
+            href="/docs/tutorial-guide"
+            style={{
+              display: 'inline-block',
+              padding: '0.75rem 1.5rem',
+              background: '#3b82f6',
+              color: 'white',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Read Static Tutorial
+          </Link>
           <Link
             href="/tutorial"
             style={{

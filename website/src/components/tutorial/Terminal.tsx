@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalProps {
   onTerminalReady?: (terminal: XTerm) => void;
+  isWebContainerReady?: boolean;
 }
 
-export function Terminal({ onTerminalReady }: TerminalProps) {
+export function Terminal({ onTerminalReady, isWebContainerReady = false }: TerminalProps) {
+  const [showPlaceholder, setShowPlaceholder] = useState(true);
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -64,6 +66,11 @@ export function Terminal({ onTerminalReady }: TerminalProps) {
       xtermRef.current = terminal;
       fitAddonRef.current = fitAddon;
 
+      // Hide placeholder when terminal receives data
+      terminal.onData(() => {
+        setShowPlaceholder(false);
+      });
+
       // Notify parent that terminal is ready
       console.log('Terminal mounted, calling onTerminalReady');
       onTerminalReady?.(terminal);
@@ -89,5 +96,29 @@ export function Terminal({ onTerminalReady }: TerminalProps) {
     };
   }, [onTerminalReady]);
 
-  return <div ref={terminalRef} style={{ height: '100%', width: '100%' }} />;
+  return (
+    <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+      <div ref={terminalRef} style={{ height: '100%', width: '100%' }} />
+      {showPlaceholder && !isWebContainerReady && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#1e1e1e',
+            color: '#64748b',
+            fontSize: '0.875rem',
+            pointerEvents: 'none',
+          }}
+        >
+          ⚡ Waiting for WebContainer...
+        </div>
+      )}
+    </div>
+  );
 }

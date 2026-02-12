@@ -166,6 +166,11 @@ export const WebContainerProvider = forwardRef<WebContainerHandle, WebContainerP
           terminal.writeln('❌ WebContainer not supported in this browser');
           terminal.writeln('SharedArrayBuffer: ' + (typeof SharedArrayBuffer !== 'undefined' ? 'available' : 'not available'));
           terminal.writeln('Cross-origin isolated: ' + (crossOriginIsolated ? 'yes' : 'no'));
+          terminal.writeln('');
+          terminal.writeln('If you are seeing this in development mode, try:');
+          terminal.writeln('1. Restart the dev server (Ctrl+C then npm run dev)');
+          terminal.writeln('2. Hard refresh your browser (Cmd+Shift+R or Ctrl+Shift+R)');
+          terminal.writeln('3. Clear browser cache for localhost:3000');
           return;
         }
 

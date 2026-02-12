@@ -11,6 +11,8 @@
     "generate:lessons": "node scripts/generate-lessons.mjs",
     "sync:agent-docs": "GITHUB_TOKEN=$(gh auth token 2>/dev/null || echo '') node scripts/sync-agent-docs-local.mjs",
     "dev": "npm run generate:lessons && next dev",
+    "dev:kill": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
+    "dev:restart": "npm run dev:kill && npm run dev",
     "build": "npm run generate:lessons && next build",
     "start": "next start",
     "build:search": "pagefind --site .next/server/app --output-path public/_pagefind",
