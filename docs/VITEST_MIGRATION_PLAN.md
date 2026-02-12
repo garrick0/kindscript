@@ -441,7 +441,8 @@ npm test
 | Phase 1: ESM Migration | 1 hour | All builds succeed, no CJS usage |
 | Phase 2: Vitest Setup | 30 minutes | Config created, deps installed |
 | Phase 3: Validation | 30-60 minutes | All tests pass, coverage matches |
-| **Total** | **2-3 hours** | Production-ready |
+| Phase 4: PR Creation | 15-30 minutes | PR created, all checks pass |
+| **Total** | **2.5-3.5 hours** | PR ready for review |
 
 ---
 
@@ -466,9 +467,286 @@ npm test
 
 ---
 
+## Phase 4: PR Creation & Complete Jest Removal
+
+**Goal:** Create pull request with comprehensive Jest removal verification
+
+### 4.1 Complete Jest Removal Checklist
+
+Before creating the PR, verify all Jest artifacts are removed:
+
+**Files to Delete:**
+```bash
+# Config files
+rm jest.config.js
+
+# Check for any remaining Jest references
+grep -r "jest" package.json package-lock.json
+grep -r "@types/jest" package.json package-lock.json
+grep -r "ts-jest" package.json package-lock.json
+```
+
+**package.json Verification:**
+- ✅ No `jest` in dependencies
+- ✅ No `@types/jest` in devDependencies
+- ✅ No `ts-jest` in devDependencies
+- ✅ No `jest` in scripts (replaced with `vitest`)
+- ✅ Has `"type": "module"`
+- ✅ Has `vitest` in devDependencies
+
+**Code Verification:**
+- ✅ No `require()` calls in source code (except test fixtures if any)
+- ✅ No `module.exports` in source code
+- ✅ No Jest-specific types imported (`@types/jest`)
+- ✅ All test files use ESM imports
+
+**Build Verification:**
+```bash
+# Verify clean build
+npm run clean
+npm run build
+ls -la dist/  # Check output structure
+
+# Verify no .cjs files in dist/
+find dist/ -name "*.cjs" | wc -l  # Should be 0
+```
+
+**Test Verification:**
+```bash
+# All tests pass
+npm test  # Should show 342 passing
+
+# Coverage thresholds met
+npm run test:coverage  # Should meet all thresholds
+
+# CLI works
+node dist/apps/cli/main.js --version  # Should print version
+node dist/apps/cli/main.js check tests/integration/fixtures/clean-arch-valid  # Should pass
+```
+
+**Lock File Verification:**
+```bash
+# Check package-lock.json for Jest remnants
+grep -i "jest" package-lock.json | wc -l  # Should be 0 or minimal (indirect deps only)
+```
+
+### 4.2 Git Commit Strategy
+
+Create logical commits for the migration:
+
+```bash
+# Commit 1: Update module system to ESM
+git add package.json tsconfig.json
+git commit -m "chore: migrate to ESM module system
+
+- Add \"type\": \"module\" to package.json
+- Update TypeScript to output ES2020 modules
+- Update moduleResolution to \"bundler\"
+"
+
+# Commit 2: Convert CJS usage to ESM
+git add src/apps/cli/main.ts tests/plugin/unit/plugin-loading.test.ts
+git commit -m "refactor: convert CJS require() to ESM imports
+
+- Replace require() with dynamic import in CLI main.ts
+- Convert plugin-loading.test.ts to async with dynamic imports
+"
+
+# Commit 3: Migrate from Jest to Vitest
+git add package.json package-lock.json vitest.config.ts
+git rm jest.config.js
+git commit -m "chore: migrate from Jest to Vitest
+
+- Remove Jest, ts-jest, @types/jest dependencies
+- Add Vitest and @vitest/ui dependencies
+- Create vitest.config.ts with equivalent coverage thresholds
+- Delete jest.config.js
+- Update test scripts to use Vitest
+"
+
+# Commit 4: Update documentation
+git add docs/VITEST_MIGRATION_PLAN.md CLAUDE.md tests/README.md
+git commit -m "docs: update documentation for Vitest migration
+
+- Add complete migration plan
+- Update CLAUDE.md with Vitest commands
+- Update tests/README.md with new test runner info
+"
+```
+
+### 4.3 Create Pull Request
+
+Use GitHub CLI to create PR:
+
+```bash
+gh pr create \
+  --title "Migrate from Jest + CommonJS to Vitest + ESM" \
+  --body "$(cat <<'EOF'
+## Summary
+
+Migrates KindScript from Jest to Vitest and CommonJS to ESM.
+
+## Motivation
+
+- **Modern ecosystem**: ESM is the JavaScript standard
+- **Performance**: Vitest is 20-40% faster than Jest
+- **Consistency**: Website already uses Vitest
+- **Better TypeScript integration**: Native ESM support
+- **Smaller dependencies**: Fewer packages, faster installs
+
+## Changes
+
+### Module System (ESM)
+- ✅ Added `"type": "module"` to package.json
+- ✅ Updated TypeScript to output ES2020 modules
+- ✅ Converted all `require()` to dynamic `import()`
+- ✅ Updated package.json exports for ESM compatibility
+
+### Test Runner (Vitest)
+- ✅ Replaced Jest with Vitest v2.1.0
+- ✅ Created `vitest.config.ts` with equivalent coverage thresholds
+- ✅ Maintained all 342 tests without modification (Jest-compatible mode)
+- ✅ Updated npm scripts (`npm test`, `npm run test:coverage`)
+
+### Files Changed
+- Modified: `package.json`, `tsconfig.json`, `src/apps/cli/main.ts`, `tests/plugin/unit/plugin-loading.test.ts`
+- Deleted: `jest.config.js`
+- Created: `vitest.config.ts`, `docs/VITEST_MIGRATION_PLAN.md`
+
+## Testing
+
+\`\`\`bash
+# Build succeeds
+npm run build
+# ✅ Clean build, no errors
+
+# All tests pass
+npm test
+# ✅ 342/342 tests passing
+
+# Coverage thresholds met
+npm run test:coverage
+# ✅ Domain: 90%+ coverage
+# ✅ Application: 95%+ coverage
+
+# CLI works
+node dist/apps/cli/main.js --version
+# ✅ Prints version
+
+node dist/apps/cli/main.js check tests/integration/fixtures/clean-arch-valid
+# ✅ Exits 0
+\`\`\`
+
+## Breaking Changes
+
+**For consumers (published package):**
+- ⚠️ Package now exports ESM modules instead of CommonJS
+- ⚠️ Node.js >=16.0.0 required (ESM support)
+- ✅ TypeScript types unchanged
+- ✅ Public API unchanged
+
+**For contributors:**
+- Test runner changed: use `npm test` (Vitest instead of Jest)
+- New command: `npm run test:ui` for interactive debugging
+- All test syntax remains Jest-compatible
+
+## Migration Plan
+
+See [`docs/VITEST_MIGRATION_PLAN.md`](docs/VITEST_MIGRATION_PLAN.md) for complete details.
+
+## Rollback
+
+If issues arise, rollback is straightforward:
+\`\`\`bash
+git revert HEAD~4..HEAD
+npm install
+\`\`\`
+
+## Checklist
+
+- [x] All tests passing (342/342)
+- [x] Coverage thresholds met
+- [x] Build succeeds
+- [x] CLI executable works
+- [x] Plugin loads correctly
+- [x] No Jest dependencies remain
+- [x] No CommonJS usage in source
+- [x] Documentation updated
+- [x] Migration plan documented
+
+---
+
+**Closes:** N/A (improvement, not fixing an issue)
+**Related:** Website Vitest migration (already complete)
+EOF
+)" \
+  --base main \
+  --head vitest-migr
+```
+
+### 4.4 PR Review Checklist
+
+For reviewers:
+
+**Functionality:**
+- [ ] All 342 tests pass
+- [ ] Coverage thresholds maintained
+- [ ] Build succeeds without errors
+- [ ] CLI executable works (`--version`, `check`)
+- [ ] Plugin can be loaded
+
+**Code Quality:**
+- [ ] No `require()` in source code
+- [ ] No `module.exports` in source code
+- [ ] All imports use ESM syntax
+- [ ] No Jest dependencies in package.json
+
+**Documentation:**
+- [ ] Migration plan is clear and complete
+- [ ] CLAUDE.md updated
+- [ ] tests/README.md updated
+- [ ] Breaking changes documented
+
+**CI/CD:**
+- [ ] CI pipeline still works (if applicable)
+- [ ] No hardcoded Jest references in workflows
+
+### 4.5 Post-Merge Actions
+
+After PR is merged:
+
+1. **Verify main branch:**
+   ```bash
+   git checkout main
+   git pull
+   npm install
+   npm test
+   ```
+
+2. **Clean up worktree:**
+   ```bash
+   cd /Users/samuelgleeson/dev/kindscript
+   git worktree remove vitest-migr
+   git branch -d vitest-migr  # Local branch cleanup
+   ```
+
+3. **Archive migration plan:**
+   ```bash
+   git mv docs/VITEST_MIGRATION_PLAN.md docs/archive/VITEST_MIGRATION_PLAN.md
+   git commit -m "docs: archive Vitest migration plan"
+   git push
+   ```
+
+4. **Announce changes** (if applicable):
+   - Update changelog
+   - Notify contributors of new test commands
+   - Document breaking changes for v3.0.0 if this is a major version
+
+---
+
 ## Follow-Up Tasks
 
-After successful migration:
+After successful migration and PR merge:
 
 1. **Documentation Updates:**
    - Update `CLAUDE.md` test section

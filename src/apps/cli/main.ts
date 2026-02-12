@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'module';
 import { CheckCommand } from './commands/check.command';
 import { CLIDiagnosticAdapter } from './adapters/cli-diagnostic.adapter';
 import { CLIConsoleAdapter } from './adapters/cli-console.adapter';
 import { createEngine } from '../../infrastructure/engine-factory';
+
+const require = createRequire(import.meta.url);
 
 /**
  * KindScript CLI entry point.
@@ -15,7 +18,6 @@ function main(): void {
   const command = args[0];
 
   if (command === '--version' || command === '-v') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const pkg = require('../../../package.json');
     process.stdout.write(pkg.version + '\n');
     process.exit(0);

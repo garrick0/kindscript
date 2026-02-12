@@ -66,14 +66,14 @@ describe('PipelineService', () => {
 
   beforeEach(() => {
     mockProgramFactory = {
-      create: jest.fn().mockReturnValue(makeProgramSetup()),
+      create: vi.fn().mockReturnValue(makeProgramSetup()),
     };
     mockFS = new MockFileSystemAdapter();
-    mockScanner = { execute: jest.fn().mockReturnValue(makeScanResult()) };
-    mockParser = { execute: jest.fn().mockReturnValue(makeParseResult()) };
-    mockBinder = { execute: jest.fn().mockReturnValue(makeBindResult()) };
+    mockScanner = { execute: vi.fn().mockReturnValue(makeScanResult()) };
+    mockParser = { execute: vi.fn().mockReturnValue(makeParseResult()) };
+    mockBinder = { execute: vi.fn().mockReturnValue(makeBindResult()) };
     mockChecker = {
-      execute: jest.fn().mockReturnValue({
+      execute: vi.fn().mockReturnValue({
         diagnostics: [],
         contractsChecked: 0,
         filesAnalyzed: 0,
@@ -88,7 +88,7 @@ describe('PipelineService', () => {
 
   it('returns error when program setup fails', () => {
     mockProgramFactory = {
-      create: jest.fn().mockReturnValue({ error: 'No TypeScript files found.' }),
+      create: vi.fn().mockReturnValue({ error: 'No TypeScript files found.' }),
     };
 
     const service = createService();
@@ -102,7 +102,7 @@ describe('PipelineService', () => {
 
   it('returns error when no Kind definitions found in program', () => {
     mockParser = {
-      execute: jest.fn().mockReturnValue(makeParseResult({ symbols: [] })),
+      execute: vi.fn().mockReturnValue(makeParseResult({ symbols: [] })),
     };
 
     const service = createService();
@@ -116,7 +116,7 @@ describe('PipelineService', () => {
 
   it('passes all source files through scanner', () => {
     mockProgramFactory = {
-      create: jest.fn().mockReturnValue(makeProgramSetup({
+      create: vi.fn().mockReturnValue(makeProgramSetup({
         sourceFiles: [
           { fileName: '/project/src/app.ts', text: '' },
           { fileName: '/project/src/context.ts', text: '' },
@@ -141,9 +141,9 @@ describe('PipelineService', () => {
   });
 
   it('aggregates errors from all stages', () => {
-    mockScanner = { execute: jest.fn().mockReturnValue(makeScanResult({ errors: ['scan-err'] })) };
-    mockParser = { execute: jest.fn().mockReturnValue(makeParseResult({ errors: ['parse-err'] })) };
-    mockBinder = { execute: jest.fn().mockReturnValue(makeBindResult({ errors: ['bind-err'] })) };
+    mockScanner = { execute: vi.fn().mockReturnValue(makeScanResult({ errors: ['scan-err'] })) };
+    mockParser = { execute: vi.fn().mockReturnValue(makeParseResult({ errors: ['parse-err'] })) };
+    mockBinder = { execute: vi.fn().mockReturnValue(makeBindResult({ errors: ['bind-err'] })) };
 
     const service = createService();
     const result = service.execute({ projectRoot: '/project' });

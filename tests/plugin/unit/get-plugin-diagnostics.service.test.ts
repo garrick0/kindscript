@@ -28,7 +28,7 @@ describe('GetPluginDiagnosticsService', () => {
 
   beforeEach(() => {
     mockPipeline = {
-      execute: jest.fn().mockReturnValue(makeSuccessResponse()),
+      execute: vi.fn().mockReturnValue(makeSuccessResponse()),
     };
 
     service = createService();
@@ -37,7 +37,7 @@ describe('GetPluginDiagnosticsService', () => {
   it('returns diagnostics for a file violating noDependency contract', () => {
     const diag = makeDiagnostic('/project/src/domain/service.ts', 70001, 'Forbidden dependency');
     mockPipeline = {
-      execute: jest.fn().mockReturnValue(makeSuccessResponse({
+      execute: vi.fn().mockReturnValue(makeSuccessResponse({
         diagnostics: [diag],
         contractsChecked: 1,
         filesAnalyzed: 2,
@@ -57,7 +57,7 @@ describe('GetPluginDiagnosticsService', () => {
 
   it('returns empty diagnostics for a file with no violations', () => {
     mockPipeline = {
-      execute: jest.fn().mockReturnValue(makeSuccessResponse({
+      execute: vi.fn().mockReturnValue(makeSuccessResponse({
         diagnostics: [
           makeDiagnostic('/project/src/domain/service.ts', 70001, 'Forbidden dependency'),
         ],
@@ -75,7 +75,7 @@ describe('GetPluginDiagnosticsService', () => {
 
   it('returns empty diagnostics when pipeline returns error', () => {
     mockPipeline = {
-      execute: jest.fn().mockReturnValue({ ok: false, error: 'No Kind definitions found in the project.' }),
+      execute: vi.fn().mockReturnValue({ ok: false, error: 'No Kind definitions found in the project.' }),
     };
     service = createService();
 
@@ -89,7 +89,7 @@ describe('GetPluginDiagnosticsService', () => {
 
   it('returns empty when no contracts found', () => {
     mockPipeline = {
-      execute: jest.fn().mockReturnValue(makeSuccessResponse({ diagnostics: [] })),
+      execute: vi.fn().mockReturnValue(makeSuccessResponse({ diagnostics: [] })),
     };
     service = createService();
 
@@ -112,7 +112,7 @@ describe('GetPluginDiagnosticsService', () => {
 
   it('filters diagnostics to only those relevant to the requested file', () => {
     mockPipeline = {
-      execute: jest.fn().mockReturnValue(makeSuccessResponse({
+      execute: vi.fn().mockReturnValue(makeSuccessResponse({
         diagnostics: [
           makeDiagnostic('/project/src/domain/service.ts', 70001, 'Forbidden dependency'),
         ],
@@ -145,7 +145,7 @@ describe('GetPluginDiagnosticsService', () => {
 
   it('catches errors and returns empty diagnostics', () => {
     mockPipeline = {
-      execute: jest.fn().mockImplementation(() => {
+      execute: vi.fn().mockImplementation(() => {
         throw new Error('Internal error');
       }),
     };
