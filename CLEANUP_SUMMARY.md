@@ -61,7 +61,7 @@ website/public/_pagefind/
 
 ### Project Root Structure
 ```
-absractions-as-types/
+kindscript/
 ├── src/              # KindScript source code
 ├── tests/            # Test suite
 ├── docs/             # Documentation markdown (source of truth)
