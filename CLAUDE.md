@@ -459,30 +459,21 @@ See the [Documentation](#documentation-organization) section below for the full 
 
 ---
 
-## Interactive Tutorial
+## Tutorial (Deprecated - Use Website)
 
-An interactive browser-based tutorial lives in `tutorial/` (TutorialKit + Astro). It provides 7 lessons covering the 3 user-declared constraints (`noDependency`, `purity`, `noCycles`).
+⚠️ **Note:** The standalone TutorialKit tutorial in `tutorial/` is deprecated. The canonical interactive tutorial is now part of the website.
 
-### Key Paths
-
-- `tutorial/README.md` - Setup and usage instructions
-- `tutorial/src/content/tutorial/` - Lesson content (markdown + `_files/` + `_solution/`)
-- `tutorial/src/templates/default/` - Shared template (package.json, tsconfig, local kindscript package)
-- `tutorial/scripts/sync-kindscript.sh` - Syncs compiled dist/ into the template
-
-### When to update the tutorial
-
-- **Changed CLI output or diagnostic codes** - Update lesson `content.md` prose that references error messages
-- **Changed public API types** (`src/types/index.ts`) - Update `context.ts` files in lesson `_files/` and `_solution/`
-- **Bumped version** - Run `bash tutorial/scripts/sync-kindscript.sh` to rebuild and re-sync the template
-- **Added a new constraint** - Consider adding a new part with lessons demonstrating it
-
-### Running locally
-
+**Use the website tutorial instead:**
 ```bash
-bash tutorial/scripts/sync-kindscript.sh   # Build + sync KindScript into template
-cd tutorial && npm install && npm start     # Dev server at localhost:4321
+cd website
+npm run dev    # Interactive tutorial at localhost:3000/tutorial
 ```
+
+The website tutorial has:
+- 21 lessons (vs 7 in old tutorial)
+- WebContainer integration
+- Monaco editor
+- Full test coverage
 
 ---
 
