@@ -129,6 +129,138 @@ npm test -- tests/integration
 
 ---
 
+## Testing Philosophy
+
+### Why Tests Mirror Architecture
+
+KindScript's test structure mirrors the source architecture (`domain/`, `application/`, `infrastructure/`, `apps/`) for several reasons:
+
+1. **Discoverability** - Easy to find tests for a specific source file
+2. **Architectural validation** - Test organization itself validates layer separation
+3. **Mental model alignment** - Same mental map for source and tests
+4. **Refactoring support** - When moving files, tests move in parallel
+
+**Example:**
+```
+src/application/pipeline/scan/scan.service.ts
+tests/application/scan.service.test.ts  (mirrors structure)
+```
+
+---
+
+### Behavior vs Implementation Testing
+
+**✅ Good: Test Behavior (Outcomes)**
+```typescript
+it('detects forbidden dependency', () => {
+  const result = plugin.check(contract, context);
+  expect(result.diagnostics).toHaveLength(1);
+  expect(result.diagnostics[0].code).toBe(70001);
+});
+```
+
+**❌ Bad: Test Implementation (Internals)**
+```typescript
+it('calls private resolveSymbol method', () => {
+  const spy = vi.spyOn(service as any, 'resolveSymbol');
+  service.check(contract);
+  expect(spy).toHaveBeenCalled();  // Brittle!
+});
+```
+
+**Why behavior testing matters:**
+- Survives refactoring (internal changes don't break tests)
+- Documents what the code *does*, not how
+- Focuses on contract, not implementation details
+
+---
+
+### When to Use Factories vs Hardcoded Values
+
+**✅ Use Factories** (from `tests/helpers/factories.ts`):
+```typescript
+const domain = makeSymbol('domain');
+const contract = noDependency(domain, infrastructure);
+```
+
+**Benefits:**
+- Centralized defaults (change once, apply everywhere)
+- Survives constructor changes
+- Less brittle, less maintenance
+
+**❌ Don't Hardcode**:
+```typescript
+const symbol = new ArchSymbol(
+  'domain',
+  'Kind',
+  { type: 'path', value: './domain' },
+  undefined,
+  undefined
+);  // Breaks when constructor signature changes!
+```
+
+**When to hardcode:**
+- Testing edge cases that factories don't support
+- When the specific value IS the test (e.g., testing validation)
+
+---
+
+### Writing Tests That Survive Refactoring
+
+**Good practices:**
+1. **Use factories** - `makeSymbol()`, `noDependency()`, etc.
+2. **Test outcomes, not internals** - Check diagnostics, not private methods
+3. **Use targeted assertions** - Assert what matters, not everything
+4. **Import from public API when possible** - Not internal modules
+
+**Example of refactoring-resistant test:**
+```typescript
+it('detects forbidden dependency', () => {
+  // Setup using factories
+  const domain = makeSymbol('domain');
+  const infra = makeSymbol('infrastructure');
+
+  mockTS
+    .withSourceFile('src/domain/service.ts', '')
+    .withImport('src/domain/service.ts', 'src/infrastructure/db.ts', '../infrastructure/db', 1);
+
+  domain.files = ['src/domain/service.ts'];
+  infra.files = ['src/infrastructure/db.ts'];
+
+  // Test behavior, not implementation
+  const result = noDependencyPlugin.check(noDependency(domain, infra), makeContext());
+
+  // Targeted assertions
+  expect(result.diagnostics).toHaveLength(1);
+  expect(result.diagnostics[0].code).toBe(70001);
+  // Don't assert on every property of the diagnostic!
+});
+```
+
+---
+
+### Integration vs E2E: When to Use Which
+
+**Integration Tests** (`tests/integration/`):
+- Test multiple services together
+- Use real TypeScript compiler
+- Use fixture projects
+- Fast (< 500ms per test)
+- **Use when:** Testing pipeline workflows, contract checking
+
+**E2E Tests** (`tests/cli/e2e/`):
+- Test CLI as subprocess
+- Full environment simulation
+- Slower (1-3 seconds per test)
+- **Use when:** Testing CLI commands, exit codes, stdout/stderr
+
+**Example decision:**
+- Testing noDependency plugin logic → **Unit test** (`tests/application/no-dependency.plugin.test.ts`)
+- Testing full pipeline with fixtures → **Integration test** (`tests/integration/check-contracts.integration.test.ts`)
+- Testing `ksc check` command → **E2E test** (`tests/cli/e2e/cli.e2e.test.ts`)
+
+---
+
 ## Where to Put New Tests
 
 | What are you testing? | Where |
@@ -223,3 +355,168 @@ Infrastructure adapters are covered via integration/E2E tests without strict thr
 - No single test file should exceed 600 lines
 - If a file grows too large, split it logically by feature or contract type
 - Follow the pattern used in classify-ast splits (3 files by concern)
+
+---
+
+## Troubleshooting
+
+### Tests Failing After Refactoring
+
+**Problem:** Tests break when you rename/move files or refactor internals
+
+**Common causes:**
+1. Tests import from internal modules that moved
+2. Tests check private method calls
+3. Tests use hardcoded values instead of factories
+
+**Solutions:**
+- Use factories (`makeSymbol()`) instead of constructors
+- Test behavior (outcomes) not implementation (internals)
+- Import from public API when possible
+
+**Example fix:**
+```typescript
+// Before (brittle)
+import { BindService } from '../../src/application/pipeline/bind/bind.service';
+const symbol = new ArchSymbol('domain', 'Kind', { type: 'path', value: './domain' });
+
+// After (refactoring-resistant)
+import { makeSymbol } from '../helpers/factories';
+const symbol = makeSymbol('domain');
+```
+
+---
+
+### Coverage Decreases
+
+**Problem:** Coverage drops after changes
+
+**Check:**
+1. Run `npm run test:coverage` to see what's uncovered
+2. Look for new files without tests
+3. Check if test was accidentally removed
+
+**Solution:**
+- Add tests for new files
+- Restore accidentally removed tests
+- Or update coverage thresholds if intentional
+
+---
+
+### Slow Test Execution
+
+**Problem:** Tests take too long to run
+
+**Identify slow tests:**
+```bash
+npm test -- --reporter=verbose
+# Look for tests taking > 1 second
+```
+
+**Common causes:**
+1. Too many E2E tests (should be < 10% of suite)
+2. Integration tests not using fixtures efficiently
+3. Setup/teardown doing too much work
+
+**Solutions:**
+- Move slow tests to integration/E2E (fewer of them)
+- Use shared fixtures instead of creating new ones
+- Mock expensive operations in unit tests
+
+---
+
+### Flaky Tests
+
+**Problem:** Tests pass/fail randomly
+
+**Common causes:**
+1. Tests depend on execution order
+2. Tests share state (global variables, singletons)
+3. Async timing issues
+
+**Solutions:**
+- Ensure each test is isolated (use `beforeEach` to reset state)
+- Don't rely on test execution order
+- Use `await` for all async operations
+- Check that mocks are reset in `afterEach`
+
+**Example:**
+```typescript
+let mockTS: MockTypeScriptAdapter;
+
+beforeEach(() => {
+  mockTS = new MockTypeScriptAdapter();  // Fresh mock each test
+});
+
+afterEach(() => {
+  mockTS.reset();  // Clean up
+});
+```
+
+---
+
+### Vitest-Specific Issues
+
+**Problem:** Migration from Jest causing issues
+
+**Common gotchas:**
+- Use `vi.fn()` instead of `jest.fn()`
+- Use `vi.spyOn()` instead of `jest.spyOn()`
+- Vitest globals must be enabled in `vitest.config.ts`
+
+**Check config:**
+```typescript
+// vitest.config.ts
+test: {
+  globals: true,  // Enables describe, it, expect
+}
+```
+
+---
+
+### Fixture Not Found
+
+**Problem:** Integration/E2E tests can't find fixtures
+
+**Check:**
+1. Fixture path is in `tests/helpers/fixtures.ts`
+2. Fixture directory exists in `tests/integration/fixtures/`
+3. Using correct constant name
+
+**Example:**
+```typescript
+import { FIXTURES } from '../helpers/fixtures';
+
+const result = runPipeline(FIXTURES.CLEAN_ARCH_VIOLATION);  // Use constant
+// NOT: runPipeline('/some/hardcoded/path')
+```
+
+---
+
+### Mock Not Working
+
+**Problem:** Mock adapter not capturing data
+
+**Check:**
+1. Mock is created in `beforeEach`
+2. Mock is reset in `afterEach`
+3. Using correct mock methods
+
+**Example:**
+```typescript
+beforeEach(() => {
+  mockTS = new MockTypeScriptAdapter();
+});
+
+it('test', () => {
+  mockTS.withSourceFile('path.ts', 'content');  // Setup
+  mockTS.withImport('from.ts', 'to.ts', '../to', 1);  // Setup
+
+  const result = service.check(contract, makeContext());
+  // ...assertions
+});
+
+afterEach(() => {
+  mockTS.reset();  // Important!
+});
+```
