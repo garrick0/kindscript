@@ -1,14 +1,20 @@
 import * as os from 'os';
 import * as path from 'path';
+import { readFileSync } from 'fs';
 import { run, FIXTURES_DIR } from './helpers';
+
+// Read version from package.json (single source of truth)
+const pkgPath = path.resolve(__dirname, '../../../package.json');
+const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+const EXPECTED_VERSION = pkg.version;
 
 describe('CLI E2E', () => {
   describe('--version', () => {
-    it('outputs 2.0.1', () => {
+    it('outputs current package version', () => {
       const result = run(['--version']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toBe('2.0.1');
+      expect(result.stdout.trim()).toBe(EXPECTED_VERSION);
     });
   });
 
