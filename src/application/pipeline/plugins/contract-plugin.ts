@@ -1,11 +1,11 @@
-import { TypeScriptPort, TypeChecker, SourceFile } from '../../ports/typescript.port';
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { Contract } from '../../../domain/entities/contract';
-import { Diagnostic } from '../../../domain/entities/diagnostic';
-import { Program } from '../../../domain/entities/program';
-import { ContractType } from '../../../domain/types/contract-type';
-import { ConstraintProvider } from './constraint-provider';
-import type { OwnershipTree } from '../ownership-tree';
+import { TypeScriptPort, TypeChecker, SourceFile } from '../../ports/typescript.port.js';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { Contract } from '../../../domain/entities/contract.js';
+import { Diagnostic } from '../../../domain/entities/diagnostic.js';
+import { Program } from '../../../domain/entities/program.js';
+import { ContractType } from '../../../domain/types/contract-type.js';
+import { ConstraintProvider } from './constraint-provider.js';
+import type { OwnershipTree } from '../ownership-tree.js';
 
 export interface CheckContext {
   tsPort: TypeScriptPort;

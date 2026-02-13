@@ -1,4 +1,4 @@
-import { Program } from '../../../domain/entities/program';
+import { Program } from '../../../domain/entities/program.js';
 
 /**
  * Port defining how KindScript interacts with the TypeScript

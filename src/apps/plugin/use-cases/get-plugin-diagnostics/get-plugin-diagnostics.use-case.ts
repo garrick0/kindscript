@@ -1,4 +1,4 @@
-import { GetPluginDiagnosticsRequest, GetPluginDiagnosticsResponse } from './get-plugin-diagnostics.types';
+import { GetPluginDiagnosticsRequest, GetPluginDiagnosticsResponse } from './get-plugin-diagnostics.types.js';
 
 /**
  * Use case interface for getting KindScript diagnostics for a single file.

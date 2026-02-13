@@ -1,11 +1,11 @@
-import { PipelineUseCase, PipelineRequest, PipelineResponse, PipelineSuccess } from './pipeline.types';
-import { ScanUseCase } from './scan/scan.types';
-import { ParseUseCase } from './parse/parse.types';
-import { BindUseCase } from './bind/bind.types';
-import { CheckerUseCase } from './check/checker.use-case';
-import { ProgramPort } from './program';
-import { FileSystemPort } from '../ports/filesystem.port';
-import { buildOwnershipTree } from './ownership-tree';
+import { PipelineUseCase, PipelineRequest, PipelineResponse, PipelineSuccess } from './pipeline.types.js';
+import { ScanUseCase } from './scan/scan.types.js';
+import { ParseUseCase } from './parse/parse.types.js';
+import { BindUseCase } from './bind/bind.types.js';
+import { CheckerUseCase } from './check/checker.use-case.js';
+import { ProgramPort } from './program.js';
+import { FileSystemPort } from '../ports/filesystem.port.js';
+import { buildOwnershipTree } from './ownership-tree.js';
 
 /**
  * KindScript Pipeline — orchestrates the four compiler stages.

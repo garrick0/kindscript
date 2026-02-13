@@ -1,10 +1,10 @@
-import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin';
-import { Contract } from '../../../../domain/entities/contract';
-import { Diagnostic } from '../../../../domain/entities/diagnostic';
-import { SourceRef } from '../../../../domain/value-objects/source-ref';
-import { ContractType } from '../../../../domain/types/contract-type';
-import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { NODE_BUILTINS } from '../../../../domain/constants/node-builtins';
+import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin.js';
+import { Contract } from '../../../../domain/entities/contract.js';
+import { Diagnostic } from '../../../../domain/entities/diagnostic.js';
+import { SourceRef } from '../../../../domain/value-objects/source-ref.js';
+import { ContractType } from '../../../../domain/types/contract-type.js';
+import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes.js';
+import { NODE_BUILTINS } from '../../../../domain/constants/node-builtins.js';
 
 export const purityPlugin: ContractPlugin = {
   type: ContractType.Purity,

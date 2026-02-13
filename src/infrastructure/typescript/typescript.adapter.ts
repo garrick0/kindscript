@@ -3,11 +3,11 @@ import {
   TypeScriptPort,
   SourceFile,
   TypeChecker,
-} from '../../application/ports/typescript.port';
-import { Program } from '../../domain/entities/program';
-import { ImportEdge } from '../../application/pipeline/check/import-edge';
-import { IntraFileEdge } from '../../application/pipeline/check/intra-file-edge';
-import { CompilerOptions } from '../../domain/types/compiler-options';
+} from '../../application/ports/typescript.port.js';
+import { Program } from '../../domain/entities/program.js';
+import { ImportEdge } from '../../application/pipeline/check/import-edge.js';
+import { IntraFileEdge } from '../../application/pipeline/check/intra-file-edge.js';
+import { CompilerOptions } from '../../domain/types/compiler-options.js';
 
 /**
  * Real implementation of TypeScriptPort using the TypeScript compiler API.

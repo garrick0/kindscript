@@ -1,8 +1,8 @@
-import { ContractPlugin } from '../contract-plugin';
-import { Diagnostic } from '../../../../domain/entities/diagnostic';
-import { SourceRef } from '../../../../domain/value-objects/source-ref';
-import { ContractType } from '../../../../domain/types/contract-type';
-import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
+import { ContractPlugin } from '../contract-plugin.js';
+import { Diagnostic } from '../../../../domain/entities/diagnostic.js';
+import { SourceRef } from '../../../../domain/value-objects/source-ref.js';
+import { ContractType } from '../../../../domain/types/contract-type.js';
+import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes.js';
 
 /**
  * Overlap plugin — detects when two sibling members within the same

@@ -1,4 +1,4 @@
-import { CompilerOptions } from '../../domain/types/compiler-options';
+import { CompilerOptions } from '../../domain/types/compiler-options.js';
 
 /**
  * KindScript configuration file format.

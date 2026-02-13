@@ -1,4 +1,4 @@
-import { ConsolePort } from '../ports/console.port';
+import { ConsolePort } from '../ports/console.port.js';
 
 /**
  * Console adapter that writes info to stdout and errors to stderr.

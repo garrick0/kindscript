@@ -1,11 +1,11 @@
 import * as ts from 'typescript';
-import { ASTViewPort } from '../../application/ports/ast.port';
+import { ASTViewPort } from '../../application/ports/ast.port.js';
 import {
   ASTExtractionResult, TypeNodeView,
   KindDefinitionView, MemberValueView, InstanceDeclarationView,
   AnnotatedExportView, DeclarationView,
-} from '../../application/pipeline/views';
-import { SourceFile, TypeChecker } from '../../application/ports/typescript.port';
+} from '../../application/pipeline/views.js';
+import { SourceFile, TypeChecker } from '../../application/ports/typescript.port.js';
 
 /**
  * Real implementation of ASTViewPort using the TypeScript compiler API.

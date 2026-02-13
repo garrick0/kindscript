@@ -1,7 +1,7 @@
-import { Program } from '../../domain/entities/program';
-import { ImportEdge } from '../pipeline/check/import-edge';
-import { IntraFileEdge } from '../pipeline/check/intra-file-edge';
-import { CompilerOptions } from '../../domain/types/compiler-options';
+import { Program } from '../../domain/entities/program.js';
+import { ImportEdge } from '../pipeline/check/import-edge.js';
+import { IntraFileEdge } from '../pipeline/check/intra-file-edge.js';
+import { CompilerOptions } from '../../domain/types/compiler-options.js';
 
 /**
  * Domain abstraction for a TypeScript source file.

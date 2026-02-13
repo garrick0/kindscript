@@ -1,8 +1,8 @@
-import { ConfigPort, KindScriptConfig } from '../ports/config.port';
-import { FileSystemPort } from '../ports/filesystem.port';
-import { CompilerPort, SourceFile, TypeChecker } from '../ports/typescript.port';
-import { CompilerOptions } from '../../domain/types/compiler-options';
-import { Program } from '../../domain/entities/program';
+import { ConfigPort, KindScriptConfig } from '../ports/config.port.js';
+import { FileSystemPort } from '../ports/filesystem.port.js';
+import { CompilerPort, SourceFile, TypeChecker } from '../ports/typescript.port.js';
+import { CompilerOptions } from '../../domain/types/compiler-options.js';
+import { Program } from '../../domain/entities/program.js';
 
 /**
  * Everything needed to run the pipeline stages.

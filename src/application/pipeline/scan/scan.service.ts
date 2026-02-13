@@ -1,6 +1,6 @@
-import { ScanRequest, ScanResult, ScannedInstance, ScannedAnnotatedExport, ScanUseCase } from './scan.types';
-import { ASTViewPort } from '../../ports/ast.port';
-import { KindDefinitionView } from '../views';
+import { ScanRequest, ScanResult, ScannedInstance, ScannedAnnotatedExport, ScanUseCase } from './scan.types.js';
+import { ASTViewPort } from '../../ports/ast.port.js';
+import { KindDefinitionView } from '../views.js';
 
 /**
  * KindScript Scanner — reads the TypeScript AST to extract raw views.

@@ -1,6 +1,6 @@
-import { TypeNodeView } from '../views';
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { Contract } from '../../../domain/entities/contract';
+import { TypeNodeView } from '../views.js';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { Contract } from '../../../domain/entities/contract.js';
 
 /**
  * Result of a constraint generator.

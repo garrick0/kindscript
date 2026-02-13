@@ -1,4 +1,4 @@
-import { Diagnostic } from '../../../domain/entities/diagnostic';
+import { Diagnostic } from '../../../domain/entities/diagnostic.js';
 
 /**
  * Port defining how the CLI outputs diagnostics to the user.

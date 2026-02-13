@@ -1,5 +1,5 @@
-import { ArchSymbol } from '../../domain/entities/arch-symbol';
-import { ArchSymbolKind } from '../../domain/types/arch-symbol-kind';
+import { ArchSymbol } from '../../domain/entities/arch-symbol.js';
+import { ArchSymbolKind } from '../../domain/types/arch-symbol-kind.js';
 
 /**
  * Node in the ownership tree. Each node represents an instance

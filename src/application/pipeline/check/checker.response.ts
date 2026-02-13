@@ -1,4 +1,4 @@
-import { Diagnostic } from '../../../domain/entities/diagnostic';
+import { Diagnostic } from '../../../domain/entities/diagnostic.js';
 
 /**
  * Response DTO for the Checker stage.

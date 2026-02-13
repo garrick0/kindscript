@@ -1,7 +1,7 @@
-import { GetPluginDiagnosticsUseCase } from './get-plugin-diagnostics.use-case';
-import { GetPluginDiagnosticsRequest, GetPluginDiagnosticsResponse } from './get-plugin-diagnostics.types';
-import { PipelineUseCase } from '../../../../application/pipeline/pipeline.types';
-import { Diagnostic } from '../../../../domain/entities/diagnostic';
+import { GetPluginDiagnosticsUseCase } from './get-plugin-diagnostics.use-case.js';
+import { GetPluginDiagnosticsRequest, GetPluginDiagnosticsResponse } from './get-plugin-diagnostics.types.js';
+import { PipelineUseCase } from '../../../../application/pipeline/pipeline.types.js';
+import { Diagnostic } from '../../../../domain/entities/diagnostic.js';
 
 /**
  * Implementation of GetPluginDiagnosticsUseCase.

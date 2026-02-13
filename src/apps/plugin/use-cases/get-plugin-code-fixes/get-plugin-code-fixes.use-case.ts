@@ -1,4 +1,4 @@
-import { GetPluginCodeFixesRequest, GetPluginCodeFixesResponse } from './get-plugin-code-fixes.types';
+import { GetPluginCodeFixesRequest, GetPluginCodeFixesResponse } from './get-plugin-code-fixes.types.js';
 
 /**
  * Use case interface for generating code fix suggestions for KindScript diagnostics.

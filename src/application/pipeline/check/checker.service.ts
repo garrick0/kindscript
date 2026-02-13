@@ -1,12 +1,12 @@
-import { CheckerUseCase } from './checker.use-case';
-import { CheckerRequest } from './checker.request';
-import { CheckerResponse } from './checker.response';
-import { TypeScriptPort } from '../../ports/typescript.port';
-import { ContractPlugin, CheckContext } from '../plugins/contract-plugin';
-import { Diagnostic } from '../../../domain/entities/diagnostic';
-import { SourceRef } from '../../../domain/value-objects/source-ref';
-import { DiagnosticCode } from '../../../domain/constants/diagnostic-codes';
-import { ContractType } from '../../../domain/types/contract-type';
+import { CheckerUseCase } from './checker.use-case.js';
+import { CheckerRequest } from './checker.request.js';
+import { CheckerResponse } from './checker.response.js';
+import { TypeScriptPort } from '../../ports/typescript.port.js';
+import { ContractPlugin, CheckContext } from '../plugins/contract-plugin.js';
+import { Diagnostic } from '../../../domain/entities/diagnostic.js';
+import { SourceRef } from '../../../domain/value-objects/source-ref.js';
+import { DiagnosticCode } from '../../../domain/constants/diagnostic-codes.js';
+import { ContractType } from '../../../domain/types/contract-type.js';
 
 /**
  * KindScript Checker — evaluates contracts and produces diagnostics.

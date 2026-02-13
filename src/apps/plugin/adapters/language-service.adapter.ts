@@ -1,6 +1,6 @@
 import type * as ts from 'typescript';
-import { LanguageServicePort } from '../ports/language-service.port';
-import { Program } from '../../../domain/entities/program';
+import { LanguageServicePort } from '../ports/language-service.port.js';
+import { Program } from '../../../domain/entities/program.js';
 
 /**
  * Real implementation of LanguageServicePort for the plugin context.

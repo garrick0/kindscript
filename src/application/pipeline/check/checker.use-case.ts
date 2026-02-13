@@ -1,5 +1,5 @@
-import { CheckerRequest } from './checker.request';
-import { CheckerResponse } from './checker.response';
+import { CheckerRequest } from './checker.request.js';
+import { CheckerResponse } from './checker.response.js';
 
 /**
  * Use case interface for the Checker stage.

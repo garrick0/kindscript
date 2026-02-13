@@ -1,6 +1,6 @@
-import { PipelineUseCase } from '../../../application/pipeline/pipeline.types';
-import { DiagnosticPort } from '../ports/diagnostic.port';
-import { ConsolePort } from '../ports/console.port';
+import { PipelineUseCase } from '../../../application/pipeline/pipeline.types.js';
+import { DiagnosticPort } from '../ports/diagnostic.port.js';
+import { ConsolePort } from '../ports/console.port.js';
 
 /**
  * CLI command: ksc check

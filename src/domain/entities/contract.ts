@@ -1,6 +1,6 @@
-import { ContractType } from '../types/contract-type';
-import { ArchSymbol } from './arch-symbol';
-import { ContractReference } from '../value-objects/contract-reference';
+import { ContractType } from '../types/contract-type.js';
+import { ArchSymbol } from './arch-symbol.js';
+import { ContractReference } from '../value-objects/contract-reference.js';
 
 /**
  * Domain entity representing an architectural contract.

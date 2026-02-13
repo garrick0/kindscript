@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'module';
-import { CheckCommand } from './commands/check.command';
-import { CLIDiagnosticAdapter } from './adapters/cli-diagnostic.adapter';
-import { CLIConsoleAdapter } from './adapters/cli-console.adapter';
-import { createEngine } from '../../infrastructure/engine-factory';
+import { CheckCommand } from './commands/check.command.js';
+import { CLIDiagnosticAdapter } from './adapters/cli-diagnostic.adapter.js';
+import { CLIConsoleAdapter } from './adapters/cli-console.adapter.js';
+import { createEngine } from '../../infrastructure/engine-factory.js';
 
 const require = createRequire(import.meta.url);
 

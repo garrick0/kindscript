@@ -1,8 +1,8 @@
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { Contract } from '../../../domain/entities/contract';
-import { Program } from '../../../domain/entities/program';
-import { KindScriptConfig } from '../../ports/config.port';
-import { OwnershipTree } from '../ownership-tree';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { Contract } from '../../../domain/entities/contract.js';
+import { Program } from '../../../domain/entities/program.js';
+import { KindScriptConfig } from '../../ports/config.port.js';
+import { OwnershipTree } from '../ownership-tree.js';
 
 /**
  * Request DTO for the Checker stage.

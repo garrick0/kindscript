@@ -1,8 +1,8 @@
-import { TypeNodeView } from '../views';
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { Contract } from '../../../domain/entities/contract';
-import { ContractType } from '../../../domain/types/contract-type';
-import { GeneratorResult } from './constraint-provider';
+import { TypeNodeView } from '../views.js';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { Contract } from '../../../domain/entities/contract.js';
+import { ContractType } from '../../../domain/types/contract-type.js';
+import { GeneratorResult } from './constraint-provider.js';
 
 /**
  * Shared generator for tuplePairs constraints (noDependency).

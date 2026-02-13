@@ -1,6 +1,6 @@
-import { GetPluginCodeFixesUseCase } from './get-plugin-code-fixes.use-case';
-import { GetPluginCodeFixesRequest, GetPluginCodeFixesResponse, PluginCodeFix } from './get-plugin-code-fixes.types';
-import { ContractPlugin } from '../../../../application/pipeline/plugins/contract-plugin';
+import { GetPluginCodeFixesUseCase } from './get-plugin-code-fixes.use-case.js';
+import { GetPluginCodeFixesRequest, GetPluginCodeFixesResponse, PluginCodeFix } from './get-plugin-code-fixes.types.js';
+import { ContractPlugin } from '../../../../application/pipeline/plugins/contract-plugin.js';
 
 /** KindScript error code range */
 const KS_CODE_MIN = 70001;

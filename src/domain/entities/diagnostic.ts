@@ -1,5 +1,5 @@
-import { ContractReference } from '../value-objects/contract-reference';
-import { SourceRef } from '../value-objects/source-ref';
+import { ContractReference } from '../value-objects/contract-reference.js';
+import { SourceRef } from '../value-objects/source-ref.js';
 
 /**
  * Domain entity representing an architectural violation diagnostic.

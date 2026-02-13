@@ -1,14 +1,14 @@
-import { BindResult, BindUseCase } from './bind.types';
-import { ParseResult } from '../parse/parse.types';
-import { ScanResult } from '../scan/scan.types';
-import { TypeNodeView } from '../views';
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
-import { Contract } from '../../../domain/entities/contract';
-import { ContractType } from '../../../domain/types/contract-type';
-import type { ConstraintProvider } from '../plugins/constraint-provider';
-import { carrierKey, hasAnnotationAtom } from '../../../domain/types/carrier';
-import { CarrierResolver } from '../carrier/carrier-resolver';
+import { BindResult, BindUseCase } from './bind.types.js';
+import { ParseResult } from '../parse/parse.types.js';
+import { ScanResult } from '../scan/scan.types.js';
+import { TypeNodeView } from '../views.js';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind.js';
+import { Contract } from '../../../domain/entities/contract.js';
+import { ContractType } from '../../../domain/types/contract-type.js';
+import type { ConstraintProvider } from '../plugins/constraint-provider.js';
+import { carrierKey, hasAnnotationAtom } from '../../../domain/types/carrier.js';
+import { CarrierResolver } from '../carrier/carrier-resolver.js';
 
 /**
  * KindScript Binder — resolves carriers and generates Contracts.

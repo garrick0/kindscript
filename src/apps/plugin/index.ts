@@ -1,9 +1,9 @@
 import type * as ts from 'typescript';
-import { GetPluginDiagnosticsService } from './use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service';
-import { GetPluginCodeFixesService } from './use-cases/get-plugin-code-fixes/get-plugin-code-fixes.service';
-import { LanguageServiceAdapter } from './adapters/language-service.adapter';
-import { createLanguageServiceProxy } from './language-service-proxy';
-import { createEngine } from '../../infrastructure/engine-factory';
+import { GetPluginDiagnosticsService } from './use-cases/get-plugin-diagnostics/get-plugin-diagnostics.service.js';
+import { GetPluginCodeFixesService } from './use-cases/get-plugin-code-fixes/get-plugin-code-fixes.service.js';
+import { LanguageServiceAdapter } from './adapters/language-service.adapter.js';
+import { createLanguageServiceProxy } from './language-service-proxy.js';
+import { createEngine } from '../../infrastructure/engine-factory.js';
 
 /**
  * TypeScript language service plugin entry point.

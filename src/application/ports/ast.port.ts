@@ -1,8 +1,8 @@
-import { SourceFile, TypeChecker } from './typescript.port';
+import { SourceFile, TypeChecker } from './typescript.port.js';
 import {
   KindDefinitionView, InstanceDeclarationView,
   AnnotatedExportView, DeclarationView, ASTExtractionResult,
-} from '../pipeline/views';
+} from '../pipeline/views.js';
 
 /**
  * Port for extracting architectural information from TypeScript source files.

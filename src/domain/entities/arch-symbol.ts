@@ -1,5 +1,5 @@
-import { ArchSymbolKind } from '../types/arch-symbol-kind';
-import { CarrierExpr, carrierKey } from '../types/carrier';
+import { ArchSymbolKind } from '../types/arch-symbol-kind.js';
+import { CarrierExpr, carrierKey } from '../types/carrier.js';
 
 /**
  * Core domain entity representing an architectural symbol.

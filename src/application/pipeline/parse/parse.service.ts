@@ -1,10 +1,10 @@
-import { ParseResult, ParseUseCase } from './parse.types';
-import { ScanResult } from '../scan/scan.types';
-import { KindDefinitionView, MemberValueView } from '../views';
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind';
-import { CarrierExpr } from '../../../domain/types/carrier';
-import { joinPath, dirnamePath, resolvePath } from '../../../infrastructure/path/path-utils';
+import { ParseResult, ParseUseCase } from './parse.types.js';
+import { ScanResult } from '../scan/scan.types.js';
+import { KindDefinitionView, MemberValueView } from '../views.js';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { ArchSymbolKind } from '../../../domain/types/arch-symbol-kind.js';
+import { CarrierExpr } from '../../../domain/types/carrier.js';
+import { joinPath, dirnamePath, resolvePath } from '../../../infrastructure/path/path-utils.js';
 
 /**
  * KindScript Parser — builds the ArchSymbol tree from scanner output.

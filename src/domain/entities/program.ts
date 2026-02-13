@@ -1,4 +1,4 @@
-import { CompilerOptions } from '../types/compiler-options';
+import { CompilerOptions } from '../types/compiler-options.js';
 
 /**
  * Domain entity representing a TypeScript program.

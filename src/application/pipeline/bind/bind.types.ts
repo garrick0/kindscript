@@ -1,6 +1,6 @@
-import { Contract } from '../../../domain/entities/contract';
-import { ParseResult } from '../parse/parse.types';
-import { ScanResult } from '../scan/scan.types';
+import { Contract } from '../../../domain/entities/contract.js';
+import { ParseResult } from '../parse/parse.types.js';
+import { ScanResult } from '../scan/scan.types.js';
 
 /**
  * Output of the Binder stage.

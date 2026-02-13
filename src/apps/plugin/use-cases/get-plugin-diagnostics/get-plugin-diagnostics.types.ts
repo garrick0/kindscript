@@ -1,4 +1,4 @@
-import { Diagnostic } from '../../../../domain/entities/diagnostic';
+import { Diagnostic } from '../../../../domain/entities/diagnostic.js';
 
 /**
  * Request DTO for the GetPluginDiagnostics use case.

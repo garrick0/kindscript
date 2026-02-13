@@ -1,10 +1,10 @@
-import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin';
-import { Diagnostic } from '../../../../domain/entities/diagnostic';
-import { SourceRef } from '../../../../domain/value-objects/source-ref';
-import { ContractType } from '../../../../domain/types/contract-type';
-import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
-import { findCycles } from '../../../../domain/utils/cycle-detection';
-import { generateFromStringList } from '../generator-helpers';
+import { ContractPlugin, getSourceFilesForPaths } from '../contract-plugin.js';
+import { Diagnostic } from '../../../../domain/entities/diagnostic.js';
+import { SourceRef } from '../../../../domain/value-objects/source-ref.js';
+import { ContractType } from '../../../../domain/types/contract-type.js';
+import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes.js';
+import { findCycles } from '../../../../domain/utils/cycle-detection.js';
+import { generateFromStringList } from '../generator-helpers.js';
 
 export const noCyclesPlugin: ContractPlugin = {
   type: ContractType.NoCycles,

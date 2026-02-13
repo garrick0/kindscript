@@ -3,8 +3,8 @@ import {
   ConfigPort,
   KindScriptConfig,
   TSConfig,
-} from '../../application/ports/config.port';
-import { FileSystemPort } from '../../application/ports/filesystem.port';
+} from '../../application/ports/config.port.js';
+import { FileSystemPort } from '../../application/ports/filesystem.port.js';
 
 /**
  * Real implementation of ConfigPort that reads config files from disk.

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as nodePath from 'path';
-import { FileSystemPort } from '../../application/ports/filesystem.port';
+import { FileSystemPort } from '../../application/ports/filesystem.port.js';
 
 /**
  * Real implementation of FileSystemPort using Node's fs and path modules.

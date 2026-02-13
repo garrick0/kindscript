@@ -1,5 +1,5 @@
-import { DiagnosticPort } from '../ports/diagnostic.port';
-import { Diagnostic } from '../../../domain/entities/diagnostic';
+import { DiagnosticPort } from '../ports/diagnostic.port.js';
+import { Diagnostic } from '../../../domain/entities/diagnostic.js';
 
 /**
  * Real implementation of DiagnosticPort for CLI terminal output.

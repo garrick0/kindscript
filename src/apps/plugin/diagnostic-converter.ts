@@ -1,7 +1,7 @@
 import type * as ts from 'typescript';
-import { Diagnostic } from '../../domain/entities/diagnostic';
-import { Program } from '../../domain/entities/program';
-import { PluginCodeFix } from './use-cases/get-plugin-code-fixes/get-plugin-code-fixes.types';
+import { Diagnostic } from '../../domain/entities/diagnostic.js';
+import { Program } from '../../domain/entities/program.js';
+import { PluginCodeFix } from './use-cases/get-plugin-code-fixes/get-plugin-code-fixes.types.js';
 
 /**
  * Convert a KindScript domain Diagnostic to a TypeScript ts.Diagnostic.

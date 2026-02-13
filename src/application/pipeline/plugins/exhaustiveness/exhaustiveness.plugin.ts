@@ -1,9 +1,9 @@
-import { ContractPlugin } from '../contract-plugin';
-import { Contract } from '../../../../domain/entities/contract';
-import { Diagnostic } from '../../../../domain/entities/diagnostic';
-import { SourceRef } from '../../../../domain/value-objects/source-ref';
-import { ContractType } from '../../../../domain/types/contract-type';
-import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes';
+import { ContractPlugin } from '../contract-plugin.js';
+import { Contract } from '../../../../domain/entities/contract.js';
+import { Diagnostic } from '../../../../domain/entities/diagnostic.js';
+import { SourceRef } from '../../../../domain/value-objects/source-ref.js';
+import { ContractType } from '../../../../domain/types/contract-type.js';
+import { DiagnosticCode } from '../../../../domain/constants/diagnostic-codes.js';
 
 /**
  * Default exclusion patterns for exhaustiveness checking.

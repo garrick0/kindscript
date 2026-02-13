@@ -1,4 +1,4 @@
-import { ContractType } from '../types/contract-type';
+import { ContractType } from '../types/contract-type.js';
 
 /**
  * A reference to a contract from a diagnostic or symbol.

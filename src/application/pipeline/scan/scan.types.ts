@@ -1,5 +1,5 @@
-import { SourceFile, TypeChecker } from '../../ports/typescript.port';
-import { KindDefinitionView, InstanceDeclarationView, AnnotatedExportView } from '../views';
+import { SourceFile, TypeChecker } from '../../ports/typescript.port.js';
+import { KindDefinitionView, InstanceDeclarationView, AnnotatedExportView } from '../views.js';
 
 /**
  * Request DTO for the Scanner stage.

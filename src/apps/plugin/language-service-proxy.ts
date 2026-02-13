@@ -1,8 +1,8 @@
 import type * as ts from 'typescript';
-import { LanguageServiceAdapter } from './adapters/language-service.adapter';
-import { GetPluginDiagnosticsUseCase } from './use-cases/get-plugin-diagnostics/get-plugin-diagnostics.use-case';
-import { GetPluginCodeFixesUseCase } from './use-cases/get-plugin-code-fixes/get-plugin-code-fixes.use-case';
-import { convertToTSDiagnostic, convertToCodeFixAction } from './diagnostic-converter';
+import { LanguageServiceAdapter } from './adapters/language-service.adapter.js';
+import { GetPluginDiagnosticsUseCase } from './use-cases/get-plugin-diagnostics/get-plugin-diagnostics.use-case.js';
+import { GetPluginCodeFixesUseCase } from './use-cases/get-plugin-code-fixes/get-plugin-code-fixes.use-case.js';
+import { convertToTSDiagnostic, convertToCodeFixAction } from './diagnostic-converter.js';
 
 /**
  * Creates a proxied ts.LanguageService that intercepts diagnostic

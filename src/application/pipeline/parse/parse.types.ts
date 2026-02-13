@@ -1,6 +1,6 @@
-import { ArchSymbol } from '../../../domain/entities/arch-symbol';
-import { KindDefinitionView } from '../views';
-import { ScanResult } from '../scan/scan.types';
+import { ArchSymbol } from '../../../domain/entities/arch-symbol.js';
+import { KindDefinitionView } from '../views.js';
+import { ScanResult } from '../scan/scan.types.js';
 
 /**
  * Output of the Parser stage.

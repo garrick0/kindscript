@@ -1,5 +1,5 @@
-import { PipelineUseCase } from './pipeline/pipeline.types';
-import { ContractPlugin } from './pipeline/plugins/contract-plugin';
+import { PipelineUseCase } from './pipeline/pipeline.types.js';
+import { ContractPlugin } from './pipeline/plugins/contract-plugin.js';
 
 /**
  * Engine bundles the shared core services that both CLI and plugin need.

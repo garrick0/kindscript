@@ -1,5 +1,5 @@
-import { CarrierExpr } from '../../../domain/types/carrier';
-import { FileSystemPort } from '../../ports/filesystem.port';
+import { CarrierExpr } from '../../../domain/types/carrier.js';
+import { FileSystemPort } from '../../ports/filesystem.port.js';
 
 /**
  * Scan context needed for resolving annotation carriers.

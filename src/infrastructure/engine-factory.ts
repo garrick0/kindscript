@@ -1,16 +1,16 @@
-import { Engine } from '../application/engine';
-import { ScanService } from '../application/pipeline/scan/scan.service';
-import { ParseService } from '../application/pipeline/parse/parse.service';
-import { BindService } from '../application/pipeline/bind/bind.service';
-import { CheckerService } from '../application/pipeline/check/checker.service';
-import { PipelineService } from '../application/pipeline/pipeline.service';
-import { ProgramFactory } from '../application/pipeline/program';
-import { createAllPlugins } from '../application/pipeline/plugins/plugin-registry';
-import { CarrierResolver } from '../application/pipeline/carrier/carrier-resolver';
-import { TypeScriptAdapter } from './typescript/typescript.adapter';
-import { FileSystemAdapter } from './filesystem/filesystem.adapter';
-import { ConfigAdapter } from './config/config.adapter';
-import { ASTAdapter } from './ast/ast.adapter';
+import { Engine } from '../application/engine.js';
+import { ScanService } from '../application/pipeline/scan/scan.service.js';
+import { ParseService } from '../application/pipeline/parse/parse.service.js';
+import { BindService } from '../application/pipeline/bind/bind.service.js';
+import { CheckerService } from '../application/pipeline/check/checker.service.js';
+import { PipelineService } from '../application/pipeline/pipeline.service.js';
+import { ProgramFactory } from '../application/pipeline/program.js';
+import { createAllPlugins } from '../application/pipeline/plugins/plugin-registry.js';
+import { CarrierResolver } from '../application/pipeline/carrier/carrier-resolver.js';
+import { TypeScriptAdapter } from './typescript/typescript.adapter.js';
+import { FileSystemAdapter } from './filesystem/filesystem.adapter.js';
+import { ConfigAdapter } from './config/config.adapter.js';
+import { ASTAdapter } from './ast/ast.adapter.js';
 
 /**
  * Creates a fully-wired Engine with all shared adapters and services.
