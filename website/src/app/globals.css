@@ -1,4 +1,4 @@
-@import 'nextra-theme-docs/style.css';
+@import '../../node_modules/nextra-theme-docs/dist/style-prefixed.css';
 
 @tailwind base;
 @tailwind components;
