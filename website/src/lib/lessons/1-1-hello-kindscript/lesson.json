@@ -1,0 +1,8 @@
+{
+  "slug": "1-1-hello-kindscript",
+  "title": "Hello KindScript",
+  "partTitle": "noDependency — Forbidden Imports",
+  "partNumber": 1,
+  "lessonNumber": 1,
+  "focus": "src/context.ts"
+}

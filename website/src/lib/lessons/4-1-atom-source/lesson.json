@@ -1,0 +1,11 @@
+{
+  "slug": "4-1-atom-source",
+  "title": "Modeling a Component",
+  "partTitle": "Modeling a Design System",
+  "partNumber": 4,
+  "lessonNumber": 1,
+  "focus": "src/context.ts",
+  "sharedFiles": {
+    "storybook/": "storybook"
+  }
+}

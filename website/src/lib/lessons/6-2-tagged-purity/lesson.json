@@ -1,0 +1,8 @@
+{
+  "slug": "6-2-tagged-purity",
+  "title": "Pure Tagged Exports",
+  "partTitle": "Wrapped Kinds — Declaration-Level Enforcement",
+  "partNumber": 6,
+  "lessonNumber": 2,
+  "focus": "src/validate-order.ts"
+}

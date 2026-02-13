@@ -1,0 +1,29 @@
+# Pure Annotated Exports
+
+In the previous lesson, our Decider was clean. But what happens when an annotated export violates its Kind's constraints?
+
+## The Violation
+
+Look at `src/validate-order.ts`. This Decider now imports from `fs`:
+
+```typescript
+import { readFileSync } from 'fs';
+```
+
+The `Decider` Kind has `{ pure: true }`, which means **any file containing a `Decider`-annotated export cannot import Node.js I/O modules**.
+
+## See the Error
+
+Run `npx ksc check .` to see the violation.
+
+You should see error **KS70003** — the same purity error from Part 2, but now it applies to a specific annotated export rather than an entire directory.
+
+:::info
+This is the power of wrapped Kinds: constraints follow the **type annotation**, not the file's directory. You can have pure and impure exports in the same codebase, and KindScript tracks each one individually.
+:::
+
+## Fix It
+
+Edit `src/validate-order.ts` to remove the `fs` import. The decider should be a pure function — it takes a command and returns events, with no side effects.
+
+Run `npx ksc check .` again to verify the fix.

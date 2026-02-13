@@ -1,0 +1,8 @@
+{
+  "slug": "7-1-bounded-contexts",
+  "title": "Bounded Contexts",
+  "partTitle": "Scaling Your Architecture",
+  "partNumber": 7,
+  "lessonNumber": 1,
+  "focus": "src/context.ts"
+}

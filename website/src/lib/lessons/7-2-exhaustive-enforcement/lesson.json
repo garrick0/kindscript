@@ -1,0 +1,8 @@
+{
+  "slug": "7-2-exhaustive-enforcement",
+  "title": "Exhaustive Enforcement",
+  "partTitle": "Scaling Your Architecture",
+  "partNumber": 7,
+  "lessonNumber": 2,
+  "focus": "src/context.ts"
+}

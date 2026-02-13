@@ -1,0 +1,8 @@
+{
+  "slug": "3-1-detecting-cycles",
+  "title": "Detecting Cycles",
+  "partTitle": "noCycles — Break Circular Dependencies",
+  "partNumber": 3,
+  "lessonNumber": 1,
+  "focus": "src/domain/service.ts"
+}

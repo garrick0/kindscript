@@ -1,0 +1,8 @@
+{
+  "slug": "1-3-fix-the-violation",
+  "title": "Fix the Violation",
+  "partTitle": "noDependency — Forbidden Imports",
+  "partNumber": 1,
+  "lessonNumber": 3,
+  "focus": "src/domain/user.ts"
+}

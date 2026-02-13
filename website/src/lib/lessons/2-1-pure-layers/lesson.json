@@ -1,0 +1,8 @@
+{
+  "slug": "2-1-pure-layers",
+  "title": "Pure Layers",
+  "partTitle": "purity — No I/O in Pure Layers",
+  "partNumber": 2,
+  "lessonNumber": 1,
+  "focus": "src/domain/service.ts"
+}

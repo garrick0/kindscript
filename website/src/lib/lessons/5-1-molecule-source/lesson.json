@@ -1,0 +1,8 @@
+{
+  "slug": "5-1-molecule-source",
+  "title": "Modeling a Molecule",
+  "partTitle": "Modeling Molecules",
+  "partNumber": 5,
+  "lessonNumber": 1,
+  "focus": "src/context.ts"
+}

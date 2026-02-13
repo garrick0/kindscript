@@ -1,0 +1,8 @@
+{
+  "slug": "4-2-atom-story",
+  "title": "Adding Stories",
+  "partTitle": "Modeling a Design System",
+  "partNumber": 4,
+  "lessonNumber": 2,
+  "focus": "src/context.ts"
+}

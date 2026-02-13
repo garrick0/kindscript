@@ -1,0 +1,8 @@
+{
+  "slug": "5-2-molecule-story",
+  "title": "Adding Molecule Stories",
+  "partTitle": "Modeling Molecules",
+  "partNumber": 5,
+  "lessonNumber": 2,
+  "focus": "src/context.ts"
+}

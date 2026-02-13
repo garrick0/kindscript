@@ -1,0 +1,8 @@
+{
+  "slug": "5-3-molecule-version",
+  "title": "The Molecule Version",
+  "partTitle": "Modeling Molecules",
+  "partNumber": 5,
+  "lessonNumber": 3,
+  "focus": "src/context.ts"
+}

@@ -1,0 +1,37 @@
+# Full-Stack Architecture
+
+Time to put it all together. This lesson has a complete architectural definition that combines everything you've learned. Your job: find and fix the violations.
+
+## The Architecture
+
+Look at `src/context.ts`. This is an order processing module with:
+
+- **Three layers**: domain (pure), application, and infrastructure
+- **`noDependency`**: domain cannot import from infrastructure or application; handlers cannot import from infrastructure
+- **`noCycles`**: no circular dependencies between layers
+- **`purity`**: domain layer and command handlers have no I/O imports
+- **Wrapped Kind**: `CommandHandler` — pure tagged exports for command processing
+
+This is a realistic architecture for a backend service.
+
+## Find the Violations
+
+There are **two violations** hidden in this codebase. Run `npx ksc check .` to find them.
+
+Read each error carefully:
+
+1. What file is the violation in?
+2. What constraint is violated?
+3. What's the fix?
+
+## Fix Them
+
+Edit the violating files to fix both errors. You've seen both patterns before — one is a forbidden dependency, the other is a purity violation on a tagged export.
+
+:::tip
+In a real project, you'd fix violations one at a time and re-run `ksc check` after each fix. The compiler output tells you exactly what's wrong and which contract is violated.
+:::
+
+Run `npx ksc check .` after fixing both to see all contracts satisfied.
+
+Congratulations — you now know how to define, enforce, and fix architectural constraints with KindScript!

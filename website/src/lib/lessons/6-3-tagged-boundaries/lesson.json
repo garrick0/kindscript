@@ -1,0 +1,8 @@
+{
+  "slug": "6-3-tagged-boundaries",
+  "title": "Boundaries Between Roles",
+  "partTitle": "Wrapped Kinds — Declaration-Level Enforcement",
+  "partNumber": 6,
+  "lessonNumber": 3,
+  "focus": "src/apply-discount.ts"
+}

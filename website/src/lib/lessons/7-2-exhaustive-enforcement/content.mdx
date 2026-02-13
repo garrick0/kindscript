@@ -1,0 +1,50 @@
+# Exhaustive Enforcement
+
+By default, KindScript only checks files that belong to a member. Files outside any member's scope are **invisible** — no rules apply to them. This means developers can accidentally add code that escapes enforcement.
+
+The `exhaustive` constraint catches this.
+
+## The Setup
+
+Look at `src/context.ts`. The `App` Kind has one member (`core` at `./core`) and `exhaustive: true`:
+
+```typescript
+type App = Kind<"App", {
+  core: [Core, './core'];
+}, {
+  exhaustive: true;
+}>;
+```
+
+This means: **every source file in the instance scope must belong to a member.**
+
+## The Violation
+
+Look at `src/helpers.ts`. It's a utility file at the project root — outside the `core/` directory. No member claims it.
+
+Run `npx ksc check .` to see the error.
+
+You should see error **KS70007** — unassigned code detected. KindScript found a file that doesn't belong to any member.
+
+## Fix It
+
+Edit `src/context.ts` to add a `helpers` member that maps to `./helpers.ts`:
+
+```typescript
+type Helpers = Kind<"Helpers">;
+
+type App = Kind<"App", {
+  core: [Core, './core'];
+  helpers: [Helpers, './helpers.ts'];
+}, {
+  exhaustive: true;
+}>;
+```
+
+Don't forget to add `helpers: {}` to the instance object too.
+
+Run `npx ksc check .` to verify.
+
+:::tip
+Use `exhaustive: true` when you want to guarantee that **no code escapes architectural enforcement**. It's especially valuable on teams where new developers might add files in unexpected locations.
+:::

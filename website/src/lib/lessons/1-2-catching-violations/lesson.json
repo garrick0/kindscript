@@ -1,0 +1,8 @@
+{
+  "slug": "1-2-catching-violations",
+  "title": "Catching Violations",
+  "partTitle": "noDependency — Forbidden Imports",
+  "partNumber": 1,
+  "lessonNumber": 2,
+  "focus": "src/domain/user.ts"
+}

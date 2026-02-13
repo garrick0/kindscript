@@ -1,0 +1,8 @@
+{
+  "slug": "3-2-break-the-cycle",
+  "title": "Break the Cycle",
+  "partTitle": "noCycles — Break Circular Dependencies",
+  "partNumber": 3,
+  "lessonNumber": 2,
+  "focus": "src/domain/service.ts"
+}

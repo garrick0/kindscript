@@ -1,0 +1,8 @@
+{
+  "slug": "6-1-wrapped-kinds",
+  "title": "Wrapped Kinds",
+  "partTitle": "Wrapped Kinds — Declaration-Level Enforcement",
+  "partNumber": 6,
+  "lessonNumber": 1,
+  "focus": "src/validate-order.ts"
+}

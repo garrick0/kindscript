@@ -1,0 +1,8 @@
+{
+  "slug": "4-3-atom-version",
+  "title": "The Version Pattern",
+  "partTitle": "Modeling a Design System",
+  "partNumber": 4,
+  "lessonNumber": 3,
+  "focus": "src/context.ts"
+}

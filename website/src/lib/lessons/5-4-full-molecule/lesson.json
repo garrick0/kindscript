@@ -1,0 +1,8 @@
+{
+  "slug": "5-4-full-molecule",
+  "title": "Composing the Molecule",
+  "partTitle": "Modeling Molecules",
+  "partNumber": 5,
+  "lessonNumber": 4,
+  "focus": "src/context.ts"
+}
