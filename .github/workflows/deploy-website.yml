@@ -48,21 +48,14 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Pull Vercel Environment Information
-        working-directory: website
-        run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
       - name: Deploy to Vercel
         working-directory: website
         run: |
-          # Deploy directly (Vercel will build remotely)
+          # Deploy using existing .vercel/project.json configuration
           if [ "${{ inputs.environment }}" == "production" ]; then
-            vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
+            vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
           else
-            vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
+            vercel --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
           fi
           echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
         env:
