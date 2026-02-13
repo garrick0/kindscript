@@ -55,38 +55,14 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Debug and fix Vercel root directory setting
-        working-directory: website
-        run: |
-          # Show what's in the project config
-          echo "=== .vercel/project.json before sed ==="
-          cat .vercel/project.json || echo "File not found"
-
-          # Override rootDirectory in project config
-          if [ -f .vercel/project.json ]; then
-            # Try multiple patterns in case the format varies
-            sed -i.bak 's/"rootDirectory": "website"/"rootDirectory": null/g' .vercel/project.json
-            sed -i.bak 's/"rootDirectory":"website"/"rootDirectory":null/g' .vercel/project.json
-            sed -i.bak 's/rootDirectory":"website"/rootDirectory":"."/g' .vercel/project.json
-          fi
-
-          echo "=== .vercel/project.json after sed ==="
-          cat .vercel/project.json || echo "File not found"
-
-      - name: Build Project Artifacts
-        working-directory: website
-        run: vercel build ${{ inputs.environment == 'production' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
       - name: Deploy to Vercel
         working-directory: website
         run: |
+          # Deploy directly (Vercel will build remotely)
           if [ "${{ inputs.environment }}" == "production" ]; then
-            vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+            vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
           else
-            vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+            vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
           fi
           echo "DEPLOYMENT_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
         env:
