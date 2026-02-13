@@ -120,6 +120,7 @@ function MenuItem({ label, onClick, icon, shortcut }: MenuItemProps) {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '0.5rem',
+        color: '#1f2937',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = '#f3f4f6';
@@ -130,7 +131,7 @@ function MenuItem({ label, onClick, icon, shortcut }: MenuItemProps) {
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         {icon && <span>{icon}</span>}
-        <span>{label}</span>
+        <span style={{ color: '#1f2937' }}>{label}</span>
       </span>
       {shortcut && (
         <span
