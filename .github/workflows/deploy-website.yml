@@ -25,8 +25,6 @@ jobs:
     steps:
       - name: Checkout kindscript
         uses: actions/checkout@v4
-        with:
-          path: kindscript
 
       - name: Checkout ks-agent docs
         uses: actions/checkout@v4
@@ -39,8 +37,8 @@ jobs:
 
       - name: Copy agent docs to website content
         run: |
-          mkdir -p kindscript/website/content
-          cp -r ks-agent/docs kindscript/website/content/agent-docs
+          mkdir -p website/content
+          cp -r ks-agent/docs website/content/agent-docs
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -51,21 +49,21 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Pull Vercel Environment Information
-        working-directory: kindscript/website
+        working-directory: website
         run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build Project Artifacts
-        working-directory: kindscript/website
+        working-directory: website
         run: vercel build ${{ inputs.environment == 'production' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Vercel
-        working-directory: kindscript/website
+        working-directory: website
         run: |
           if [ "${{ inputs.environment }}" == "production" ]; then
             vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
