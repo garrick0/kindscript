@@ -1,37 +1,168 @@
 #!/usr/bin/env node
 
+/**
+ * Generates lesson TypeScript files from folder-based lesson structure.
+ *
+ * For each lesson directory (containing lesson.json):
+ *   1. Reads metadata from lesson.json
+ *   2. Reads all files in starter/ and solution/ recursively
+ *   3. Generates <slug>.generated.ts with the Lesson object
+ *   4. Copies content.mdx to public/lessons/<slug>.mdx
+ *
+ * Also generates index.ts barrel that re-exports all lessons.
+ *
+ * Run: npm run generate:lessons
+ */
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const lessonsDir = path.join(__dirname, '../src/lib/lessons');
+const publicLessonsDir = path.join(__dirname, '../public/lessons');
 
-// Find all lesson files matching pattern: X-Y-name.ts
-const files = fs.readdirSync(lessonsDir)
-  .filter(f => /^\d-\d-.+\.ts$/.test(f) && !f.includes('index'))
+/**
+ * Recursively read all files under a directory.
+ * Returns array of { path: relative-to-dir, contents: string }
+ */
+function readFilesRecursive(dir) {
+  const results = [];
+
+  if (!fs.existsSync(dir)) return results;
+
+  function walk(currentDir, relativeTo) {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, relativeTo);
+      } else if (entry.isFile()) {
+        const relPath = path.relative(relativeTo, fullPath);
+        // Use forward slashes for consistency
+        const normalizedPath = relPath.split(path.sep).join('/');
+        results.push({
+          path: normalizedPath,
+          contents: fs.readFileSync(fullPath, 'utf-8'),
+        });
+      }
+    }
+  }
+
+  walk(dir, dir);
+  // Sort for deterministic output
+  results.sort((a, b) => a.path.localeCompare(b.path));
+  return results;
+}
+
+// Ensure public/lessons/ directory exists
+fs.mkdirSync(publicLessonsDir, { recursive: true });
+
+// Find all lesson directories (containing lesson.json)
+const lessonDirs = fs.readdirSync(lessonsDir, { withFileTypes: true })
+  .filter(d => d.isDirectory() && fs.existsSync(path.join(lessonsDir, d.name, 'lesson.json')))
+  .map(d => d.name)
   .sort();
 
-if (files.length === 0) {
-  console.warn('⚠️  No lesson files found in', lessonsDir);
+if (lessonDirs.length === 0) {
+  console.warn('⚠️  No lesson directories found in', lessonsDir);
   process.exit(1);
 }
 
-// Generate imports
-const imports = files.map((f, i) =>
-  `import { lesson as lesson${i} } from './${f.replace('.ts', '')}';`
+const generatedFiles = [];
+
+for (const dirName of lessonDirs) {
+  const lessonDir = path.join(lessonsDir, dirName);
+  const metadataPath = path.join(lessonDir, 'lesson.json');
+
+  // Read metadata
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+
+  // Read starter and solution files
+  const starterFiles = readFilesRecursive(path.join(lessonDir, 'starter'));
+  const solutionFiles = readFilesRecursive(path.join(lessonDir, 'solution'));
+
+  // Check for shared storybook files
+  const hasSharedFiles = metadata.sharedFiles && metadata.sharedFiles['storybook/'];
+
+  // Generate the .generated.ts file
+  let tsContent = '';
+
+  tsContent += `// Auto-generated from ${dirName}/\n`;
+  tsContent += `// DO NOT EDIT — regenerate with: npm run generate:lessons\n\n`;
+  tsContent += `import { Lesson } from './types';\n`;
+
+  if (hasSharedFiles) {
+    tsContent += `import { getStorybookFiles } from './storybook-files';\n`;
+  }
+
+  tsContent += `\n`;
+  tsContent += `export const lesson: Lesson = {\n`;
+  tsContent += `  "slug": ${JSON.stringify(metadata.slug)},\n`;
+  tsContent += `  "title": ${JSON.stringify(metadata.title)},\n`;
+  tsContent += `  "partTitle": ${JSON.stringify(metadata.partTitle)},\n`;
+  tsContent += `  "partNumber": ${metadata.partNumber},\n`;
+  tsContent += `  "lessonNumber": ${metadata.lessonNumber},\n`;
+  tsContent += `  "focus": ${JSON.stringify(metadata.focus)},\n`;
+
+  // files array
+  tsContent += `  "files": [\n`;
+  for (const f of starterFiles) {
+    tsContent += `    {\n`;
+    tsContent += `      "path": ${JSON.stringify(f.path)},\n`;
+    tsContent += `      "contents": ${JSON.stringify(f.contents)}\n`;
+    tsContent += `    },\n`;
+  }
+  if (hasSharedFiles) {
+    tsContent += `    ...getStorybookFiles('storybook/')\n`;
+  }
+  tsContent += `  ],\n`;
+
+  // solution array
+  tsContent += `  "solution": [\n`;
+  for (const f of solutionFiles) {
+    tsContent += `    {\n`;
+    tsContent += `      "path": ${JSON.stringify(f.path)},\n`;
+    tsContent += `      "contents": ${JSON.stringify(f.contents)}\n`;
+    tsContent += `    },\n`;
+  }
+  if (hasSharedFiles) {
+    tsContent += `    ...getStorybookFiles('storybook/')\n`;
+  }
+  tsContent += `  ]\n`;
+
+  tsContent += `};\n`;
+
+  // Write .generated.ts
+  const generatedPath = path.join(lessonsDir, `${dirName}.generated.ts`);
+  fs.writeFileSync(generatedPath, tsContent, 'utf-8');
+
+  // Copy content.mdx to public/lessons/
+  const mdxSource = path.join(lessonDir, 'content.mdx');
+  const mdxDest = path.join(publicLessonsDir, `${dirName}.mdx`);
+  if (fs.existsSync(mdxSource)) {
+    fs.copyFileSync(mdxSource, mdxDest);
+  } else {
+    console.warn(`  ⚠️  No content.mdx found for ${dirName}`);
+  }
+
+  generatedFiles.push(dirName);
+}
+
+// Generate index.ts
+const imports = generatedFiles.map((name, i) =>
+  `import { lesson as lesson${i} } from './${name}.generated';`
 ).join('\n');
 
-// Generate the index.ts file
-const output = `// Auto-generated by scripts/generate-lessons.mjs
-// DO NOT EDIT MANUALLY - add new lesson files and run: npm run generate:lessons
+const indexContent = `// Auto-generated by scripts/generate-lessons.mjs
+// DO NOT EDIT MANUALLY — regenerate with: npm run generate:lessons
 
 import { Lesson, Part } from './types';
 
 ${imports}
 
 export const lessons: Lesson[] = [
-${files.map((_, i) => `  lesson${i},`).join('\n')}
+${generatedFiles.map((_, i) => `  lesson${i},`).join('\n')}
 ].sort((a, b) =>
   a.partNumber === b.partNumber
     ? a.lessonNumber - b.lessonNumber
@@ -63,11 +194,11 @@ export function getPrevLesson(currentSlug: string): Lesson | undefined {
 }
 `;
 
-// Write the generated file
-const outputPath = path.join(lessonsDir, 'index.ts');
-fs.writeFileSync(outputPath, output, 'utf-8');
+fs.writeFileSync(path.join(lessonsDir, 'index.ts'), indexContent, 'utf-8');
 
-console.log(`✅ Generated index.ts with ${files.length} lessons:`);
-files.forEach((f, i) => {
-  console.log(`   ${i + 1}. ${f.replace('.ts', '')}`);
+console.log(`✅ Generated ${generatedFiles.length} lesson files + index.ts:`);
+generatedFiles.forEach((name, i) => {
+  console.log(`   ${i + 1}. ${name}.generated.ts`);
 });
+console.log(`   + index.ts`);
+console.log(`   + ${generatedFiles.length} MDX files copied to public/lessons/`);

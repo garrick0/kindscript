@@ -32,9 +32,14 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "tutorial-assets/*.json",
+    "tutorial-assets/*.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "tutorial-assets/storybook",
+    "src/lib/lessons/*/starter",
+    "src/lib/lessons/*/solution"
   ]
 }

@@ -84,16 +84,18 @@ describe('Lesson Data Validation', () => {
   });
 
   describe('File Paths', () => {
-    test('All file paths start with src/', () => {
+    test('All file paths start with src/ or storybook/', () => {
       lessons.forEach(lesson => {
         [...lesson.files, ...lesson.solution].forEach(file => {
-          expect(file.path).toMatch(/^src\//);
+          // Lesson 4-1 includes storybook files that don't follow the src/ pattern
+          const isValid = file.path.startsWith('src/') || file.path.startsWith('storybook/');
+          expect(isValid).toBe(true);
         });
       });
     });
 
     test('All file paths have valid extensions', () => {
-      const validExtensions = ['.ts', '.tsx', '.js', '.jsx', '.json'];
+      const validExtensions = ['.ts', '.tsx', '.js', '.jsx', '.json', '.css', '.yml', '.yaml', '.md', '.html'];
 
       lessons.forEach(lesson => {
         [...lesson.files, ...lesson.solution].forEach(file => {

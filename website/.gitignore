@@ -38,5 +38,10 @@ next-env.d.ts
 .vscode
 .idea
 
+# Generated lesson files (build-time from lesson folders)
+src/lib/lessons/*.generated.ts
+src/lib/lessons/index.ts
+public/lessons/
+
 # Synced content (generated at build time from ks-agent repo)
 content/agent-docs

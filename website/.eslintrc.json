@@ -1,0 +1,6 @@
+{
+  "ignorePatterns": [
+    "src/lib/lessons/*/starter/**",
+    "src/lib/lessons/*/solution/**"
+  ]
+}
