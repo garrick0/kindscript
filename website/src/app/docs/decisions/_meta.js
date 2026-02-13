@@ -1,6 +1,5 @@
 export default {
-  index: 'Overview',
-  // Hide all individual ADRs from sidebar - navigate via Overview page
+  // Hide all individual ADRs from sidebar - navigate via Overview page (page.mdx)
   '0001-language-service-plugin-instead-of-custom-lsp': { display: 'hidden' },
   '0002-no-ts-morph': { display: 'hidden' },
   '0003-type-alias-instead-of-interface-extends': { display: 'hidden' },
@@ -33,6 +32,4 @@ export default {
   '0030-pure-path-utilities-extracted-to-infrastructure': { display: 'hidden' },
   '0031-intrinsic-constraint-propagation-pattern': { display: 'hidden' },
   '0032-declarationownership-for-typekind-member-attribution': { display: 'hidden' },
-  'README': { display: 'hidden' },
-  'template': { display: 'hidden' },
 };
