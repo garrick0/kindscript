@@ -48,10 +48,14 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Deploy to Vercel
-        working-directory: website
+      - name: Link Vercel project
         run: |
-          # Deploy using existing .vercel/project.json configuration
+          # Copy .vercel config to repo root so vercel can find it
+          cp -r website/.vercel ./.vercel
+
+      - name: Deploy to Vercel
+        run: |
+          # Deploy from repo root - Vercel Root Directory=website will find the code
           if [ "${{ inputs.environment }}" == "production" ]; then
             vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes > deployment-url.txt
           else
