@@ -414,7 +414,17 @@ it('checks contracts', () => {
 
 ## Recent Changes
 
-**Date:** 2026-02-12
+**Date:** 2026-02-13
+
+**Summary:** ESM Import Fixes + npm Package Publishing — fixed Node.js ESM compatibility
+- Added `.js` extensions to 201 relative imports across 70 source files for Node.js ESM compliance
+- Fixed npm package publishing workflow with build verification step
+- Published `kindscript@2.0.3` with complete `dist/` directory (previous versions had empty dist/)
+- Configured Monaco Editor in tutorial with manual type injection (`declare module 'kindscript'`)
+- Updated tutorial template to use `node node_modules/kindscript/dist/apps/cli/main.js` for CLI execution
+- All 21 tutorial lessons verified working: TypeScript errors resolved, IntelliSense functional, CLI operational
+
+**Previous - Date:** 2026-02-12
 
 **Summary:** Vitest + ESM Migration — migrated from Jest + CommonJS to Vitest + ESM
 - Migrated test runner from Jest v29.5.0 to Vitest v2.1.0

@@ -74,11 +74,24 @@ vercel --prod
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment guide.
 
+## Monaco Editor TypeScript Configuration
+
+**Monaco + WebContainer Integration:**
+
+The tutorial uses manual type injection for the `kindscript` module since Monaco's TypeScript language server runs independently from WebContainer's filesystem:
+
+- **Monaco (IntelliSense):** Types injected via `addExtraLib()` with `declare module 'kindscript'` syntax
+- **WebContainer (CLI):** Real npm package `kindscript@2.0.3+` installed from registry
+- **Why:** Monaco's TypeScript worker can't access WebContainer's node_modules by default
+- **Alternative considered:** `monaco-editor-auto-typings` (incompatible with `@monaco-editor/react`)
+
+See `src/components/tutorial/CodeEditor.tsx` for implementation details.
+
 ## Testing & Verification
 
-**Status:** ✅ **Verified and ready for production** (2026-02-11)
+**Status:** ✅ **Verified and ready for production** (2026-02-13)
 
-The website has been comprehensively tested using Playwright browser automation:
+The website has been comprehensively tested using Playwright browser automation and manual verification:
 
 ### Verification Documents
 - **[PLAYWRIGHT_VERIFICATION_SUMMARY.md](PLAYWRIGHT_VERIFICATION_SUMMARY.md)** - Complete test report with:

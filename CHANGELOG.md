@@ -5,6 +5,26 @@ All notable changes to KindScript will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2026-02-13
+
+### Fixed
+
+- **ESM Compatibility**: Added `.js` extensions to all 201 relative imports across 70 source files for Node.js ESM compliance
+- **npm Package Publishing**: Fixed GitHub Actions workflow to verify build output before publishing (prevents empty dist/ directories)
+- **Tutorial TypeScript Errors**: Configured Monaco Editor with manual type injection to resolve "Cannot find module 'kindscript'" errors in all 21 tutorial lessons
+- **Tutorial CLI Execution**: Updated WebContainer template to use direct node execution path for `ksc` CLI command
+
+### Changed
+
+- **Website Tutorial**: Monaco Editor now uses `declare module 'kindscript'` with `addExtraLib()` for IntelliSense
+- **GitHub Workflow**: Added build verification step to ensure `dist/types/index.d.ts` and `dist/types/index.js` exist before publishing
+
+## [2.0.2] - 2026-02-12
+
+### Fixed
+
+- Published with complete `dist/` directory (2.0.1 and earlier had empty dist/)
+
 ## [2.0.0] - 2026-02-12
 
 ### 🎉 Major Release: Simplified Wrapped Kind API

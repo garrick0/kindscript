@@ -9,10 +9,10 @@ export const templateFiles: FileSystemTree = {
           version: '1.0.0',
           type: 'module',
           scripts: {
-            check: 'npx ksc check .',
+            check: 'node node_modules/kindscript/dist/apps/cli/main.js check .',
           },
           dependencies: {
-            kindscript: '2.0.2',
+            kindscript: '2.0.3',
             typescript: '~5.5.0',
           },
         },
