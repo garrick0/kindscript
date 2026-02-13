@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "name": "MigrationsPage",
+  "description": "Visual interface for managing code migrations with compliance tracking and auto-migration tools",
+  "category": "page",
+  "status": "stable",
+  "created": "2025-08-25",
+  "updated": "2025-08-25",
+  "author": "Claude",
+  "tags": ["migrations", "compliance", "automation", "developer-tools"],
+  "dependencies": {
+    "internal": [
+      "@components/atoms/Button",
+      "@components/molecules/Sidebar",
+      "@components/templates/PlatformLayout"
+    ],
+    "external": [
+      "@tanstack/react-query",
+      "lucide-react",
+      "recharts"
+    ]
+  },
+  "exports": {
+    "component": "./ui/MigrationsPage.tsx",
+    "hook": "./domain/useMigrations.ts",
+    "service": "./data/migration.service.ts",
+    "types": "./types/migration.types.ts"
+  }
+}

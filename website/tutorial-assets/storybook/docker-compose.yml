@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  storybook:
+    build:
+      context: ../..
+      dockerfile: apps/storybook/Dockerfile
+    ports:
+      - "6006:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.induction.service=storybook"
+      - "com.induction.version=${VERSION:-latest}"
+    networks:
+      - induction-network
+
+  # Optional: Development database for testing
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: storybook_dev
+      POSTGRES_USER: storybook
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-development}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - induction-network
+    profiles:
+      - development
+
+networks:
+  induction-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

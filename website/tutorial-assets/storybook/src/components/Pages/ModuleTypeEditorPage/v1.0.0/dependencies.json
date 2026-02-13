@@ -1,0 +1,86 @@
+{
+  "internal": {
+    "components": [
+      "atoms/Button/v1.0.0",
+      "atoms/Input/v1.0.0", 
+      "atoms/Badge/v1.0.0",
+      "molecules/Card/v1.0.0",
+      "molecules/Alert/v1.0.0"
+    ],
+    "utils": [
+      "utils/cn"
+    ],
+    "types": [
+      "Pages/MigrationsPage/v1.0.0/types/module.types"
+    ],
+    "icons": [
+      "lucide-react"
+    ]
+  },
+  "external": {
+    "runtime": [
+      "react@^18.0.0",
+      "react-dom@^18.0.0"
+    ],
+    "development": [
+      "@storybook/react@^8.0.0",
+      "@types/react@^18.0.0",
+      "@types/react-dom@^18.0.0",
+      "typescript@^5.0.0"
+    ]
+  },
+  "apis": {
+    "internal": [
+      "/api/module-types",
+      "/api/module-types/test-discovery", 
+      "/api/module-types/test-assertions"
+    ],
+    "external": []
+  },
+  "services": {
+    "data": [
+      "./data/module-type-editor.service"
+    ],
+    "domain": [
+      "./domain/useModuleTypeEditor"
+    ]
+  },
+  "configuration": {
+    "required": [],
+    "optional": [
+      "ENABLE_MODULE_TYPE_IMPORT",
+      "ENABLE_MODULE_TYPE_EXPORT", 
+      "DEFAULT_MODULE_TYPE_AUTHOR"
+    ]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": [
+        "src/components/Pages/**"
+      ],
+      "write": [
+        "config/module-types.json"
+      ]
+    },
+    "network": {
+      "internal": true,
+      "external": false
+    }
+  },
+  "compatibility": {
+    "browsers": [
+      "Chrome >= 90",
+      "Firefox >= 90", 
+      "Safari >= 14",
+      "Edge >= 90"
+    ],
+    "node": ">=18.0.0",
+    "react": ">=18.0.0"
+  },
+  "breaking_changes": {
+    "v1.0.0": "Initial release - no breaking changes"
+  },
+  "migration_path": {
+    "from_embedded": "ModuleTypeEditor component has been extracted to an independent page following the Pages structure pattern. Update imports from the embedded version to the new page component."
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "organisms": [
+    "@organisms/ErrorBoundary"
+  ],
+  "atoms": [
+    "@atoms/Button",
+    "@atoms/Skeleton"
+  ],
+  "packages": {
+    "@tanstack/react-query": "^5.0.0",
+    "lucide-react": "^0.263.0",
+    "next": "^14.0.0"
+  },
+  "sharedUtils": {
+    "formatting": [],
+    "styles": [],
+    "timing": [],
+    "storage": [],
+    "hooks": ["useAuth", "useRouter"],
+    "justification": "useAuth and useRouter are cross-cutting concerns needed for authentication and navigation"
+  },
+  "api": {
+    "endpoints": [
+      "GET /api/dashboard",
+      "GET /api/dashboard/stats",
+      "GET /api/dashboard/activity",
+      "GET /api/dashboard/notifications",
+      "GET /api/dashboard/quick-actions"
+    ],
+    "permissions": ["read:dashboard"]
+  }
+}

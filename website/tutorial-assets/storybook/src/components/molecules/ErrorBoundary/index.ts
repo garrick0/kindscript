@@ -1,0 +1,1 @@
+export { ErrorBoundary, useErrorHandler } from './v1.0.0/ErrorBoundary';

@@ -1,0 +1,164 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "storybook-monitoring",
+    "title": "Storybook Application Monitoring",
+    "tags": ["storybook", "application", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Application Health",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "up{job=\"storybook\"}",
+            "legendFormat": "Health Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "type": "value", "value": 1, "text": "Healthy", "color": "green" },
+              { "type": "value", "value": 0, "text": "Unhealthy", "color": "red" }
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"storybook\"}[5m])",
+            "legendFormat": "{{method}} {{status}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Response Time (p95)",
+        "type": "gauge",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, http_request_duration_seconds_bucket{job=\"storybook\"})",
+            "legendFormat": "p95 Response Time"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.5, "color": "yellow" },
+                { "value": 1, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"storybook\",status=~\"5..\"}[5m])",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "yellow" },
+                { "value": 5, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=\"storybook\"}",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{job=\"storybook\"}[5m])",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Component Render Times",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, component_render_duration_bucket{job=\"storybook\"})",
+            "legendFormat": "{{component}}"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Web Vitals",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "web_vital_fcp{job=\"storybook\"}",
+            "legendFormat": "FCP"
+          },
+          {
+            "expr": "web_vital_lcp{job=\"storybook\"}",
+            "legendFormat": "LCP"
+          },
+          {
+            "expr": "web_vital_cls{job=\"storybook\"}",
+            "legendFormat": "CLS"
+          },
+          {
+            "expr": "web_vital_fid{job=\"storybook\"}",
+            "legendFormat": "FID"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "runtime": {
+    "react": "^18.3.1",
+    "@tanstack/react-query": "^5.85.5",
+    "lucide-react": "^0.460.0",
+    "recharts": "^2.15.0"
+  },
+  "internal": {
+    "Button": "../../../atoms/Button/v1.0.0",
+    "Sidebar": "../../../molecules/Sidebar/v1.0.0",
+    "PlatformLayout": "../../../templates/PlatformLayout/v1.0.0"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}

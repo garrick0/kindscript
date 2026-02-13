@@ -1,0 +1,10 @@
+{
+  "version": "v1.0.0",
+  "status": "published",
+  "author": "migration-script",
+  "createdAt": "2025-08-25T00:39:09.583Z",
+  "publishedAt": "2025-08-25T00:39:09.584Z",
+  "publishedBy": "migration-script",
+  "changes": "Initial version - migrated from non-versioned structure",
+  "breaking": false
+}

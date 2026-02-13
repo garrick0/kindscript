@@ -1,0 +1,78 @@
+{
+  "name": "ModuleTypeEditorPage",
+  "version": "1.0.0",
+  "description": "Independent page component for creating, editing, and managing module type definitions with comprehensive CRUD operations and validation",
+  "type": "page",
+  "category": "management",
+  "status": "stable",
+  "author": "Claude AI Assistant",
+  "createdAt": "2025-08-25T00:00:00Z",
+  "updatedAt": "2025-08-25T00:00:00Z",
+  "tags": [
+    "module-types",
+    "editor",
+    "management",
+    "configuration",
+    "validation",
+    "crud",
+    "discovery-patterns",
+    "structure-requirements",
+    "assertions"
+  ],
+  "features": [
+    "Module type CRUD operations",
+    "Discovery pattern configuration with live testing",
+    "Structure requirements management",
+    "Assertion configuration (ESLint, Test Coverage)",
+    "Real-time validation and feedback",
+    "Import/Export functionality",
+    "Search and filtering",
+    "Pages structure presets",
+    "Responsive design",
+    "Dark mode support"
+  ],
+  "permissions": {
+    "read": ["user", "admin"],
+    "write": ["admin"],
+    "delete": ["admin"]
+  },
+  "routes": [
+    {
+      "path": "/module-types",
+      "method": "GET",
+      "description": "Main module types management page"
+    },
+    {
+      "path": "/module-types/create",
+      "method": "GET", 
+      "description": "Create new module type"
+    },
+    {
+      "path": "/module-types/:id/edit",
+      "method": "GET",
+      "description": "Edit existing module type"
+    }
+  ],
+  "apiEndpoints": [
+    "GET /api/module-types",
+    "POST /api/module-types", 
+    "PUT /api/module-types/:id",
+    "DELETE /api/module-types/:id",
+    "POST /api/module-types/test-discovery",
+    "POST /api/module-types/test-assertions"
+  ],
+  "documentation": {
+    "overview": "The ModuleTypeEditorPage provides a comprehensive interface for managing module type definitions. It follows the Pages structure pattern with proper separation of concerns across UI, domain, and data layers.",
+    "usage": "Import the component and use it as an independent page. Optionally pass an initialModuleTypeId to open a specific module type for editing.",
+    "examples": {
+      "basic": "<ModuleTypeEditorPage />",
+      "withInitialType": "<ModuleTypeEditorPage initialModuleTypeId=\"page-component-v1\" />"
+    }
+  },
+  "testing": {
+    "unit": "useModuleTypeEditor.test.ts",
+    "integration": "ModuleTypeEditorPage.test.tsx", 
+    "e2e": "module-type-editor.e2e.spec.ts",
+    "storybook": "ModuleTypeEditorPage.stories.tsx"
+  }
+}

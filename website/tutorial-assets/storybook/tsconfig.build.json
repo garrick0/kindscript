@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "**/*.stories.tsx",
+    "**/*.test.tsx",
+    ".storybook/**/*",
+    "dist",
+    "node_modules",
+    "coverage",
+    "storybook-static",
+    "src/mocks/generated/**",
+    "src/services/api-client.generated.ts"
+  ]
+}

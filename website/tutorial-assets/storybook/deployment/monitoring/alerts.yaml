@@ -1,0 +1,118 @@
+groups:
+  - name: storybook_alerts
+    interval: 30s
+    rules:
+      # Application Health
+      - alert: StorybookDown
+        expr: up{job="storybook"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: storybook
+        annotations:
+          summary: "Storybook application is down"
+          description: "Storybook has been down for more than 5 minutes on {{ $labels.instance }}"
+          
+      # High Error Rate
+      - alert: StorybookHighErrorRate
+        expr: rate(http_requests_total{job="storybook",status=~"5.."}[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: storybook
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% (current: {{ $value | humanizePercentage }})"
+          
+      # Slow Response Time
+      - alert: StorybookSlowResponseTime
+        expr: histogram_quantile(0.95, http_request_duration_seconds_bucket{job="storybook"}) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: storybook
+        annotations:
+          summary: "Slow response times detected"
+          description: "95th percentile response time is above 2 seconds (current: {{ $value }}s)"
+          
+      # High Memory Usage
+      - alert: StorybookHighMemoryUsage
+        expr: (process_resident_memory_bytes{job="storybook"} / node_memory_MemTotal_bytes) > 0.8
+        for: 15m
+        labels:
+          severity: warning
+          service: storybook
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% (current: {{ $value | humanizePercentage }})"
+          
+      # High CPU Usage
+      - alert: StorybookHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="storybook"}[5m]) > 0.8
+        for: 15m
+        labels:
+          severity: warning
+          service: storybook
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% (current: {{ $value | humanizePercentage }})"
+          
+      # Pod Restart
+      - alert: StorybookPodRestarting
+        expr: increase(kube_pod_container_status_restarts_total{namespace="induction",pod=~"storybook-.*"}[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: storybook
+        annotations:
+          summary: "Pod restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+          
+      # Degraded Performance
+      - alert: StorybookDegradedPerformance
+        expr: |
+          (
+            histogram_quantile(0.95, http_request_duration_seconds_bucket{job="storybook"}) > 1
+            AND
+            rate(http_requests_total{job="storybook"}[5m]) > 10
+          )
+        for: 20m
+        labels:
+          severity: warning
+          service: storybook
+        annotations:
+          summary: "Degraded performance detected"
+          description: "Application is experiencing degraded performance with high latency under load"
+          
+      # Web Vitals Alert
+      - alert: StorybookPoorWebVitals
+        expr: |
+          web_vital_lcp{job="storybook"} > 2500
+          OR web_vital_fid{job="storybook"} > 100
+          OR web_vital_cls{job="storybook"} > 0.1
+        for: 30m
+        labels:
+          severity: info
+          service: storybook
+        annotations:
+          summary: "Poor Web Vitals detected"
+          description: "Web Vitals are below acceptable thresholds"
+
+  - name: storybook_sla
+    interval: 1m
+    rules:
+      # SLA Monitoring
+      - alert: StorybookSLAViolation
+        expr: |
+          (
+            sum(rate(http_requests_total{job="storybook",status!~"5.."}[5m])) /
+            sum(rate(http_requests_total{job="storybook"}[5m]))
+          ) < 0.995
+        for: 10m
+        labels:
+          severity: critical
+          service: storybook
+          sla: "99.5%"
+        annotations:
+          summary: "SLA violation detected"
+          description: "Availability is below 99.5% SLA (current: {{ $value | humanizePercentage }})"

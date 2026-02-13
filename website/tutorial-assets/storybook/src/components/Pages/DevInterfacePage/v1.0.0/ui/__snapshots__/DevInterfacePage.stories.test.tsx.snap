@@ -1,0 +1,107 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`DevInterfacePage Stories > Start Chat Button Test Story > should manually test Start Chat button workflow 1`] = `
+<div>
+  <div
+    style="padding: 2rem;"
+  >
+    <div
+      class="min-h-screen bg-gray-50"
+    >
+      <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
+        <div
+          class="mb-8"
+        >
+          <div
+            class="bg-gray-200 animate-pulse rounded mb-2"
+            data-testid="skeleton"
+            style="width: 300px; height: 36px;"
+          />
+          <div
+            class="bg-gray-200 animate-pulse rounded"
+            data-testid="skeleton"
+            style="width: 500px; height: 24px;"
+          />
+        </div>
+        <div
+          class="flex gap-6 h-96"
+        >
+          <div
+            class="w-1/3"
+          >
+            <div
+              class="bg-gray-200 animate-pulse rounded-lg"
+              data-testid="skeleton"
+              style="width: 100%; height: 100%;"
+            />
+          </div>
+          <div
+            class="flex-1"
+          >
+            <div
+              class="bg-gray-200 animate-pulse rounded-lg"
+              data-testid="skeleton"
+              style="width: 100%; height: 100%;"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`DevInterfacePage Stories > Story Rendering > should render Default story with welcome message 1`] = `
+<div>
+  <div
+    style="padding: 2rem;"
+  >
+    <div
+      class="min-h-screen bg-gray-50"
+    >
+      <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
+        <div
+          class="mb-8"
+        >
+          <div
+            class="bg-gray-200 animate-pulse rounded mb-2"
+            data-testid="skeleton"
+            style="width: 300px; height: 36px;"
+          />
+          <div
+            class="bg-gray-200 animate-pulse rounded"
+            data-testid="skeleton"
+            style="width: 500px; height: 24px;"
+          />
+        </div>
+        <div
+          class="flex gap-6 h-96"
+        >
+          <div
+            class="w-1/3"
+          >
+            <div
+              class="bg-gray-200 animate-pulse rounded-lg"
+              data-testid="skeleton"
+              style="width: 100%; height: 100%;"
+            />
+          </div>
+          <div
+            class="flex-1"
+          >
+            <div
+              class="bg-gray-200 animate-pulse rounded-lg"
+              data-testid="skeleton"
+              style="width: 100%; height: 100%;"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

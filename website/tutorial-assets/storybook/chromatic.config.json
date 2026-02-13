@@ -1,0 +1,54 @@
+{
+  "$schema": "https://www.chromatic.com/config-file.schema.json",
+  "projectToken": "${CHROMATIC_PROJECT_TOKEN}",
+  "storybookBuildDir": "storybook-static",
+  "exitZeroOnChanges": true,
+  "skip": "dependabot/**,renovate/**",
+  "onlyChanged": true,
+  "externals": [
+    "public/**"
+  ],
+  "diagnostics": true,
+  "debug": false,
+  "buildScriptName": "build-storybook",
+  "storybook": {
+    "viewports": [
+      {
+        "name": "mobile",
+        "width": 375,
+        "height": 667
+      },
+      {
+        "name": "tablet", 
+        "width": 768,
+        "height": 1024
+      },
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "name": "large-desktop",
+        "width": 1920,
+        "height": 1080
+      }
+    ]
+  },
+  "capture": {
+    "delay": 300,
+    "animationTimeout": 1500,
+    "threshold": 0.2
+  },
+  "ignoreLastBuildOnBranch": "renovate/**",
+  "autoAcceptChanges": "main",
+  "uploadBuild": true,
+  "allowConsoleErrors": false,
+  "branchName": "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}",
+  "fromCI": true,
+  "interactive": false,
+  "junitReport": true,
+  "zip": true,
+  "storyCoverage": true,
+  "traceChanged": "expanded"
+}
